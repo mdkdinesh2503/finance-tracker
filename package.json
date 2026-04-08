@@ -1,0 +1,56 @@
+{
+  "name": "expense",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node tools/run-drizzle-migrate.mjs",
+    "db:seed": "bun run src/lib/db/seed.ts",
+    "db:lookups": "bun run scripts/lookups.ts",
+    "db:data": "bun run scripts/import-csv.ts",
+    "db:reset": "bun run scripts/reset-and-import.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.1",
+    "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.38.0",
+    "jose": "^6.2.2",
+    "lucide-react": "^1.7.0",
+    "next": "16.2.2",
+    "postgres": "^3.4.9",
+    "react": "19.2.4",
+    "react-day-picker": "^9.14.0",
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.39",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.2",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
+}

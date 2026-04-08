@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+/* Dark-only semantic tokens (no light / theme toggle) */
+:root {
+  --primary: #2563eb;
+  --primary-hover: #3b82f6;
+  --secondary: #1d4ed8;
+  --secondary-hover: #2563eb;
+  --ink: #f0f4f8;
+  --ink-muted: #b1bac4;
+  --ink-muted-2: #94a3b8;
+  --bg: #0a0e14;
+  --surface: #0f172a;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --gradient-page: linear-gradient(
+    to bottom right,
+    #0f172a 0%,
+    #0c1322 40%,
+    #0a0e14 70%,
+    #070b12 100%
+  );
+  --gradient-brand: linear-gradient(
+    135deg,
+    #3b82f6 0%,
+    #2563eb 50%,
+    #1d4ed8 100%
+  );
+  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.25);
+  --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-glass-hover: 0 12px 28px -8px rgba(37, 99, 235, 0.28),
+    0 4px 14px -4px rgba(0, 0, 0, 0.35);
+  --glow: rgba(37, 99, 235, 0.35);
+  --scrollbar-track: color-mix(in srgb, white 8%, transparent);
+  --ring-offset: #0a0e14;
+  --header-bg: rgba(10, 14, 20, 0.4);
+  --header-border: rgba(255, 255, 255, 0.08);
+  --glass-inner-bg: rgba(255, 255, 255, 0.06);
+  --glass-inner-border: color-mix(in srgb, white 14%, transparent);
+  --nav-hover-bg: rgba(255, 255, 255, 0.08);
+  --glass-simple-bg: color-mix(in srgb, white 6%, transparent);
+  --orb-primary: rgba(37, 99, 235, 0.08);
+  /* Opaque menu surface (no see-through over tables) */
+  --dropdown-panel-bg: #151c2e;
+  --dropdown-selected-bg: #1d4ed8;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  background: var(--gradient-page);
+  background-attachment: fixed;
+  background-color: var(--bg);
+  color: var(--ink);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.25);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--scrollbar-track);
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-hover);
+}
+
+/* Wins over global * scrollbar rules when scrolling should be invisible */
+.scrollbar-hide {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.hero-grid-bg {
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 64px 64px;
+  opacity: 0.5;
+}
+
+.glass-card-simple {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--glass-simple-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card-simple:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Floating select menu: solid fill, crisp edge + shadow (no transparent glass over content) */
+.glass-dropdown-panel {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, white 18%, transparent);
+  background-color: var(--dropdown-panel-bg);
+  background-image: none;
+  box-shadow: var(--shadow-lift);
+  scrollbar-color: var(--primary) var(--dropdown-panel-bg);
+}
+
+/* Opaque rows (no /5 or /15 transparency — avoids table bleeding through) */
+.glass-dropdown-option {
+  background-color: var(--dropdown-panel-bg);
+  color: var(--ink);
+}
+.glass-dropdown-option--hover {
+  background-color: color-mix(in srgb, white 9%, var(--dropdown-panel-bg));
+}
+.glass-dropdown-option--selected {
+  background-color: var(--dropdown-selected-bg);
+  color: #f8fafc;
+  font-weight: 500;
+}
+.glass-dropdown-option--selected:hover {
+  background-color: color-mix(
+    in srgb,
+    white 10%,
+    var(--dropdown-selected-bg)
+  );
+}
+
+.glass-card-outer {
+  position: relative;
+  border-radius: 1rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.glass-card-outer:not(.glass-card-no-lift):hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-glass-hover);
+}
+.glass-card-outer.glass-card-no-lift:hover {
+  transform: none;
+  box-shadow: var(--shadow-lift);
+}
+
+.glass-card-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.25rem;
+  border-radius: 1rem 1rem 0 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 65%, transparent),
+    var(--primary),
+    color-mix(in srgb, var(--primary) 65%, transparent)
+  );
+  transition: height 0.25s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.group:hover .glass-card-accent {
+  height: 0.375rem;
+}
+
+.glass-card-blob {
+  position: absolute;
+  right: -1rem;
+  top: -1rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  opacity: 0.1;
+  filter: blur(40px);
+  pointer-events: none;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+.group:hover .glass-card-blob {
+  transform: scale(1.5);
+  opacity: 0.16;
+}
+
+.glass-card-panel {
+  position: relative;
+  z-index: 2;
+  margin: 0.5rem;
+  margin-top: 1rem;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--glass-inner-bg);
+  border: 1px solid var(--glass-inner-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.25s ease;
+}
+.group:hover .glass-card-panel {
+  background: color-mix(in srgb, var(--primary) 10%, var(--glass-inner-bg));
+}
+
+/* Signature card without top accent: no gap for bar, tighter frame */
+.glass-card-outer.glass-card--no-accent .glass-card-panel {
+  margin: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.text-gradient-brand {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.app-page-orbs::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+      circle at 85% 15%,
+      var(--orb-primary),
+      transparent 45%
+    ),
+    radial-gradient(circle at 10% 80%, var(--orb-primary), transparent 40%);
+}
+
+/* react-day-picker (DatePickerField popover) — dark glass */
+.expense-date-picker-popover .rdp-root {
+  --rdp-accent-color: #60a5fa;
+  --rdp-accent-background-color: rgba(59, 130, 246, 0.2);
+  --rdp-day-height: 2.35rem;
+  --rdp-day-width: 2.35rem;
+  --rdp-day_button-height: 2.15rem;
+  --rdp-day_button-width: 2.15rem;
+  --rdp-day_button-border-radius: 0.5rem;
+  /* Adjacent-month days: readable but clearly secondary */
+  --rdp-outside-opacity: 0.5;
+  --rdp-today-color: #bfdbfe;
+  --rdp-selected-border: 2px solid transparent;
+  --rdp-weekday-opacity: 1;
+  margin: 0;
+}
+
+.expense-date-picker-popover {
+  color-scheme: dark;
+}
+
+.expense-date-picker-popover .rdp-caption_label {
+  color: var(--ink);
+}
+
+/* Native month label (if shown beside custom dropdowns) */
+.expense-date-picker-popover .rdp-dropdowns > span:not(.rdp-dropdown_root) {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+/* Custom month/year triggers: no extra frame (handled in TSX button) */
+.expense-date-picker-popover .rdp-dropdown_root {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.expense-date-picker-popover .rdp-dropdown_root .rdp-caption_label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+/* Today (not the chosen date): ring only, no filled pill */
+.expense-date-picker-popover
+  .rdp-today:not(.rdp-selected):not(.rdp-outside)
+  .rdp-day_button {
+  color: #e0f2fe;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px rgba(96, 165, 250, 0.55);
+  background-color: transparent;
+}
+
+.expense-date-picker-popover .rdp-selected .rdp-day_button {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  color: #f8fafc !important;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.expense-date-picker-popover .rdp-today.rdp-selected .rdp-day_button {
+  box-shadow: none;
+}
+
+.expense-date-picker-popover .rdp-day_button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, white 10%, var(--dropdown-panel-bg));
+}
+
+.expense-date-picker-popover
+  .rdp-today:not(.rdp-selected):not(.rdp-outside)
+  .rdp-day_button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1.5px rgba(147, 197, 253, 0.75);
+}
+
+.expense-date-picker-popover .rdp-selected .rdp-day_button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  filter: brightness(1.08);
+}
+
+.expense-date-picker-popover .rdp-button_previous:hover,
+.expense-date-picker-popover .rdp-button_next:hover {
+  background-color: color-mix(in srgb, white 8%, transparent);
+  border-radius: 0.5rem;
+}

@@ -1,0 +1,130 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+# Dependencies
+node_modules/
+vendor/
+.pnpm-store/
+bower_components/
+target/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+
+# Cache and temporary files
+.cache/
+.parcel-cache/
+.npm/
+.eslintcache
+.stylelintcache
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Large binary files
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.pak
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.dmg
+*.iso
+*.jar
+*.war
+
+# Media files (usually don't need AI context)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.mov
+*.mp4
+*.avi
+*.mpg
+*.mpeg
+*.webm
+*.webp
+*.mp3
+*.m4a
+*.ogg
+*.wav
+*.flac
+*.aac
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Lock files (usually not needed for context)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+composer.lock
+Gemfile.lock
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Go
+*.test
+*.out
+go.sum
+
+# Rust
+target/
+Cargo.lock
+
+# Documentation (optional - remove if you want AI to see docs)
+docs/
+documentation/
