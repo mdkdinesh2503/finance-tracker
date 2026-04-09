@@ -1,7 +1,6 @@
 import { MainNav } from "@/components/common/main-nav";
 import { PageFade } from "@/components/motion/page-fade";
-import { ensureDefaultReferenceDataForUser } from "@/lib/db/reference";
-import { db } from "@/lib/db/server";
+import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
 export default async function MainLayout({

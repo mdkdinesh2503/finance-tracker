@@ -4,6 +4,7 @@ import path from "node:path";
 import { and, eq } from "drizzle-orm";
 
 import { closeDatabaseConnection, db } from "./client";
+import { seedUserId } from "./ensure-user-categories";
 import {
   accounts,
   categories,
@@ -59,11 +60,7 @@ function parseCsv(text: string): string[][] {
 }
 
 async function main() {
-  const email = process.env.DATA_IMPORT_EMAIL?.trim().toLowerCase();
-  if (!email) {
-    console.error("Set DATA_IMPORT_EMAIL to your login email.");
-    process.exit(1);
-  }
+  const userId = seedUserId();
 
   const csvPath = path.resolve(
     process.cwd(),
@@ -89,15 +86,24 @@ async function main() {
   }
 
   const [userRow] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, email: users.email })
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.id, userId))
     .limit(1);
   if (!userRow) {
-    console.error(`No user found for email: ${email}`);
+    console.error(
+      `No user with id ${userId} (SEED_ADMIN_USER_ID). Run db:seed with SEED_ADMIN_EMAIL or create that user.`,
+    );
     process.exit(1);
   }
-  const userId = userRow.id;
+
+  const emailCheck = process.env.DATA_IMPORT_EMAIL?.trim().toLowerCase();
+  if (emailCheck && userRow.email.trim().toLowerCase() !== emailCheck) {
+    console.error(
+      `User ${userId} has email ${userRow.email}, but DATA_IMPORT_EMAIL is ${emailCheck}.`,
+    );
+    process.exit(1);
+  }
 
   const [accRow] = await db
     .select({ id: accounts.id })
@@ -183,9 +189,6 @@ async function main() {
     const timeNorm = normalizeTime(timeStr);
 
     if (dry) {
-      console.log(
-        `[dry-run] ${dateStr} ${timeNorm} ${txType} ${amt.toFixed(2)} ${categoryName} | ${noteTrim ?? ""}`,
-      );
       inserted++;
       continue;
     }

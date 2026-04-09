@@ -1,5 +1,3 @@
-import type { Options } from "postgres";
-
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw === "") return fallback;
   const n = Number(raw);
@@ -12,7 +10,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
  * optional pool size, and disabled prepared statements when the URL suggests
  * PgBouncer / pooler mode (or `DATABASE_DISABLE_PREPARE=1`).
  */
-export function postgresOptionsFromUrl(databaseUrl: string): Options<{}> {
+export function postgresOptionsFromUrl(databaseUrl: string) {
   const lower = databaseUrl.toLowerCase();
 
   const useSsl =
@@ -46,6 +44,36 @@ export function postgresOptionsFromUrl(databaseUrl: string): Options<{}> {
     max,
     idle_timeout: 20,
     connect_timeout: connectTimeout,
-    ssl: useSsl ? "require" : undefined,
+    ssl: useSsl ? ("require" as const) : undefined,
   };
+}
+
+/** Walk error.cause chain (Drizzle → postgres.js) for a Postgres SQLSTATE code. */
+export function postgresSqlState(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let i = 0; i < 6 && current != null; i++) {
+    if (
+      typeof current === "object" &&
+      current !== null &&
+      "code" in current &&
+      typeof (current as { code: unknown }).code === "string"
+    ) {
+      return (current as { code: string }).code;
+    }
+    if (
+      typeof current === "object" &&
+      current !== null &&
+      "cause" in current
+    ) {
+      current = (current as { cause: unknown }).cause;
+    } else {
+      break;
+    }
+  }
+  return undefined;
+}
+
+/** e.g. 42P01 = undefined_table */
+export function isUndefinedTableError(error: unknown): boolean {
+  return postgresSqlState(error) === "42P01";
 }

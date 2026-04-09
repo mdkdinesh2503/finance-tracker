@@ -78,4 +78,12 @@ CREATE UNIQUE INDEX "categories_user_parent_name_uq" ON "categories" USING btree
 CREATE INDEX "locations_user_id_idx" ON "locations" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "locations_user_name_uq" ON "locations" USING btree ("user_id","name");--> statement-breakpoint
 CREATE INDEX "transactions_user_date_idx" ON "transactions" USING btree ("user_id","transaction_date");--> statement-breakpoint
-CREATE INDEX "transactions_user_category_idx" ON "transactions" USING btree ("user_id","category_id");
+CREATE INDEX "transactions_user_category_idx" ON "transactions" USING btree ("user_id","category_id");--> statement-breakpoint
+-- Supabase PostgREST: RLS on with no policies blocks anon/authenticated; server DB owner still bypasses.
+ALTER TABLE "accounts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "contacts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "locations" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "rules" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "transactions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;

@@ -17,8 +17,6 @@ try {
     where table_schema in ('public', 'drizzle')
     order by table_schema, table_name
   `;
-  console.log("DATABASE_URL:", url);
-  console.log("tables:", tables);
 
   const mig = await sql`
     select *

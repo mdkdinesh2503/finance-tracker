@@ -9,7 +9,8 @@
     "lint": "eslint src tools",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node tools/run-drizzle-migrate.mjs",
+    "db:migrate": "bun run tools/run-drizzle-migrate.ts",
+    "db:reset": "bun run src/lib/db/reset.ts",
     "db:seed": "bun run src/lib/db/seed.ts",
     "db:data": "bun run src/lib/db/import-transactions-csv.ts"
   },

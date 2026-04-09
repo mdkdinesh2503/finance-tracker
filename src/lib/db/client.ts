@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 
 import * as schema from "./schema";
 import { requireEnv } from "@/lib/env";
-import { postgresOptionsFromUrl } from "./postgres-options";
+import { postgresOptionsFromUrl } from "./postgres";
 
 const globalForDb = globalThis as unknown as {
   __postgres?: ReturnType<typeof postgres>;
