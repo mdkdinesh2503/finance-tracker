@@ -12,7 +12,15 @@ import {
   updateRuleAction,
 } from "@/app/actions/settings";
 import type { CategoryParentWithSubs } from "@/lib/services/transactions";
+import type { TransactionType } from "@/lib/db/schema";
 import { Textarea } from "@/components/ui/textarea";
+
+const CATEGORY_TYPES_REQUIRING_CONTACT: ReadonlySet<TransactionType> = new Set([
+  "BORROW",
+  "LEND",
+  "RECEIVE",
+  "REPAYMENT",
+]);
 
 type Option = { id: string; name: string };
 type RuleRow = {
@@ -45,11 +53,11 @@ function IconButton({
   children: React.ReactNode;
 }) {
   const base =
-    "inline-flex h-8 w-8 items-center justify-center rounded-lg border text-white/75 transition hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex h-10 w-10 items-center justify-center rounded-xl border text-ink-muted transition focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50";
   const cls =
     tone === "danger"
-      ? `${base} border-rose-500/25 bg-rose-500/5 hover:border-rose-500/40 hover:bg-rose-500/10`
-      : `${base} border-white/10 bg-white/2 hover:border-white/20 hover:bg-white/5`;
+      ? `${base} border-rose-400/20 bg-linear-to-br from-rose-500/12 to-white/4 text-rose-200/85 hover:border-rose-400/35 hover:from-rose-500/18 hover:text-rose-100`
+      : `${base} border-white/12 bg-white/4 text-ink-muted hover:border-primary/25 hover:bg-primary/10 hover:text-primary`;
   return (
     <button
       type="button"
@@ -60,6 +68,23 @@ function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-ink-muted">{children}</div>
+  );
+}
+
+function RuleChip({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-ink-muted">
+      <span className="shrink-0 text-primary/90" aria-hidden>
+        {icon}
+      </span>
+      <span className="min-w-0 truncate text-ink/90">{children}</span>
+    </span>
   );
 }
 
@@ -120,8 +145,26 @@ export function QuickEntryRulesForm({
     }
     return m;
   }, [categoryTree]);
+  const subIdToParentType = useMemo(() => {
+    const m = new Map<string, TransactionType>();
+    for (const p of categoryTree) {
+      for (const c of p.children) {
+        m.set(c.id, p.type);
+      }
+    }
+    return m;
+  }, [categoryTree]);
   const byLoc = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
   const byCon = useMemo(() => new Map(contacts.map((c) => [c.id, c.name])), [contacts]);
+
+  function contactRequiredForSubcategory(subId: string | null): boolean {
+    if (!subId) return false;
+    const t = subIdToParentType.get(subId);
+    return t != null && CATEGORY_TYPES_REQUIRING_CONTACT.has(t);
+  }
+
+  const contactRequiredNew = contactRequiredForSubcategory(categoryId);
+  const contactRequiredEdit = contactRequiredForSubcategory(editCategoryId);
 
   function addRule() {
     setErr(null);
@@ -131,6 +174,10 @@ export function QuickEntryRulesForm({
     }
     if (!locationId) {
       setErr("Location is required");
+      return;
+    }
+    if (contactRequiredNew && !contactId) {
+      setErr("Contact is required for Borrow, Lend, Receive, and Repayment categories");
       return;
     }
     startTransition(async () => {
@@ -182,6 +229,10 @@ export function QuickEntryRulesForm({
       setErr("Location is required");
       return;
     }
+    if (contactRequiredEdit && !editContactId) {
+      setErr("Contact is required for Borrow, Lend, Receive, and Repayment categories");
+      return;
+    }
     startTransition(async () => {
       const res = await updateRuleAction({
         id: editingId,
@@ -216,91 +267,167 @@ export function QuickEntryRulesForm({
     <SettingsSection
       eyebrow="Quick entry"
       title="Quick-entry rules"
-      description="Keyword match in quick entry text → category and/or contact."
-      headerGradient="bg-gradient-to-br from-sky-950/45 via-transparent to-transparent"
+      description="Type a phrase in Add transaction — we match your keyword and fill category, location, contact, and note automatically."
+      headerGradient="bg-linear-to-br from-sky-500/12 via-transparent to-cyan-500/8"
       icon={
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h14" />
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.65}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
+          />
         </svg>
       }
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-white/80">Keyword</div>
-          <Input
-            value={keyword}
-            onChange={(e) => setKeyword(normalizeRuleKeyword(e.target.value))}
-            placeholder='e.g. "chit" (you can type "1000 chit")'
+      <div className="space-y-8">
+        {/* Composer */}
+        <div className="relative overflow-hidden rounded-2xl border border-sky-400/18 bg-linear-to-br from-sky-500/6 via-white/4 to-cyan-500/5 p-4 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)] ring-1 ring-sky-400/10 sm:p-5">
+          <div
+            className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-sky-400/0 via-sky-400/50 to-sky-400/0"
+            aria-hidden
           />
-          <p className="text-xs text-zinc-500">
-            Tip: if you type an amount first (like <span className="text-zinc-400">“2000 chit”</span>), we’ll store just the keyword.
-          </p>
+          <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-sky-500/15 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-24 -left-12 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden />
+
+          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-stretch lg:gap-6">
+            <div className="relative flex min-w-0 flex-1 flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-500/15 text-xs font-bold text-sky-200">
+                  1
+                </span>
+                <div>
+                  <FieldLabel>Trigger keyword</FieldLabel>
+                  <p className="mt-0.5 text-xs text-ink-muted">What you type after an amount (or alone) in quick entry.</p>
+                </div>
+              </div>
+              <Input
+                value={keyword}
+                onChange={(e) => setKeyword(normalizeRuleKeyword(e.target.value))}
+                placeholder='e.g. chit — or "2000 chit"'
+                className="font-mono text-[15px] tracking-wide"
+              />
+              <p className="text-xs leading-relaxed text-ink-muted">
+                We strip numbers and currency symbols — only the <span className="font-medium text-ink/80">keyword</span> is stored.
+              </p>
+              <div className="mt-auto space-y-2 border-t border-white/10 pt-4">
+                <FieldLabel>Note (optional)</FieldLabel>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Applied to the transaction note when this rule matches"
+                  className="min-h-18 resize-y"
+                />
+              </div>
+            </div>
+
+            <div className="relative flex min-w-0 flex-1 flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-primary/25 bg-primary/12 text-xs font-bold text-primary">
+                  2
+                </span>
+                <div>
+                  <FieldLabel>Apply when matched</FieldLabel>
+                  <p className="mt-0.5 text-xs text-ink-muted">Category pipeline, then place and person.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <FieldLabel>Category group</FieldLabel>
+                  <DropdownSelect
+                    value={parentId}
+                    onChange={(v) => {
+                      setParentId(v);
+                      setCategoryId(null);
+                    }}
+                    options={parentOptions}
+                    emptyLabel="Select group"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Subcategory</FieldLabel>
+                  <DropdownSelect
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    options={subOptions}
+                    emptyLabel={parentId ? "Select subcategory" : "Select a group first"}
+                    disabled={!parentId}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Location</FieldLabel>
+                  <DropdownSelect
+                    value={locationId}
+                    onChange={setLocationId}
+                    options={locations}
+                    emptyLabel="Select location"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>
+                    Contact{" "}
+                    {contactRequiredNew ? (
+                      <span className="text-rose-400/90 normal-case tracking-normal">(required)</span>
+                    ) : (
+                      <span className="font-normal normal-case tracking-normal text-ink-muted">(optional)</span>
+                    )}
+                  </FieldLabel>
+                  <DropdownSelect value={contactId} onChange={setContactId} options={contacts} emptyLabel="—" />
+                </div>
+              </div>
+
+              <div className="mt-auto flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-ink-muted">
+                  <span className="font-semibold text-ink/90">{rules.length}</span> rule{rules.length === 1 ? "" : "s"} saved
+                </p>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={addRule}
+                  disabled={
+                    pending ||
+                    keyword.trim().length === 0 ||
+                    !categoryId ||
+                    !locationId ||
+                    (contactRequiredNew && !contactId)
+                  }
+                  className="w-full shrink-0 sm:w-auto"
+                >
+                  {pending ? "Adding…" : "Add rule"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-white/80">Category group</div>
-            <DropdownSelect
-              value={parentId}
-              onChange={(v) => {
-                setParentId(v);
-                setCategoryId(null);
-              }}
-              options={parentOptions}
-              emptyLabel="Select group"
-            />
+        {/* Rule deck */}
+        <div>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <FieldLabel>Your rules</FieldLabel>
+              <p className="mt-1 text-sm font-semibold text-ink">Live shortcuts for quick entry</p>
+            </div>
+            {rules.length > 0 ? (
+              <span className="rounded-full border border-white/12 bg-white/5 px-3 py-1 text-xs font-semibold text-ink-muted">
+                {rules.length} active
+              </span>
+            ) : null}
           </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-white/80">Contact (optional)</div>
-            <DropdownSelect value={contactId} onChange={setContactId} options={contacts} emptyLabel="—" />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-white/80">Subcategory</div>
-            <DropdownSelect
-              value={categoryId}
-              onChange={setCategoryId}
-              options={subOptions}
-              emptyLabel={parentId ? "Select subcategory" : "Select a group first"}
-              disabled={!parentId}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-white/80">Location</div>
-            <DropdownSelect value={locationId} onChange={setLocationId} options={locations} emptyLabel="Select location" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-white/80">Note (optional)</div>
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Optional note to apply when this rule matches (e.g. Chit contribution)"
-          />
-          <p className="text-xs text-zinc-500">
-            When this keyword matches in Add transaction quick entry, this note will be used.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          variant="primary"
-          onClick={addRule}
-          disabled={pending || keyword.trim().length === 0 || !categoryId || !locationId}
-        >
-          {pending ? "Adding…" : "Add rule"}
-        </Button>
-
-        <div className="mt-2 border-t border-white/10 pt-4">
           {rules.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-500">
-              No rules yet — add a keyword above.
-            </p>
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/2 px-6 py-14 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 text-sky-200/90">
+                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-ink">No rules yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-ink-muted">
+                Build your first rule in the composer above — keywords become one-tap context when you add transactions.
+              </p>
+            </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {rules.map((r) => {
                 const cat = r.categoryId ? byCat.get(r.categoryId) : null;
                 const loc = r.locationId ? byLoc.get(r.locationId) : null;
@@ -308,71 +435,92 @@ export function QuickEntryRulesForm({
                 return (
                   <li
                     key={r.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/3 px-3 py-2"
+                    className={`relative overflow-hidden rounded-2xl border shadow-[0_16px_44px_-30px_rgba(0,0,0,0.9)] ${
+                      editingId === r.id
+                        ? "border-primary/30 bg-primary/6 ring-1 ring-primary/15"
+                        : "border-white/10 bg-white/3 ring-1 ring-white/5"
+                    }`}
                   >
+                    <div
+                      className={`absolute inset-y-3 left-0 w-1 rounded-r-full ${
+                        editingId === r.id ? "bg-primary/70" : "bg-linear-to-b from-sky-400/80 to-cyan-500/50"
+                      }`}
+                      aria-hidden
+                    />
                     {editingId === r.id ? (
-                      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="text-xs font-medium text-white/70">Keyword</div>
-                          <Input
-                            value={editKeyword}
-                            onChange={(e) => setEditKeyword(normalizeRuleKeyword(e.target.value))}
-                            placeholder='e.g. "chit"'
-                          />
-                          <div className="pt-2">
-                            <div className="text-xs font-medium text-white/70">Note</div>
+                      <div className="relative flex flex-col gap-4 p-4 pl-5 sm:p-5">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="space-y-3">
+                            <FieldLabel>Keyword</FieldLabel>
+                            <Input
+                              value={editKeyword}
+                              onChange={(e) => setEditKeyword(normalizeRuleKeyword(e.target.value))}
+                              placeholder="keyword"
+                              className="font-mono"
+                            />
+                            <FieldLabel>Note</FieldLabel>
                             <Textarea
                               value={editNote}
                               onChange={(e) => setEditNote(e.target.value)}
                               placeholder="Optional"
+                              className="min-h-20"
                             />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <FieldLabel>Group</FieldLabel>
+                              <DropdownSelect
+                                value={editParentId}
+                                onChange={(v) => {
+                                  setEditParentId(v);
+                                  setEditCategoryId(null);
+                                }}
+                                options={parentOptions}
+                                emptyLabel="Select"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <FieldLabel>Subcategory</FieldLabel>
+                              <DropdownSelect
+                                value={editCategoryId}
+                                onChange={setEditCategoryId}
+                                options={editSubOptions}
+                                emptyLabel={editParentId ? "Select" : "Pick group"}
+                                disabled={!editParentId}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <FieldLabel>Location</FieldLabel>
+                              <DropdownSelect
+                                value={editLocationId}
+                                onChange={setEditLocationId}
+                                options={locations}
+                                emptyLabel="Select"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <FieldLabel>
+                                Contact{" "}
+                                {contactRequiredEdit ? (
+                                  <span className="text-rose-400/90 normal-case tracking-normal">(required)</span>
+                                ) : null}
+                              </FieldLabel>
+                              <DropdownSelect
+                                value={editContactId}
+                                onChange={setEditContactId}
+                                options={contacts}
+                                emptyLabel="—"
+                              />
+                            </div>
                           </div>
                         </div>
-                        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-4">
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-white/70">Group</div>
-                            <DropdownSelect
-                              value={editParentId}
-                              onChange={(v) => {
-                                setEditParentId(v);
-                                setEditCategoryId(null);
-                              }}
-                              options={parentOptions}
-                              emptyLabel="Select"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-white/70">Contact</div>
-                            <DropdownSelect
-                              value={editContactId}
-                              onChange={setEditContactId}
-                              options={contacts}
-                              emptyLabel="—"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-white/70">Subcategory</div>
-                            <DropdownSelect
-                              value={editCategoryId}
-                              onChange={setEditCategoryId}
-                              options={editSubOptions}
-                              emptyLabel={editParentId ? "Select" : "Pick group"}
-                              disabled={!editParentId}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-white/70">Location</div>
-                            <DropdownSelect
-                              value={editLocationId}
-                              onChange={setEditLocationId}
-                              options={locations}
-                              emptyLabel="Select"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button type="button" onClick={saveEdit} disabled={pending}>
-                            Save
+                        <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+                          <Button
+                            type="button"
+                            onClick={saveEdit}
+                            disabled={pending || (contactRequiredEdit && !editContactId)}
+                          >
+                            Save changes
                           </Button>
                           <Button type="button" variant="ghost" onClick={cancelEdit} disabled={pending}>
                             Cancel
@@ -380,37 +528,76 @@ export function QuickEntryRulesForm({
                         </div>
                       </div>
                     ) : (
-                      <>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <span className="truncate text-sm font-medium text-white/90">
-                              {r.keyword}
-                            </span>
-                            <span className="text-xs text-zinc-500">
-                              {cat ? `Cat: ${cat}` : "Cat: —"} ·{" "}
-                              {con ? `Contact: ${con}` : "Contact: —"} ·{" "}
-                              {loc ? `Loc: ${loc}` : "Loc: —"}
-                            </span>
+                      <div className="relative flex flex-col gap-3 p-4 pl-5 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
+                        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-linear-to-br from-white/6 via-transparent to-cyan-500/5 opacity-60" aria-hidden />
+                        <div className="relative min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <span className="font-mono text-lg font-bold tracking-tight text-ink">“{r.keyword}”</span>
+                            {r.note ? (
+                              <span className="max-w-full truncate text-xs italic text-ink-muted">— {r.note}</span>
+                            ) : null}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <RuleChip
+                              icon={
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h8" />
+                                </svg>
+                              }
+                            >
+                              {cat ?? "No category"}
+                            </RuleChip>
+                            <RuleChip
+                              icon={
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                  />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              }
+                            >
+                              {loc ?? "No location"}
+                            </RuleChip>
+                            <RuleChip
+                              icon={
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                  />
+                                </svg>
+                              }
+                            >
+                              {con ?? "No contact"}
+                            </RuleChip>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="relative flex shrink-0 items-center gap-2">
                           <IconButton label="Edit rule" onClick={() => startEdit(r)} disabled={pending}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6l12-12a2.5 2.5 0 10-3.536-3.536L5 17H3v4z" />
+                            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M16.5 3.5a2.1 2.1 0 013 3L8 18l-4 1 1-4 11.5-11.5z"
+                              />
                             </svg>
                           </IconButton>
-                          <IconButton
-                            label="Delete rule"
-                            tone="danger"
-                            onClick={() => del(r.id)}
-                            disabled={pending}
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <IconButton label="Delete rule" tone="danger" onClick={() => del(r.id)} disabled={pending}>
+                            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v7" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14 11v7" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 7V5h6v2" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 7l1 14h10l1-14" />
                             </svg>
                           </IconButton>
                         </div>
-                      </>
+                      </div>
                     )}
                   </li>
                 );
@@ -420,9 +607,12 @@ export function QuickEntryRulesForm({
         </div>
 
         {err ? (
-          <p className="text-sm text-rose-400" role="alert">
+          <div
+            className="rounded-xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-sm text-rose-200"
+            role="alert"
+          >
             {err}
-          </p>
+          </div>
         ) : null}
       </div>
     </SettingsSection>

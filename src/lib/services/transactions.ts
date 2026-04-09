@@ -1394,6 +1394,108 @@ export async function updateCategoryName(
   return { ok: true };
 }
 
+export async function updateCategory(
+  db: Db,
+  userId: string,
+  categoryId: string,
+  input: { name: string; type?: TransactionType }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = input.name.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Name required" };
+  }
+
+  const [row] = await db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .limit(1);
+  if (!row) {
+    return { ok: false, error: "Category not found" };
+  }
+
+  const parentScope = row.parentId;
+  const dupWhere =
+    parentScope === null
+      ? and(
+          eq(categories.userId, userId),
+          isNull(categories.parentId),
+          eq(categories.name, trimmed)
+        )
+      : and(
+          eq(categories.userId, userId),
+          eq(categories.parentId, parentScope),
+          eq(categories.name, trimmed)
+        );
+
+  const dup = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(dupWhere)
+    .limit(1);
+  if (dup.length > 0 && dup[0].id !== categoryId) {
+    return {
+      ok: false,
+      error:
+        parentScope === null
+          ? "A parent group with that name already exists"
+          : "That name is already used in this group",
+    };
+  }
+
+  const isParentGroup = row.parentId === null && !row.isSelectable;
+  const requestedType = isParentGroup ? (input.type ?? row.type) : row.type;
+
+  if (isParentGroup && requestedType !== row.type) {
+    const [usage] = await db
+      .select({ n: count() })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          or(
+            eq(transactions.parentCategoryId, categoryId),
+            sql`exists (
+              select 1
+              from ${categories} c
+              where c.user_id = ${userId}
+              and c.parent_id = ${categoryId}
+              and c.id = ${transactions.categoryId}
+            )`
+          )
+        )
+      );
+    if (Number(usage?.n ?? 0) > 0) {
+      return {
+        ok: false,
+        error:
+          "This parent or its subcategories are already used on transactions. Type cannot be changed.",
+      };
+    }
+  }
+
+  const nextType = requestedType;
+
+  const updated = await db
+    .update(categories)
+    .set({ name: trimmed, type: nextType })
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .returning({ id: categories.id });
+  if (updated.length === 0) {
+    return { ok: false, error: "Category not found" };
+  }
+
+  // Keep children consistent with the parent's type.
+  if (isParentGroup && nextType !== row.type) {
+    await db
+      .update(categories)
+      .set({ type: nextType })
+      .where(and(eq(categories.userId, userId), eq(categories.parentId, categoryId)));
+  }
+
+  return { ok: true };
+}
+
 export async function deleteCategoryIfUnused(
   db: Db,
   userId: string,

@@ -5,7 +5,7 @@ import {
   createCategoryParent,
   createCategorySub,
   deleteCategoryIfUnused,
-  updateCategoryName,
+  updateCategory,
 } from "@/lib/services/transactions";
 import { db } from "@/lib/db/server";
 import type { TransactionType } from "@/lib/db/schema";
@@ -42,12 +42,16 @@ export async function createCategorySubAction(parentId: string, name: string) {
   return result;
 }
 
-export async function updateCategoryAction(categoryId: string, name: string) {
+export async function updateCategoryAction(
+  categoryId: string,
+  name: string,
+  type?: TransactionType
+) {
   const userId = await getSessionUserId();
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await updateCategoryName(db, userId, categoryId, name);
+  const result = await updateCategory(db, userId, categoryId, { name, type });
   if (result.ok) revalidateCategoryPaths();
   return result;
 }

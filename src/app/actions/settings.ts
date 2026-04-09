@@ -10,6 +10,7 @@ import {
   contacts,
   locations,
   rules,
+  type TransactionType,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { err, ok, type Result } from "@/lib/result";
@@ -22,6 +23,30 @@ async function assertCategory(id: string): Promise<string | null> {
     .where(and(eq(categories.id, id), eq(categories.userId, user.id)))
     .limit(1);
   return row[0] ? null : "Invalid category";
+}
+
+const RULE_TYPES_REQUIRING_CONTACT = new Set<TransactionType>([
+  "BORROW",
+  "LEND",
+  "RECEIVE",
+  "REPAYMENT",
+]);
+
+async function assertRuleContactRequired(
+  userId: string,
+  categoryId: string,
+  contactId: string | null | undefined,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ type: categories.type })
+    .from(categories)
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .limit(1);
+  if (!row) return "Invalid category";
+  if (RULE_TYPES_REQUIRING_CONTACT.has(row.type) && !contactId) {
+    return "Contact is required for Borrow, Lend, Receive, and Repayment categories";
+  }
+  return null;
 }
 
 async function assertLocation(id: string): Promise<string | null> {
@@ -104,6 +129,13 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
   const catErr = await assertCategory(parsed.data.categoryId);
   if (catErr) return err(catErr);
 
+  const contactRuleErr = await assertRuleContactRequired(
+    user.id,
+    parsed.data.categoryId,
+    parsed.data.contactId,
+  );
+  if (contactRuleErr) return err(contactRuleErr);
+
   const locErr = await assertLocation(parsed.data.locationId);
   if (locErr) return err(locErr);
 
@@ -163,6 +195,13 @@ export async function updateRuleAction(
 
   const catErr = await assertCategory(parsed.data.categoryId);
   if (catErr) return err(catErr);
+
+  const contactRuleErr = await assertRuleContactRequired(
+    user.id,
+    parsed.data.categoryId,
+    parsed.data.contactId,
+  );
+  if (contactRuleErr) return err(contactRuleErr);
 
   const locErr = await assertLocation(parsed.data.locationId);
   if (locErr) return err(locErr);
