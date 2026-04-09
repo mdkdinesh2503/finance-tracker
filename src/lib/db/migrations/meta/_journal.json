@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1775493185500,
-      "tag": "0000_fluffy_bushwacker",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1775579836061,
-      "tag": "0001_minor_jasper_sitwell",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1775580188752,
-      "tag": "0002_friendly_doctor_faustus",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1775582455393,
-      "tag": "0003_marvelous_kabuki",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1775719243956,
-      "tag": "0004_same_random",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1775743983744,
-      "tag": "0005_known_blazing_skull",
+      "when": 1775755499230,
+      "tag": "0000_easy_spencer_smythe",
       "breakpoints": true
     }
   ]

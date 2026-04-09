@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node tools/run-drizzle-migrate.mjs",
-    "db:seed": "bun run src/lib/db/seed.ts"
+    "db:seed": "bun run src/lib/db/seed.ts",
+    "db:data": "bun run src/lib/db/import-transactions-csv.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

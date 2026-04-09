@@ -3,15 +3,26 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 
+import { postgresOptionsFromUrl } from "./postgres-options";
+
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DB_RESET !== "1") {
+    console.error(
+      "Refusing to reset: NODE_ENV=production. Set ALLOW_DB_RESET=1 only if you intend to wipe this database.",
+    );
+    process.exit(1);
+  }
+
   dotenv.config({ path: ".env.local" });
   dotenv.config({ path: ".env" });
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required");
 
-  const useSsl =
-    url.includes("supabase") || url.includes("sslmode=require") || url.includes("neon.tech");
-  const sql = postgres(url, { max: 1, prepare: false, ssl: useSsl ? "require" : undefined });
+  const sql = postgres(url, {
+    ...postgresOptionsFromUrl(url),
+    max: 1,
+    prepare: false,
+  });
   const db = drizzle(sql);
 
   // Drop all app objects (safe for personal project reset)
