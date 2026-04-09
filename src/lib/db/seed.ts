@@ -7,7 +7,7 @@ import {
   ensureDefaultReferenceDataForUser,
   seedUserId,
 } from "./ensure-user-categories";
-import { accounts, categories, locations, users } from "./schema";
+import { accounts, categories, contacts, locations, users } from "./schema";
 
 const SYSTEM_CATEGORY_SEED_DEF = [
   { name: "Essential Housing & Utilities", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 0 },
@@ -57,10 +57,12 @@ async function seedSystemCategories(): Promise<void> {
 
 const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai"] as const;
 
+const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith"] as const;
+
 /**
  * When `SEED_ADMIN_EMAIL` is set: ensures the default admin exists with
  * `id` = `seedUserId()` (from env; same as system category rows from seed),
- * plus "Cash", starter locations, and cloned categories if needed.
+ * plus "Cash", starter locations, default contacts, and cloned categories if needed.
  */
 async function seedAdminUserDefaults(): Promise<void> {
   const email = process.env.SEED_ADMIN_EMAIL?.trim();
@@ -119,6 +121,17 @@ async function seedAdminUserDefaults(): Promise<void> {
       .limit(1);
     if (!loc) {
       await db.insert(locations).values({ userId, name });
+    }
+  }
+
+  for (const name of DEFAULT_CONTACTS) {
+    const [row] = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(and(eq(contacts.userId, userId), eq(contacts.name, name)))
+      .limit(1);
+    if (!row) {
+      await db.insert(contacts).values({ userId, name });
     }
   }
 

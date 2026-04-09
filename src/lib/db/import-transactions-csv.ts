@@ -8,6 +8,7 @@ import { seedUserId } from "./ensure-user-categories";
 import {
   accounts,
   categories,
+  contacts,
   locations,
   transactions,
   users,
@@ -59,6 +60,103 @@ function parseCsv(text: string): string[][] {
   return lines.map(parseCsvRow);
 }
 
+const HEADER_V3 = [
+  "Date",
+  "Time",
+  "Type",
+  "Amount",
+  "Parent Category",
+  "Child Category",
+  "Location",
+  "Contact",
+  "Notes",
+] as const;
+
+const HEADER_V2 = [
+  "Date",
+  "Time",
+  "Type",
+  "Amount",
+  "Parent Category",
+  "Child Category",
+  "Location",
+  "Notes",
+] as const;
+
+const HEADER_V1 = [
+  "Date",
+  "Time",
+  "Type",
+  "Amount",
+  "Category",
+  "Location",
+  "Notes",
+] as const;
+
+function detectCsvFormat(header: string[]): "v3" | "v2" | "v1" {
+  const h = header.map((x) => x.trim());
+  if (
+    h.length === HEADER_V3.length &&
+    HEADER_V3.every((name, i) => h[i] === name)
+  ) {
+    return "v3";
+  }
+  if (
+    h.length === HEADER_V2.length &&
+    HEADER_V2.every((name, i) => h[i] === name)
+  ) {
+    return "v2";
+  }
+  if (
+    h.length === HEADER_V1.length &&
+    HEADER_V1.every((name, i) => h[i] === name)
+  ) {
+    return "v1";
+  }
+  throw new Error(
+    "Unexpected CSV header. Use v3: Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Notes — or v2 without Contact, or legacy v1.",
+  );
+}
+
+type CatRow = {
+  id: string;
+  name: string;
+  type: string;
+  parentId: string | null;
+};
+
+function resolveCategoryForImport(
+  catRows: CatRow[],
+  txType: string,
+  parentName: string,
+  childName: string,
+): { id: string; parentId: string | null } | null {
+  const p = parentName.trim().toLowerCase();
+  const c = childName.trim().toLowerCase();
+
+  const roots = catRows.filter((r) => r.parentId === null);
+  const findRoot = () =>
+    roots.find(
+      (r) =>
+        r.type === txType && r.name.trim().toLowerCase() === p,
+    );
+
+  if (!c) {
+    const root = findRoot();
+    return root ? { id: root.id, parentId: root.parentId } : null;
+  }
+
+  const parent = findRoot();
+  if (!parent) return null;
+  const child = catRows.find(
+    (r) =>
+      r.parentId === parent.id &&
+      r.type === txType &&
+      r.name.trim().toLowerCase() === c,
+  );
+  return child ? { id: child.id, parentId: child.parentId } : null;
+}
+
 async function main() {
   const userId = seedUserId();
 
@@ -67,6 +165,8 @@ async function main() {
     process.env.DATA_IMPORT_CSV ?? "data/historical-transactions.csv",
   );
   const accountName = process.env.DATA_IMPORT_ACCOUNT_NAME?.trim() || "Cash";
+  const defaultLocation =
+    process.env.DATA_IMPORT_DEFAULT_LOCATION?.trim() || "Hyderabad";
   const dry = process.env.DATA_IMPORT_DRY_RUN === "1";
 
   const raw = readFileSync(csvPath, "utf8");
@@ -77,11 +177,11 @@ async function main() {
   }
 
   const header = rows[0]!.map((h) => h.trim());
-  const expected = ["Date", "Time", "Type", "Amount", "Category", "Location", "Notes"];
-  if (header.length !== expected.length || !expected.every((h, i) => header[i] === h)) {
-    console.error(
-      "Unexpected CSV header. Expected: Date,Time,Type,Amount,Category,Location,Notes",
-    );
+  let format: "v3" | "v2" | "v1";
+  try {
+    format = detectCsvFormat(header);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
     process.exit(1);
   }
 
@@ -127,14 +227,6 @@ async function main() {
     .from(categories)
     .where(eq(categories.userId, userId));
 
-  const catByKey = new Map<string, { id: string; parentId: string | null }>();
-  for (const c of catRows) {
-    catByKey.set(`${c.type}:${c.name.trim().toLowerCase()}`, {
-      id: c.id,
-      parentId: c.parentId,
-    });
-  }
-
   const locRows = await db
     .select({ id: locations.id, name: locations.name })
     .from(locations)
@@ -143,25 +235,84 @@ async function main() {
     locRows.map((l) => [l.name.trim().toLowerCase(), l.id] as const),
   );
 
+  const contactRows = await db
+    .select({ id: contacts.id, name: contacts.name })
+    .from(contacts)
+    .where(eq(contacts.userId, userId));
+  const contactByName = new Map(
+    contactRows.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
+  );
+
   let inserted = 0;
   for (let i = 1; i < rows.length; i++) {
     const cols = rows[i]!;
-    if (cols.length !== 7) {
-      console.error(`Row ${i + 1}: expected 7 columns, got ${cols.length}`);
+    const expectedCols = format === "v3" ? 9 : format === "v2" ? 8 : 7;
+    if (cols.length !== expectedCols) {
+      console.error(
+        `Row ${i + 1}: expected ${expectedCols} columns, got ${cols.length}`,
+      );
       process.exit(1);
     }
-    const [dateStr, timeStr, typeStr, amountStr, categoryName, locationName, note] = cols;
+
+    let dateStr: string;
+    let timeStr: string;
+    let typeStr: string;
+    let amountStr: string;
+    let parentCategory: string;
+    let childCategory: string;
+    let locationName: string;
+    let contactName: string;
+    let note: string;
+
+    if (format === "v3") {
+      [
+        dateStr,
+        timeStr,
+        typeStr,
+        amountStr,
+        parentCategory,
+        childCategory,
+        locationName,
+        contactName,
+        note,
+      ] = cols;
+    } else if (format === "v2") {
+      [
+        dateStr,
+        timeStr,
+        typeStr,
+        amountStr,
+        parentCategory,
+        childCategory,
+        locationName,
+        note,
+      ] = cols;
+      contactName = "";
+    } else {
+      [dateStr, timeStr, typeStr, amountStr, parentCategory, locationName, note] =
+        cols;
+      childCategory = "";
+      contactName = "";
+    }
+
     const txType = typeStr.trim().toUpperCase();
     if (!TX_TYPES.has(txType)) {
       console.error(`Row ${i + 1}: invalid type ${typeStr}`);
       process.exit(1);
     }
 
-    const catKey = `${txType}:${categoryName.trim().toLowerCase()}`;
-    const cat = catByKey.get(catKey);
+    const cat = resolveCategoryForImport(
+      catRows,
+      txType,
+      parentCategory,
+      childCategory,
+    );
     if (!cat) {
+      const hint = childCategory.trim()
+        ? `parent "${parentCategory.trim()}" / child "${childCategory.trim()}"`
+        : `"${parentCategory.trim()}"`;
       console.error(
-        `Row ${i + 1}: no category "${categoryName.trim()}" for type ${txType}. Add it in Settings or fix the CSV.`,
+        `Row ${i + 1}: no category ${hint} for type ${txType}. Add it in Settings or fix the CSV.`,
       );
       process.exit(1);
     }
@@ -173,16 +324,27 @@ async function main() {
     }
 
     let locationId: string | null = null;
-    const locTrim = locationName.trim();
-    if (locTrim) {
-      const lid = locByName.get(locTrim.toLowerCase());
-      if (!lid) {
+    const locTrim = (locationName.trim() || defaultLocation).trim();
+    const lid = locByName.get(locTrim.toLowerCase());
+    if (!lid) {
+      console.error(
+        `Row ${i + 1}: location "${locTrim}" not found. Add it under Settings or set DATA_IMPORT_DEFAULT_LOCATION.`,
+      );
+      process.exit(1);
+    }
+    locationId = lid;
+
+    let contactId: string | null = null;
+    const contactTrim = contactName.trim();
+    if (contactTrim) {
+      const cid = contactByName.get(contactTrim.toLowerCase());
+      if (!cid) {
         console.error(
-          `Row ${i + 1}: location "${locTrim}" not found. Add it under Settings or leave Location blank.`,
+          `Row ${i + 1}: contact "${contactTrim}" not found. Add it under Settings or leave Contact blank.`,
         );
         process.exit(1);
       }
-      locationId = lid;
+      contactId = cid;
     }
 
     const noteTrim = note.trim() || null;
@@ -200,7 +362,7 @@ async function main() {
       categoryId: cat.id,
       parentCategoryId: cat.parentId,
       locationId,
-      contactId: null,
+      contactId,
       accountId: accRow.id,
       note: noteTrim,
       transactionDate: dateStr.trim(),
