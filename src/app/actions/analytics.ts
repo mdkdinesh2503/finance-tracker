@@ -1,7 +1,10 @@
 "use server";
 
-import { categoryVsLastMonthSnapshot, monthlyTrend } from "@/features/transactions/services";
-import { getDb } from "@/lib/db";
+import {
+  categoryVsLastMonthSnapshot,
+  monthlyTrend,
+} from "@/lib/services/transactions";
+import { db } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
 export async function fetchCategoryVsLastMonthAction() {
@@ -9,7 +12,7 @@ export async function fetchCategoryVsLastMonthAction() {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const data = await categoryVsLastMonthSnapshot(getDb(), userId);
+  const data = await categoryVsLastMonthSnapshot(db, userId);
   return { ok: true as const, data };
 }
 
@@ -19,7 +22,6 @@ export async function fetchMonthlyTrendAction() {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const db = getDb();
   const trend = await monthlyTrend(db, userId, "ALL_TIME", {
     fromDate: null,
     toDate: null,

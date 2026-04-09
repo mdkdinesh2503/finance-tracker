@@ -1,7 +1,7 @@
 import { MainNav } from "@/components/common/main-nav";
 import { PageFade } from "@/components/motion/page-fade";
 import { ensureDefaultReferenceDataForUser } from "@/lib/db/reference";
-import { getDb } from "@/lib/db";
+import { db } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
 export default async function MainLayout({
@@ -11,7 +11,7 @@ export default async function MainLayout({
 }) {
   const userId = await getSessionUserId();
   if (userId) {
-    await ensureDefaultReferenceDataForUser(getDb(), userId);
+    await ensureDefaultReferenceDataForUser(db, userId);
   }
 
   return (

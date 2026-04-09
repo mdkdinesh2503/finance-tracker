@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { UI, type DropdownProps } from "react-day-picker";
-import { computeAnchoredTop } from "@/lib/utils/popover-placement";
+import { computeAnchoredTop } from "@/lib/utilities/popover-placement";
 
 function emitSelectChange(
   onChange: DropdownProps["onChange"],
@@ -142,7 +142,7 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
         data-expense-rdp-nav-menu
         role="listbox"
         tabIndex={-1}
-        className="glass-dropdown-panel fixed z-[10000] max-h-52 overflow-y-auto py-1 shadow-[var(--shadow-lift)] outline-none scrollbar-hide"
+        className="glass-dropdown-panel fixed z-10000 max-h-52 overflow-y-auto py-1 shadow-(--shadow-lift) outline-none scrollbar-hide"
         style={{
           top: menuFixed.top,
           left: menuFixed.left,
@@ -193,7 +193,7 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-haspopup="listbox"
-        className={`flex min-w-0 max-w-[11rem] items-center justify-center gap-1 rounded-md border-0 bg-transparent p-0 text-left text-[0.8125rem] font-semibold text-zinc-100 outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 disabled:opacity-50 ${className ?? ""}`}
+        className={`flex min-w-0 max-w-44 items-center justify-center gap-1 rounded-md border-0 bg-transparent p-0 text-left text-[0.8125rem] font-semibold text-zinc-100 outline-none transition hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 disabled:opacity-50 ${className ?? ""}`}
         onClick={() => !disabled && setOpen((o) => !o)}
       >
         <span className={`${captionClass} text-zinc-100`} aria-hidden>

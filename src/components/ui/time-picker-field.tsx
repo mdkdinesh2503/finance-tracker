@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { computeAnchoredTop } from "@/lib/utils/popover-placement";
+import { computeAnchoredTop } from "@/lib/utilities/popover-placement";
 
 const HOURS_12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 
@@ -202,7 +202,7 @@ export function TimePickerField({
         id={panelId}
         role="dialog"
         aria-label="Choose time"
-        className="glass-dropdown-panel fixed z-[10000] w-max max-w-[calc(100vw-16px)] p-3 shadow-[var(--shadow-lift)]"
+        className="glass-dropdown-panel fixed z-10000 w-max max-w-[calc(100vw-16px)] p-3 shadow-(--shadow-lift)"
         style={{
           top: pos.top,
           left: pos.left,
@@ -294,7 +294,7 @@ export function TimePickerField({
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         onClick={() => !disabled && setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-[var(--surface)] px-3 py-2.5 text-left text-sm font-medium text-[var(--ink)] outline-none transition ${ring} ${
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-surface px-3 py-2.5 text-left text-sm font-medium text-ink outline-none transition ${ring} ${
           disabled
             ? "cursor-not-allowed opacity-50"
             : "cursor-pointer hover:border-white/18"

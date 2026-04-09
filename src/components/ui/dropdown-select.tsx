@@ -31,7 +31,7 @@ type Props = {
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+      className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -158,7 +158,7 @@ export function DropdownSelect({
       window.removeEventListener("resize", onViewportChange);
       window.removeEventListener("scroll", onViewportChange, true);
     };
-  }, [open, placeMenu]);
+  }, [open, disabled, placeMenu]);
 
   const pick = useCallback(
     (id: string | null) => {
@@ -239,7 +239,7 @@ export function DropdownSelect({
         role="listbox"
         tabIndex={0}
         onKeyDown={onListKeyDown}
-        className="glass-dropdown-panel fixed z-[10000] max-h-60 overflow-auto py-1 outline-none"
+        className="glass-dropdown-panel fixed z-10000 max-h-60 overflow-auto py-1 outline-none"
         style={{
           top: menuFixed.top,
           left: menuFixed.left,
@@ -292,7 +292,7 @@ export function DropdownSelect({
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onButtonKeyDown}
         data-state={open ? "open" : "closed"}
-        className={`flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-left text-sm font-medium text-[var(--ink)] outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 data-[state=open]:border-primary/40 ${
+        className={`flex w-full items-center justify-between rounded-xl border border-(--border) bg-surface px-3 py-2.5 text-left text-sm font-medium text-ink outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 data-[state=open]:border-primary/40 ${
           disabled ? "cursor-not-allowed opacity-45" : ""
         } ${ariaInvalid === true ? "border-rose-500/50 ring-1 ring-rose-500/25" : ""}`}
       >

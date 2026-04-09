@@ -6,14 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src tools",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node tools/run-drizzle-migrate.mjs",
-    "db:seed": "bun run src/lib/db/seed.ts",
-    "db:lookups": "bun run scripts/lookups.ts",
-    "db:data": "bun run scripts/import-csv.ts",
-    "db:reset": "bun run scripts/reset-and-import.ts"
+    "db:seed": "bun run src/lib/db/seed.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

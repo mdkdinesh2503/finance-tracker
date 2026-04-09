@@ -39,9 +39,8 @@ yarn-error.log*
 Thumbs.db
 
 # Environment files
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
 
 # Test coverage
 coverage/
@@ -89,12 +88,21 @@ coverage/
 *.db
 
 # Lock files (usually not needed for context)
+bun.lock
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
 composer.lock
 Gemfile.lock
 Cargo.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# Vercel & Turbo
+.vercel/
+.turbo/
+
 
 # Python
 __pycache__/

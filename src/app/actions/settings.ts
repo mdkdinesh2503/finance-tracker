@@ -25,6 +25,17 @@ async function assertCategory(id: string | null): Promise<string | null> {
   return row[0] ? null : "Invalid category";
 }
 
+async function assertLocation(id: string | null): Promise<string | null> {
+  if (!id) return null;
+  const user = await requireUser();
+  const row = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(and(eq(locations.id, id), eq(locations.userId, user.id)))
+    .limit(1);
+  return row[0] ? null : "Invalid location";
+}
+
 export async function createAccountAction(
   input: unknown,
 ): Promise<Result<{ id: string }>> {
@@ -82,6 +93,7 @@ export async function createContactAction(
 const ruleSchema = z.object({
   keyword: z.string().trim().min(1).max(80).toLowerCase(),
   categoryId: z.string().uuid().nullable().optional(),
+  locationId: z.string().uuid().nullable().optional(),
   contactId: z.string().uuid().nullable().optional(),
 });
 
@@ -92,6 +104,9 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
 
   const catErr = await assertCategory(parsed.data.categoryId ?? null);
   if (catErr) return err(catErr);
+
+  const locErr = await assertLocation(parsed.data.locationId ?? null);
+  if (locErr) return err(locErr);
 
   if (parsed.data.contactId) {
     const con = await db
@@ -113,6 +128,7 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
       userId: user.id,
       keyword: parsed.data.keyword,
       categoryId: parsed.data.categoryId ?? null,
+      locationId: parsed.data.locationId ?? null,
       contactId: parsed.data.contactId ?? null,
     })
     .returning({ id: rules.id });
@@ -135,6 +151,51 @@ export async function deleteRuleAction(id: string): Promise<Result<null>> {
   if (!del.length) return err("Not found");
   revalidatePath("/settings");
   return ok(null);
+}
+
+export async function updateRuleAction(
+  input: unknown,
+): Promise<Result<{ id: string }>> {
+  const user = await requireUser();
+  const schema = ruleSchema.extend({ id: z.string().uuid() });
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) return err("Invalid rule");
+
+  const catErr = await assertCategory(parsed.data.categoryId ?? null);
+  if (catErr) return err(catErr);
+
+  const locErr = await assertLocation(parsed.data.locationId ?? null);
+  if (locErr) return err(locErr);
+
+  if (parsed.data.contactId) {
+    const con = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(
+        and(
+          eq(contacts.id, parsed.data.contactId),
+          eq(contacts.userId, user.id),
+        ),
+      )
+      .limit(1);
+    if (!con[0]) return err("Invalid contact");
+  }
+
+  const updated = await db
+    .update(rules)
+    .set({
+      keyword: parsed.data.keyword,
+      categoryId: parsed.data.categoryId ?? null,
+      locationId: parsed.data.locationId ?? null,
+      contactId: parsed.data.contactId ?? null,
+    })
+    .where(and(eq(rules.id, parsed.data.id), eq(rules.userId, user.id)))
+    .returning({ id: rules.id });
+
+  if (!updated.length) return err("Not found");
+  revalidatePath("/settings");
+  revalidatePath("/transactions/new");
+  return ok({ id: updated[0]!.id });
 }
 
 export async function deleteLocationAction(id: string): Promise<Result<null>> {

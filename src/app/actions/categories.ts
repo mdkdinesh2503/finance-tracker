@@ -6,8 +6,8 @@ import {
   createCategorySub,
   deleteCategoryIfUnused,
   updateCategoryName,
-} from "@/features/transactions/services";
-import { getDb } from "@/lib/db";
+} from "@/lib/services/transactions";
+import { db } from "@/lib/db/server";
 import type { TransactionType } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/auth/session";
 
@@ -27,7 +27,7 @@ export async function createCategoryParentAction(
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await createCategoryParent(getDb(), userId, name, type);
+  const result = await createCategoryParent(db, userId, name, type);
   if (result.ok) revalidateCategoryPaths();
   return result;
 }
@@ -37,7 +37,7 @@ export async function createCategorySubAction(parentId: string, name: string) {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await createCategorySub(getDb(), userId, parentId, name);
+  const result = await createCategorySub(db, userId, parentId, name);
   if (result.ok) revalidateCategoryPaths();
   return result;
 }
@@ -47,7 +47,7 @@ export async function updateCategoryAction(categoryId: string, name: string) {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await updateCategoryName(getDb(), userId, categoryId, name);
+  const result = await updateCategoryName(db, userId, categoryId, name);
   if (result.ok) revalidateCategoryPaths();
   return result;
 }
@@ -57,7 +57,7 @@ export async function deleteCategoryAction(categoryId: string) {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await deleteCategoryIfUnused(getDb(), userId, categoryId);
+  const result = await deleteCategoryIfUnused(db, userId, categoryId);
   if (result.ok) revalidateCategoryPaths();
   return result;
 }

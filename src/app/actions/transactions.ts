@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
-import type { DatePreset } from "@/features/filters/types";
-import type { CreateTransactionInput } from "@/features/transactions/types";
+import type { DatePreset } from "@/lib/types/filters";
+import type { CreateTransactionInput } from "@/lib/types/transactions";
 import {
   createTransactionForUser,
   getSuggestions,
@@ -14,9 +14,8 @@ import {
   createContact,
   deleteContactIfNoLoans,
   updateContactForUser,
-} from "@/features/transactions/services";
-import { getDb } from "@/lib/db";
-import { toTransactionsCsv } from "@/lib/utils/csv";
+} from "@/lib/services/transactions";
+import { toTransactionsCsv } from "@/lib/utilities/csv";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/server";
 import {
@@ -28,17 +27,16 @@ import {
   transactions,
   type TransactionType,
 } from "@/lib/db/schema";
-import { parseAmountString } from "@/lib/ledger/signed";
+import { parseAmountString } from "@/lib/services/ledger";
 import { err, ok, type Result } from "@/lib/result";
-import { inferQuickEntry, splitQuickInput } from "@/lib/quick-entry/parse";
+import { inferQuickEntry, splitQuickInput } from "@/lib/services/quick-entry";
 import { z } from "zod";
-import { getLoansByContact } from "@/lib/queries/transactions";
-import { balanceFromSums } from "@/features/transactions/services";
+import { getLoansByContact } from "@/lib/services/queries/transactions";
+import { balanceFromSums } from "@/lib/services/transactions";
 
 export async function fetchTransactionFormDataAction() {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const db = getDb();
   const [categories, locs, contacts, suggestions] = await Promise.all([
     listSelectableCategories(db, user.id),
     listLocations(db, user.id),
@@ -57,7 +55,7 @@ export async function fetchTransactionFormDataAction() {
 export async function createTransactionAction(input: CreateTransactionInput) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const result = await createTransactionForUser(getDb(), user.id, input);
+  const result = await createTransactionForUser(db, user.id, input);
   if (result.ok) {
     revalidatePath("/dashboard");
     revalidatePath("/transactions");
@@ -75,7 +73,7 @@ export async function fetchTransactionsListAction(filters: {
 }) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const rows = await listTransactionsFiltered(getDb(), user.id, filters);
+  const rows = await listTransactionsFiltered(db, user.id, filters);
   return { ok: true as const, rows };
 }
 
@@ -95,7 +93,7 @@ export async function exportTransactionsCsvAction(filters: {
 }) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const rows = await listTransactionsFiltered(getDb(), user.id, filters);
+  const rows = await listTransactionsFiltered(db, user.id, filters);
   const csv = toTransactionsCsv(
     rows.map((r) => ({
       transactionDate: r.transactionDate,
@@ -113,7 +111,7 @@ export async function exportTransactionsCsvAction(filters: {
 export async function createContactAction(name: string) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const result = await createContact(getDb(), user.id, name);
+  const result = await createContact(db, user.id, name);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/transactions/new");
@@ -127,7 +125,7 @@ export async function updateContactAction(
 ) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const result = await updateContactForUser(getDb(), user.id, contactId, name);
+  const result = await updateContactForUser(db, user.id, contactId, name);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/transactions/new");
@@ -138,7 +136,7 @@ export async function updateContactAction(
 export async function deleteContactAction(contactId: string) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const result = await deleteContactIfNoLoans(getDb(), user.id, contactId);
+  const result = await deleteContactIfNoLoans(db, user.id, contactId);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/transactions/new");
@@ -442,6 +440,7 @@ export async function quickEntryAction(
       .select({
         keyword: rules.keyword,
         categoryId: rules.categoryId,
+        locationId: rules.locationId,
         contactId: rules.contactId,
       })
       .from(rules)
@@ -458,7 +457,7 @@ export async function quickEntryAction(
     type: inferred.type,
     amount: inferred.amount,
     categoryId: inferred.categoryId,
-    locationId: locationId ?? null,
+    locationId: inferred.locationId ?? locationId ?? null,
     contactId: inferred.contactId,
     accountId,
     note: inferred.note,
@@ -472,6 +471,7 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
     amount: string;
     type: TransactionType;
     categoryId: string | null;
+    locationId: string | null;
     contactId: string | null;
     note: string;
   }>
@@ -494,6 +494,7 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
       .select({
         keyword: rules.keyword,
         categoryId: rules.categoryId,
+        locationId: rules.locationId,
         contactId: rules.contactId,
       })
       .from(rules)
@@ -526,10 +527,21 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
     if (!row) contactId = null;
   }
 
+  let locationId: string | null = inferred.locationId;
+  if (locationId) {
+    const [row] = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(and(eq(locations.id, locationId), eq(locations.userId, user.id)))
+      .limit(1);
+    if (!row) locationId = null;
+  }
+
   return ok({
     amount: inferred.amount,
     type: inferred.type,
     categoryId,
+    locationId,
     contactId,
     note: inferred.note,
   });

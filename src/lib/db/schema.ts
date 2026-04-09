@@ -96,6 +96,7 @@ export const rules = pgTable("rules", {
   userId: uuid("user_id").notNull(),
   keyword: text("keyword").notNull(),
   categoryId: uuid("category_id").references(() => categories.id),
+  locationId: uuid("location_id").references(() => locations.id),
   contactId: uuid("contact_id").references(() => contacts.id),
 });
 
@@ -160,6 +161,10 @@ export const rulesRelations = relations(rules, ({ one }) => ({
   category: one(categories, {
     fields: [rules.categoryId],
     references: [categories.id],
+  }),
+  location: one(locations, {
+    fields: [rules.locationId],
+    references: [locations.id],
   }),
   contact: one(contacts, { fields: [rules.contactId], references: [contacts.id] }),
 }));

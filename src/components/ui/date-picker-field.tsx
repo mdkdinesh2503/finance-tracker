@@ -12,9 +12,9 @@ import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { DayPickerCustomDropdown } from "@/components/ui/day-picker-year-dropdown";
-import { formatLocalYMD } from "@/lib/utils/date-presets";
-import { formatYmdAsDmy, parseYmdToLocalDate } from "@/lib/utils/format";
-import { computeAnchoredTop } from "@/lib/utils/popover-placement";
+import { formatLocalYMD } from "@/lib/utilities/date-presets";
+import { formatYmdAsDmy, parseYmdToLocalDate } from "@/lib/utilities/format";
+import { computeAnchoredTop } from "@/lib/utilities/popover-placement";
 
 type Props = {
   id: string;
@@ -170,7 +170,7 @@ export function DatePickerField({
         id={panelId}
         role="dialog"
         aria-label="Choose date"
-        className="expense-date-picker-popover glass-dropdown-panel fixed z-[200] rounded-2xl p-4 shadow-[var(--shadow-lift)]"
+        className="expense-date-picker-popover glass-dropdown-panel fixed z-200 rounded-2xl p-4 shadow-(--shadow-lift)"
         style={{
           top: popoverStyle.top,
           left: popoverStyle.left,
@@ -221,7 +221,7 @@ export function DatePickerField({
           {allowClear ? (
             <button
               type="button"
-              className="text-xs font-semibold text-primary transition hover:text-[var(--primary-hover)]"
+              className="text-xs font-semibold text-primary transition hover:text-primary-hover"
               onClick={() => {
                 onChange(null);
                 setOpen(false);
@@ -234,7 +234,7 @@ export function DatePickerField({
           )}
           <button
             type="button"
-            className="text-xs font-semibold text-primary transition hover:text-[var(--primary-hover)]"
+            className="text-xs font-semibold text-primary transition hover:text-primary-hover"
             onClick={() => {
               onChange(formatLocalYMD(new Date()));
               setOpen(false);
@@ -259,7 +259,7 @@ export function DatePickerField({
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         onClick={() => !disabled && setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-[var(--surface)]/50 px-3 py-2.5 text-left text-sm backdrop-blur-md outline-none transition ${triggerRing} ${
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-(--surface)/50 px-3 py-2.5 text-left text-sm backdrop-blur-md outline-none transition ${triggerRing} ${
           disabled
             ? "cursor-not-allowed opacity-50"
             : "cursor-pointer hover:border-white/18"
@@ -268,8 +268,8 @@ export function DatePickerField({
         <span
           className={
             value
-              ? "tabular-nums text-[var(--ink)]"
-              : "text-[var(--ink-muted)]"
+              ? "tabular-nums text-ink"
+              : "text-ink-muted"
           }
         >
           {value ? formatYmdAsDmy(value) : placeholder}

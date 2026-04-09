@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { getDb } from "@/lib/db";
+import { db } from "@/lib/db/server";
 import { locations } from "@/lib/db/schema";
 import {
   deleteLocationIfUnused,
   updateLocationForUser,
-} from "@/features/transactions/services";
+} from "@/lib/services/transactions";
 import { getSessionUserId } from "@/lib/auth/session";
 
 /** Add a location name for the signed-in user (unique per user). */
@@ -20,7 +20,6 @@ export async function addLocationLookupAction(name: string) {
   if (!trimmed) {
     return { ok: false as const, error: "Name required" };
   }
-  const db = getDb();
   const existing = await db
     .select()
     .from(locations)
@@ -56,7 +55,7 @@ export async function updateLocationLookupAction(
     return { ok: false as const, error: "Unauthorized" };
   }
   const result = await updateLocationForUser(
-    getDb(),
+    db,
     userId,
     locationId,
     name
@@ -75,7 +74,7 @@ export async function deleteLocationLookupAction(locationId: string) {
   if (!userId) {
     return { ok: false as const, error: "Unauthorized" };
   }
-  const result = await deleteLocationIfUnused(getDb(), userId, locationId);
+  const result = await deleteLocationIfUnused(db, userId, locationId);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/transactions");

@@ -4,23 +4,22 @@ import {
   listSelectableCategories,
   listCategoriesWithUsageTree,
   listLocationsWithUsage,
-} from "@/features/transactions/services";
-import { getDb } from "@/lib/db";
+} from "@/lib/services/transactions";
+import { db } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 import { PageHeader } from "@/components/common/page-header";
-import { BorrowAccountsForm } from "@/components/settings/borrow-accounts-form";
-import { QuickEntryRulesForm } from "@/components/settings/quick-entry-rules-form";
-import { CategoriesSettingsForm } from "@/components/settings/categories-settings-form";
-import { LocationsLookupForm } from "@/components/settings/locations-lookup-form";
+import { BorrowAccountsForm } from "@/components/feature-specific/settings/borrow-accounts-form";
+import { QuickEntryRulesForm } from "@/components/feature-specific/settings/quick-entry-rules-form";
+import { CategoriesSettingsForm } from "@/components/feature-specific/settings/categories-settings-form";
+import { LocationsLookupForm } from "@/components/feature-specific/settings/locations-lookup-form";
 import { redirect } from "next/navigation";
-import { getRulesForUser } from "@/lib/queries/reference";
+import { getRulesForUser } from "@/lib/services/transactions";
 
 export default async function SettingsPage() {
   const userId = await getSessionUserId();
   if (!userId) {
     redirect("/login");
   }
-  const db = getDb();
   const [accounts, locs, categoryTree, categories, contacts, rules] = await Promise.all([
     listContactsWithLoanUsage(db, userId),
     listLocationsWithUsage(db, userId),
@@ -51,8 +50,9 @@ export default async function SettingsPage() {
         <BorrowAccountsForm accounts={accounts} />
         <QuickEntryRulesForm
           rules={rules}
-          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-          contacts={contacts.map((c) => ({ id: c.id, name: c.name }))}
+          categories={categories.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))}
+          locations={locs.map((l: { id: string; name: string }) => ({ id: l.id, name: l.name }))}
+          contacts={contacts.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))}
         />
         <LocationsLookupForm locations={locs} />
         <CategoriesSettingsForm tree={categoryTree} />
@@ -62,10 +62,7 @@ export default async function SettingsPage() {
         <p>
           <span className="font-medium text-zinc-400">Privacy:</span> transactions,
           categories, and locations are scoped to your user. New accounts get a
-          default category tree automatically; run{" "}
-          <code className="rounded bg-black/40 px-1 text-zinc-400">db:lookups</code>{" "}
-          to sync the template for your admin UUID. Bulk import:{" "}
-          <code className="rounded bg-black/40 px-1 text-zinc-400">db:reset-and-import</code>.
+          default category tree automatically.
         </p>
       </aside>
     </div>
