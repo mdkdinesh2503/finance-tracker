@@ -44,20 +44,14 @@ export default async function NewTransactionPage() {
   const cashBalance = balanceFromSums(sums);
 
   return (
-    <div className="relative mx-auto w-full max-w-3xl space-y-8 pb-20">
+    <div className="relative mx-auto w-full max-w-5xl space-y-8 pb-24">
       <div
-        className="pointer-events-none absolute -right-20 -top-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-16 h-72 w-72 rounded-full bg-primary/10 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -left-16 top-40 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl"
+        className="pointer-events-none absolute -left-24 top-52 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl"
         aria-hidden
-      />
-
-      <PageHeader
-        eyebrow="Capture"
-        title="New transaction"
-        subtitle="Use quick entry or fill the fields. Everything saves to your ledger instantly."
       />
 
       <NewTransactionForm

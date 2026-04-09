@@ -3,10 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { TransactionType } from "@/lib/db/schema";
-import {
-  createTransactionAction,
-  quickEntrySuggestAction,
-} from "@/app/actions/transactions";
+import { createTransactionAction, quickEntrySuggestAction } from "@/app/actions/transactions";
 import type { CategoryOption } from "./category-selector";
 import { CategoryCascadeFields, parentIdForLeaf } from "./category-cascade-fields";
 import { Button } from "@/components/ui/button";
@@ -23,6 +20,8 @@ import type { SuggestionDTO } from "@/lib/types/transactions";
 
 type BorrowRow = { id: string; name: string };
 type LocRow = { id: string; name: string };
+
+const FALLBACK_SUGGESTED_AMOUNT = "250.00";
 
 type Props = {
   categories: CategoryOption[];
@@ -55,6 +54,33 @@ function SectionLabel({
       <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">{title}</h2>
       {hint ? <p className="mt-1 text-xs leading-relaxed text-ink-muted">{hint}</p> : null}
     </div>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <GlassCard
+      variant="signature"
+      noLift
+      hideAccent
+      panelClassName="!p-4"
+      className="border-rose-500/25"
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-200"
+          aria-hidden
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M4.5 19h15L12 4 4.5 19z" />
+          </svg>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold tracking-tight text-ink">Couldn’t save</p>
+          <p className="mt-0.5 text-sm text-rose-200/90">{message}</p>
+        </div>
+      </div>
+    </GlassCard>
   );
 }
 
@@ -124,6 +150,24 @@ export function NewTransactionForm({
     return contacts.find((c) => c.id === contactId)?.name ?? "—";
   }, [contacts, contactId]);
 
+  function applySuggestions() {
+    const leaf =
+      suggestions.categoryId ??
+      categories.find((c) => c.isSelectable)?.id ??
+      "";
+    setCategoryId(leaf);
+    setParentCategoryId(parentIdForLeaf(categories, leaf));
+    setTxType((leaf && categories.find((c) => c.id === leaf)?.type) || "");
+
+    const loc =
+      suggestions.locationId ??
+      locations[0]?.id ??
+      "";
+    setLocationId(loc);
+
+    setAmount(suggestions.amount ?? FALLBACK_SUGGESTED_AMOUNT);
+  }
+
   function onParentChange(pid: string) {
     setParentCategoryId(pid);
     setCategoryId("");
@@ -167,6 +211,7 @@ export function NewTransactionForm({
 
   function runQuickEntry() {
     startQeTransition(async () => {
+      setFormError(null);
       const res = await quickEntrySuggestAction({ text: quickText });
       if (!res.ok) {
         setFormError(res.error);
@@ -183,78 +228,80 @@ export function NewTransactionForm({
 
   return (
     <div className="space-y-6">
-      {formError ? (
-        <p className="text-sm text-rose-400" role="alert">
-          {formError}
-        </p>
-      ) : null}
+      {formError ? <ErrorBanner message={formError} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
-        <div className="space-y-6">
-          <GlassCard variant="signature" noLift hideAccent panelClassName="p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-0.5">
-                <p className="text-xs font-medium text-ink-muted">Cash balance</p>
-                <p className="text-xl font-semibold tracking-tight text-ink">
-                  {formatCurrency(cashBalance)}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded-full border border-(--border) bg-(--surface)/40 px-3 py-1 text-xs text-ink">
-                  You owe{" "}
-                  <span className="ml-1 font-semibold text-ink">
-                    {formatCurrency(loansSummary.youOwe)}
-                  </span>
-                </div>
-                <div className="rounded-full border border-(--border) bg-(--surface)/40 px-3 py-1 text-xs text-ink">
-                  Owed to you{" "}
-                  <span className="ml-1 font-semibold text-ink">
-                    {formatCurrency(loansSummary.theyOweYou)}
-                  </span>
-                </div>
-              </div>
+      <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-linear-to-br from-[#070b12] via-[#0a1220] to-[#05070d] shadow-(--shadow-lift) ring-1 ring-white/8 backdrop-blur-xl">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -left-28 -bottom-24 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden />
+
+        <div className="relative border-b border-white/10 px-5 py-5 sm:px-7">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                New entry
+              </p>
+              <h2 className="mt-1 text-pretty text-2xl font-semibold tracking-tight text-ink">
+                Add transaction
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                Pick a category group, then a subcategory. Transaction type follows your
+                subcategory automatically.
+              </p>
             </div>
-          </GlassCard>
 
-          <GlassCard variant="signature" noLift panelClassName="p-6">
-            <SectionLabel
-              step="Quick"
-              title="Quick entry"
-              hint="Type a sentence and auto-fill fields."
-            />
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <div className="space-y-0">
-                <Label htmlFor="quick-text">Text</Label>
-                <Input
-                  id="quick-text"
-                  value={quickText}
-                  onChange={(e) => setQuickText(e.target.value)}
-                  placeholder="e.g. 250 coffee at Starbucks"
-                  autoComplete="off"
-                />
-              </div>
-              <Button
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <button
                 type="button"
-                variant="secondary"
-                onClick={runQuickEntry}
-                disabled={qePending}
+                onClick={applySuggestions}
+                className="inline-flex items-center justify-center rounded-xl border border-white/12 bg-white/4 px-3.5 py-2 text-xs font-semibold text-ink-muted transition-colors hover:border-white/18 hover:bg-white/6 hover:text-ink"
               >
-                {qePending ? "Parsing…" : "Suggest"}
-              </Button>
+                Use suggestions
+              </button>
             </div>
-            <p className="mt-3 text-xs text-ink-muted">
-              Tip: include a place and category keywords for better suggestions.
-            </p>
-          </GlassCard>
+          </div>
 
-          <GlassCard variant="signature" noLift panelClassName="p-6">
-            <SectionLabel step="1" title="Amount + category" hint="Pick a subcategory to lock the transaction type." />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-ink-muted">
-                    {formatCurrency(0).replace(/[0-9.,\s]/g, "").trim() || "¤"}
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/4 p-3 sm:p-3.5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                  Quick entry
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    value={quickText}
+                    onChange={(e) => setQuickText(e.target.value)}
+                    placeholder='e.g. "250 coffee at Starbucks"'
+                    autoComplete="off"
+                    className="h-11"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={runQuickEntry}
+                    disabled={qePending || quickText.trim().length === 0}
+                    className="h-11 shrink-0"
+                  >
+                    {qePending ? "Parsing…" : "Suggest"}
+                  </Button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div className="relative grid gap-6 px-5 py-6 sm:px-7 lg:grid-cols-[1fr_380px] lg:items-start">
+          <div className="space-y-10">
+            <div>
+              <SectionLabel
+                step="01 · Value"
+                title="How much?"
+                hint="Use your usual currency; amounts are stored with two decimals."
+              />
+              <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-white/3">
+                <div className="grid grid-cols-[54px_1fr]">
+                  <div className="flex items-center justify-center border-r border-white/10 bg-white/5 text-sm font-semibold text-ink">
+                    ₹
                   </div>
                   <Input
                     id="amount"
@@ -262,72 +309,56 @@ export function NewTransactionForm({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     aria-invalid={!!errors.amount}
-                    className="pl-8"
+                    className={`h-12 rounded-none border-0 bg-transparent px-4 text-base font-semibold tabular-nums tracking-tight focus:ring-0 ${
+                      errors.amount ? "text-rose-200" : ""
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
-                {errors.amount ? <p className="text-xs text-rose-400">{errors.amount}</p> : null}
               </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <div className="rounded-xl border border-(--border) bg-(--surface)/40 px-3 py-2.5 text-sm text-ink-muted">
-                  {categoryTypeLabel}
-                </div>
-                {errors.type ? <p className="text-xs text-rose-400">{errors.type}</p> : null}
-              </div>
+              {errors.amount ? <p className="mt-2 text-xs text-rose-400">{errors.amount}</p> : null}
             </div>
 
-            <div className="mt-5">
-              <CategoryCascadeFields
-                categories={categories}
-                parentId={parentCategoryId}
-                subId={categoryId}
-                onParentChange={onParentChange}
-                onSubChange={(id, t) => {
-                  setCategoryId(id ?? "");
-                  setTxType(t ?? "");
-                }}
-                error={errors.category}
+            <div>
+              <SectionLabel
+                step="02 · Category"
+                title="Where does this belong?"
+                hint="Choose a group, then a subcategory."
               />
+              <div className="mt-4">
+                <CategoryCascadeFields
+                  categories={categories}
+                  parentId={parentCategoryId}
+                  subId={categoryId}
+                  onParentChange={onParentChange}
+                  onSubChange={(id, t) => {
+                    setCategoryId(id ?? "");
+                    setTxType(t ?? "");
+                  }}
+                  error={errors.category}
+                />
+              </div>
             </div>
-          </GlassCard>
 
-          <GlassCard variant="signature" noLift panelClassName="p-6">
-            <SectionLabel step="2" title="Details" hint="Add context so future-you can search faster." />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <DatePickerField id="date" value={date} onChange={(d) => setDate(d ?? "")} />
-                {errors.date ? <p className="text-xs text-rose-400">{errors.date}</p> : null}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="time">Time</Label>
-                <TimePickerField id="time" value={time} onChange={setTime} />
-                {errors.time ? <p className="text-xs text-rose-400">{errors.time}</p> : null}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
+            <div>
+              <SectionLabel step="03 · Place" title="Location" />
+              <div className="mt-4 space-y-2">
                 <DropdownSelect
                   id="location"
                   value={locationId || null}
                   onChange={(v) => setLocationId(v ?? "")}
                   options={locationOptions}
                   emptyLabel="—"
+                  aria-invalid={!!errors.location}
                 />
+                {errors.location ? <p className="text-xs text-rose-400">{errors.location}</p> : null}
               </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="note">Note</Label>
-                <Textarea
-                  id="note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Optional: who/why/what made this transaction special?"
-                />
-              </div>
+            </div>
 
-              {showLoanPerson ? (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="contact">Contact</Label>
+            {showLoanPerson ? (
+              <div>
+                <SectionLabel step="04 · Person" title="Contact" hint="Required for loan transactions." />
+                <div className="mt-4 space-y-2">
                   <DropdownSelect
                     id="contact"
                     value={contactId || null}
@@ -338,64 +369,106 @@ export function NewTransactionForm({
                   />
                   {errors.contact ? <p className="text-xs text-rose-400">{errors.contact}</p> : null}
                 </div>
-              ) : null}
-            </div>
-          </GlassCard>
-        </div>
+              </div>
+            ) : null}
 
-        <aside className="space-y-4 lg:sticky lg:top-4">
-          <GlassCard variant="signature" noLift panelClassName="p-6">
-            <div className="mb-4 border-b border-(--border) pb-3">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-primary">
-                Review
-              </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">Ready to save</h2>
-              <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-                Double-check the essentials before writing to your ledger.
-              </p>
+            <div>
+              <SectionLabel step="05 · Extra" title="Notes" hint="Optional — visible in your transaction list." />
+              <div className="mt-4">
+                <Textarea
+                  id="note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Coffee with team, invoice #…"
+                />
+              </div>
             </div>
+          </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-ink-muted">Amount</span>
-                <span className="font-semibold text-ink">
-                  {amount ? formatCurrency(Number(amount) || 0) : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-ink-muted">Category</span>
-                <span className="truncate font-medium text-ink" title={selectedCategoryName}>
-                  {selectedCategoryName}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-ink-muted">Type</span>
-                <span className="font-medium text-ink">{categoryTypeLabel}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-ink-muted">When</span>
-                <span className="font-medium text-ink">
-                  {date || "—"} {time || ""}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-ink-muted">Location</span>
-                <span className="truncate font-medium text-ink" title={selectedLocationName}>
-                  {selectedLocationName}
-                </span>
-              </div>
-              {showLoanPerson ? (
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-ink-muted">Contact</span>
-                  <span className="truncate font-medium text-ink" title={selectedContactName}>
-                    {selectedContactName}
+          <aside className="space-y-4 lg:sticky lg:top-4">
+            <GlassCard variant="signature" noLift hideAccent panelClassName="!p-5" className="overflow-hidden">
+              <div className="pointer-events-none absolute -right-20 -top-16 h-48 w-48 rounded-full bg-primary/12 blur-3xl" aria-hidden />
+              <p className="relative text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                Type
+              </p>
+              <p className="relative mt-2 text-3xl font-semibold tracking-tight text-ink">
+                {txType ? txType.replace(/_/g, " ") : "—"}
+              </p>
+              <p className="relative mt-2 text-sm text-ink-muted">
+                Set by the subcategory you choose.
+              </p>
+              {errors.type ? <p className="mt-3 text-xs text-rose-400">{errors.type}</p> : null}
+            </GlassCard>
+
+            <GlassCard variant="signature" noLift hideAccent panelClassName="!p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                Balance
+              </p>
+              <p className="mt-1 text-sm text-ink-muted">
+                Snapshot before saving this entry.
+              </p>
+
+              <div className="mt-4 grid gap-2">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/4 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-blue-400/80" aria-hidden />
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Cash
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums tracking-tight text-ink">
+                    {formatCurrency(cashBalance)}
                   </span>
                 </div>
-              ) : null}
-            </div>
 
-            <div className="mt-6 flex flex-col gap-2">
-              <Button type="button" onClick={submit} disabled={pending}>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-500/20 bg-orange-500/8 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-orange-400/80" aria-hidden />
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-orange-200/90">
+                      Pending liability
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums tracking-tight text-ink">
+                    {formatCurrency(loansSummary.youOwe)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400/80" aria-hidden />
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200/90">
+                      Pending receivable
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums tracking-tight text-ink">
+                    {formatCurrency(loansSummary.theyOweYou)}
+                  </span>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard variant="signature" noLift hideAccent panelClassName="!p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                When
+              </p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-ink">Date & time</h3>
+              <p className="mt-1 text-sm text-ink-muted">Stored in your local timezone.</p>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <DatePickerField id="date" value={date} onChange={(d) => setDate(d ?? "")} />
+                  {errors.date ? <p className="text-xs text-rose-400">{errors.date}</p> : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="time">Time</Label>
+                  <TimePickerField id="time" value={time} onChange={setTime} />
+                  {errors.time ? <p className="text-xs text-rose-400">{errors.time}</p> : null}
+                </div>
+              </div>
+            </GlassCard>
+
+            <div className="flex items-center gap-3 pt-2">
+              <Button type="button" onClick={submit} disabled={pending} className="flex-1">
                 {pending ? "Saving…" : "Save transaction"}
               </Button>
               <Button
@@ -406,20 +479,9 @@ export function NewTransactionForm({
               >
                 Cancel
               </Button>
-              <p className="pt-1 text-xs text-ink-muted">
-                Nothing is saved until you hit <span className="font-medium text-ink">Save</span>.
-              </p>
             </div>
-          </GlassCard>
-
-          <GlassCard variant="simple" noLift className="p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Pro tip</p>
-            <p className="mt-2 text-sm text-ink-muted">
-              If you do this often, quick entry is fastest:{" "}
-              <span className="font-medium text-ink">“450 groceries at DMart”</span>.
-            </p>
-          </GlassCard>
-        </aside>
+          </aside>
+        </div>
       </div>
     </div>
   );

@@ -439,6 +439,7 @@ export async function quickEntryAction(
     db
       .select({
         keyword: rules.keyword,
+        note: rules.note,
         categoryId: rules.categoryId,
         locationId: rules.locationId,
         contactId: rules.contactId,
@@ -493,6 +494,7 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
     db
       .select({
         keyword: rules.keyword,
+        note: rules.note,
         categoryId: rules.categoryId,
         locationId: rules.locationId,
         contactId: rules.contactId,

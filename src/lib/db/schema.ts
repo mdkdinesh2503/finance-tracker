@@ -95,6 +95,7 @@ export const rules = pgTable("rules", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
   keyword: text("keyword").notNull(),
+  note: text("note"),
   categoryId: uuid("category_id").references(() => categories.id),
   locationId: uuid("location_id").references(() => locations.id),
   contactId: uuid("contact_id").references(() => contacts.id),

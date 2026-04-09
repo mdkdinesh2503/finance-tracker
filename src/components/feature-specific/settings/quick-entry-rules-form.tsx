@@ -11,15 +11,25 @@ import {
   deleteRuleAction,
   updateRuleAction,
 } from "@/app/actions/settings";
+import type { CategoryParentWithSubs } from "@/lib/services/transactions";
+import { Textarea } from "@/components/ui/textarea";
 
 type Option = { id: string; name: string };
 type RuleRow = {
   id: string;
   keyword: string;
+  note?: string | null;
   categoryId: string | null;
   locationId: string | null;
   contactId: string | null;
 };
+
+function normalizeRuleKeyword(raw: string): string {
+  // Keyword only: strip all digits/currency/punctuation.
+  // Example: "1000 chit" -> "chit"
+  const s = raw.replace(/[0-9₹.,]/g, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
 
 function IconButton({
   label,
@@ -54,12 +64,12 @@ function IconButton({
 }
 
 export function QuickEntryRulesForm({
-  categories,
+  categoryTree,
   locations,
   contacts,
   rules,
 }: {
-  categories: Option[];
+  categoryTree: CategoryParentWithSubs[];
   locations: Option[];
   contacts: Option[];
   rules: RuleRow[];
@@ -69,29 +79,69 @@ export function QuickEntryRulesForm({
   const [err, setErr] = useState<string | null>(null);
 
   const [keyword, setKeyword] = useState("");
+  const [note, setNote] = useState("");
+  const [parentId, setParentId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [locationId, setLocationId] = useState<string | null>(null);
   const [contactId, setContactId] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editKeyword, setEditKeyword] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editParentId, setEditParentId] = useState<string | null>(null);
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const [editLocationId, setEditLocationId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
 
-  const byCat = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const parentOptions = useMemo(
+    () => categoryTree.map((p) => ({ id: p.id, name: p.name })),
+    [categoryTree],
+  );
+  const subOptions = useMemo(() => {
+    const p = parentId ? categoryTree.find((x) => x.id === parentId) : null;
+    return (p?.children ?? []).map((c) => ({ id: c.id, name: c.name }));
+  }, [categoryTree, parentId]);
+
+  const editSubOptions = useMemo(() => {
+    const p = editParentId ? categoryTree.find((x) => x.id === editParentId) : null;
+    return (p?.children ?? []).map((c) => ({ id: c.id, name: c.name }));
+  }, [categoryTree, editParentId]);
+
+  const subToParent = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of categoryTree) for (const c of p.children) m.set(c.id, p.id);
+    return m;
+  }, [categoryTree]);
+
+  const byCat = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of categoryTree) {
+      for (const c of p.children) m.set(c.id, `${p.name} · ${c.name}`);
+    }
+    return m;
+  }, [categoryTree]);
   const byLoc = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
   const byCon = useMemo(() => new Map(contacts.map((c) => [c.id, c.name])), [contacts]);
 
   function addRule() {
     setErr(null);
+    if (!categoryId) {
+      setErr("Category is required");
+      return;
+    }
+    if (!locationId) {
+      setErr("Location is required");
+      return;
+    }
     startTransition(async () => {
-      const res = await createRuleAction({ keyword, categoryId, locationId, contactId });
+      const res = await createRuleAction({ keyword, note: note || null, categoryId, locationId, contactId });
       if (!res.ok) {
         setErr(res.error);
         return;
       }
       setKeyword("");
+      setNote("");
+      setParentId(null);
       setCategoryId(null);
       setLocationId(null);
       setContactId(null);
@@ -103,6 +153,9 @@ export function QuickEntryRulesForm({
     setErr(null);
     setEditingId(r.id);
     setEditKeyword(r.keyword);
+    setEditNote(r.note ?? "");
+    const pid = r.categoryId ? subToParent.get(r.categoryId) ?? null : null;
+    setEditParentId(pid);
     setEditCategoryId(r.categoryId);
     setEditLocationId(r.locationId);
     setEditContactId(r.contactId);
@@ -111,6 +164,8 @@ export function QuickEntryRulesForm({
   function cancelEdit() {
     setEditingId(null);
     setEditKeyword("");
+    setEditNote("");
+    setEditParentId(null);
     setEditCategoryId(null);
     setEditLocationId(null);
     setEditContactId(null);
@@ -119,10 +174,19 @@ export function QuickEntryRulesForm({
   function saveEdit() {
     if (!editingId) return;
     setErr(null);
+    if (!editCategoryId) {
+      setErr("Category is required");
+      return;
+    }
+    if (!editLocationId) {
+      setErr("Location is required");
+      return;
+    }
     startTransition(async () => {
       const res = await updateRuleAction({
         id: editingId,
         keyword: editKeyword,
+        note: editNote || null,
         categoryId: editCategoryId,
         locationId: editLocationId,
         contactId: editContactId,
@@ -165,15 +229,26 @@ export function QuickEntryRulesForm({
           <div className="text-sm font-medium text-white/80">Keyword</div>
           <Input
             value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="e.g. rent, salary, coffee"
+            onChange={(e) => setKeyword(normalizeRuleKeyword(e.target.value))}
+            placeholder='e.g. "chit" (you can type "1000 chit")'
           />
+          <p className="text-xs text-zinc-500">
+            Tip: if you type an amount first (like <span className="text-zinc-400">“2000 chit”</span>), we’ll store just the keyword.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <div className="text-sm font-medium text-white/80">Category (optional)</div>
-            <DropdownSelect value={categoryId} onChange={setCategoryId} options={categories} emptyLabel="—" />
+            <div className="text-sm font-medium text-white/80">Category group</div>
+            <DropdownSelect
+              value={parentId}
+              onChange={(v) => {
+                setParentId(v);
+                setCategoryId(null);
+              }}
+              options={parentOptions}
+              emptyLabel="Select group"
+            />
           </div>
           <div className="space-y-2">
             <div className="text-sm font-medium text-white/80">Contact (optional)</div>
@@ -181,12 +256,41 @@ export function QuickEntryRulesForm({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-white/80">Location (optional)</div>
-          <DropdownSelect value={locationId} onChange={setLocationId} options={locations} emptyLabel="—" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-white/80">Subcategory</div>
+            <DropdownSelect
+              value={categoryId}
+              onChange={setCategoryId}
+              options={subOptions}
+              emptyLabel={parentId ? "Select subcategory" : "Select a group first"}
+              disabled={!parentId}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-white/80">Location</div>
+            <DropdownSelect value={locationId} onChange={setLocationId} options={locations} emptyLabel="Select location" />
+          </div>
         </div>
 
-        <Button type="button" variant="secondary" onClick={addRule} disabled={pending}>
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-white/80">Note (optional)</div>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional note to apply when this rule matches (e.g. Chit contribution)"
+          />
+          <p className="text-xs text-zinc-500">
+            When this keyword matches in Add transaction quick entry, this note will be used.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="primary"
+          onClick={addRule}
+          disabled={pending || keyword.trim().length === 0 || !categoryId || !locationId}
+        >
           {pending ? "Adding…" : "Add rule"}
         </Button>
 
@@ -212,18 +316,29 @@ export function QuickEntryRulesForm({
                           <div className="text-xs font-medium text-white/70">Keyword</div>
                           <Input
                             value={editKeyword}
-                            onChange={(e) => setEditKeyword(e.target.value)}
-                            placeholder="e.g. rent, salary, coffee"
+                            onChange={(e) => setEditKeyword(normalizeRuleKeyword(e.target.value))}
+                            placeholder='e.g. "chit"'
                           />
+                          <div className="pt-2">
+                            <div className="text-xs font-medium text-white/70">Note</div>
+                            <Textarea
+                              value={editNote}
+                              onChange={(e) => setEditNote(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </div>
                         </div>
-                        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-4">
                           <div className="space-y-2">
-                            <div className="text-xs font-medium text-white/70">Category</div>
+                            <div className="text-xs font-medium text-white/70">Group</div>
                             <DropdownSelect
-                              value={editCategoryId}
-                              onChange={setEditCategoryId}
-                              options={categories}
-                              emptyLabel="—"
+                              value={editParentId}
+                              onChange={(v) => {
+                                setEditParentId(v);
+                                setEditCategoryId(null);
+                              }}
+                              options={parentOptions}
+                              emptyLabel="Select"
                             />
                           </div>
                           <div className="space-y-2">
@@ -236,12 +351,22 @@ export function QuickEntryRulesForm({
                             />
                           </div>
                           <div className="space-y-2">
+                            <div className="text-xs font-medium text-white/70">Subcategory</div>
+                            <DropdownSelect
+                              value={editCategoryId}
+                              onChange={setEditCategoryId}
+                              options={editSubOptions}
+                              emptyLabel={editParentId ? "Select" : "Pick group"}
+                              disabled={!editParentId}
+                            />
+                          </div>
+                          <div className="space-y-2">
                             <div className="text-xs font-medium text-white/70">Location</div>
                             <DropdownSelect
                               value={editLocationId}
                               onChange={setEditLocationId}
                               options={locations}
-                              emptyLabel="—"
+                              emptyLabel="Select"
                             />
                           </div>
                         </div>

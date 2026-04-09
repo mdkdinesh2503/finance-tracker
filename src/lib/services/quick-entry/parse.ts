@@ -4,6 +4,7 @@ import type { TransactionType } from "@/lib/db/schema";
 export type QuickEntryContact = { id: string; name: string };
 export type QuickEntryRule = {
   keyword: string;
+  note?: string | null;
   categoryId: string | null;
   locationId?: string | null;
   contactId: string | null;
@@ -100,7 +101,7 @@ export function inferQuickEntry(
       : pickContactByName(restLower, ctx.contacts);
 
   const type = inferTypeFromText(restLower);
-  const note = restTrimmed;
+  const note = (rule?.note ?? "") || restTrimmed;
 
   return {
     type,

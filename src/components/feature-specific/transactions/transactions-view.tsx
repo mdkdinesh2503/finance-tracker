@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   exportTransactionsCsvAction,
   fetchTransactionsListAction,
@@ -17,8 +17,7 @@ import { TransactionsListSkeleton } from "./transactions-list-skeleton";
 type Opt = { id: string; name: string };
 
 export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }) {
-  const { datePreset, fromDate, toDate, categoryContains, locationId } =
-    useTransactionFilters();
+  const { datePreset, fromDate, toDate, categoryContains, locationId } = useTransactionFilters();
   const [rows, setRows] = useState<TransactionRowDTO[] | null>(null);
   const [unsettled, setUnsettled] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -80,18 +79,23 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      <div
+        className="pointer-events-none absolute -right-24 -top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -left-20 top-48 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl"
+        aria-hidden
+      />
+
       <PageHeader
         eyebrow="Records"
         title="Transactions"
         subtitle="Filter and export; CSV matches the filters below."
       />
 
-      <FilterBar
-        locations={locationOptions}
-        onExport={onExport}
-        exportPending={exporting}
-      />
+      <FilterBar locations={locationOptions} onExport={onExport} exportPending={exporting} />
 
       {error ? (
         <p className="text-sm text-rose-400" role="alert">
@@ -99,7 +103,7 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
         </p>
       ) : null}
 
-      <GlassCard className="overflow-x-auto p-0">
+      <GlassCard variant="signature" noLift className="overflow-hidden" panelClassName="!p-0">
         {rows === null || pending ? (
           <TransactionsListSkeleton />
         ) : (

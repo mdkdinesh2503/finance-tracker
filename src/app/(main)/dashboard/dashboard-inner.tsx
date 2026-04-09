@@ -10,7 +10,7 @@ export async function DashboardInner() {
   }
   const payload = await loadDashboard(db, userId);
   return (
-    <div className="flex h-[calc(100dvh-9rem)] max-h-[calc(100dvh-9rem)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-6rem)] max-h-[calc(100dvh-6rem)] flex-col overflow-hidden">
       <DashboardPanel data={payload} />
     </div>
   );

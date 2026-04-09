@@ -1477,6 +1477,7 @@ export async function listSelectableCategories(db: Db, userId: string) {
 export type RuleRowDTO = {
   id: string;
   keyword: string;
+  note: string | null;
   categoryId: string | null;
   locationId: string | null;
   contactId: string | null;
@@ -1487,6 +1488,7 @@ export async function getRulesForUser(userId: string): Promise<RuleRowDTO[]> {
     .select({
       id: rules.id,
       keyword: rules.keyword,
+      note: rules.note,
       categoryId: rules.categoryId,
       locationId: rules.locationId,
       contactId: rules.contactId,

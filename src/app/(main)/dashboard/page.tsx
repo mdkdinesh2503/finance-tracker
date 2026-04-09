@@ -6,7 +6,7 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100dvh-9rem)] max-h-[calc(100dvh-9rem)] flex-col overflow-hidden">
+        <div className="flex h-[calc(100dvh-6rem)] max-h-[calc(100dvh-6rem)] flex-col overflow-hidden">
           <DashboardSkeleton />
         </div>
       }

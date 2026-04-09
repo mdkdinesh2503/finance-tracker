@@ -8,6 +8,7 @@ import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Button } from "@/components/ui/button";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Input } from "@/components/ui/input";
+import { GlassCard } from "@/components/ui/glass-card";
 
 const PRESET_PILLS: { value: Exclude<DatePreset, "CUSTOM_RANGE">; label: string }[] = [
   { value: "ALL_TIME", label: "All time" },
@@ -19,10 +20,10 @@ const PRESET_PILLS: { value: Exclude<DatePreset, "CUSTOM_RANGE">; label: string 
 
 function pillClasses(active: boolean) {
   return [
-    "rounded-full border px-3.5 py-2 text-xs font-medium transition-colors",
+    "rounded-full border px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap",
     active
       ? "border-primary/60 bg-[var(--dropdown-selected-bg)] text-white shadow-sm shadow-primary/20"
-      : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] hover:border-primary/40 hover:bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))]",
+      : "border-(--border) bg-(--surface) text-ink hover:border-primary/40 hover:bg-[color-mix(in_srgb,var(--primary)_12%,var(--surface))]",
   ].join(" ");
 }
 
@@ -62,11 +63,88 @@ export function FilterBar({ locations, onExport, exportPending }: Props) {
   }, []);
 
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-2xl border border-white/20 bg-white/6 shadow-(--shadow-card) backdrop-blur-md">
-      <div className="border-b border-white/10 bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-5 sm:px-5">
-        <p className="mb-4 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-          Filters
-        </p>
+    <GlassCard
+      variant="signature"
+      noLift
+      className="sticky top-3 z-30 overflow-hidden"
+      panelClassName="!p-0"
+    >
+      <div className="border-b border-(--border) bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-5 sm:px-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/25 bg-linear-to-br from-primary/18 to-transparent text-primary"
+              aria-hidden
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M10 18h4" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                Filters
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Everything below matches these controls.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => reset()}
+              className="gap-2 rounded-full px-3 py-2 text-xs border border-(--border)! bg-(--glass-simple-bg)! text-ink! hover:bg-surface!"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 12a9 9 0 11-2.64-6.36M21 3v6h-6"
+                />
+              </svg>
+              Reset
+            </Button>
+            {onExport ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onExport}
+                disabled={exportPending}
+                className="gap-2 rounded-full px-3 py-2 text-xs border border-primary/40! bg-primary! text-white! shadow-lg shadow-primary/20! hover:bg-primary-hover! hover:shadow-xl hover:shadow-primary/25!"
+              >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 3v10m0 0l4-4m-4 4l-4-4"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                  />
+                </svg>
+                {exportPending ? "Exporting…" : "Export CSV"}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
           <div className="min-w-0 space-y-0">
             <Label htmlFor="filter-from">From date</Label>
@@ -102,54 +180,59 @@ export function FilterBar({ locations, onExport, exportPending }: Props) {
       </div>
 
       <div className="space-y-3 px-4 py-5 sm:px-5">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-          Time range
-        </p>
-        <p className="max-w-3xl text-xs leading-relaxed text-zinc-500">
-          Quick presets set the filters above.{" "}
-          <strong className="font-medium text-zinc-400">all years</strong>{" "}
-          matches that calendar month across every year (month is compared in UTC, same as charts).{" "}
-          <strong className="font-medium text-zinc-400">Last month</strong> is the full previous calendar month only. Default is all time.
-        </p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          {PRESET_PILLS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => setDatePreset(p.value)}
-              className={pillClasses(datePreset === p.value)}
-            >
-              {p.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setDatePreset("THIS_MONTH_ALL_YEARS")}
-            className={pillClasses(datePreset === "THIS_MONTH_ALL_YEARS")}
-          >
-            {thisMonthAllYearsLabel}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDatePreset("LAST_MONTH_ALL_YEARS")}
-            className={pillClasses(datePreset === "LAST_MONTH_ALL_YEARS")}
-          >
-            {lastMonthAllYearsLabel}
-          </button>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+            Time range
+          </p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-muted">
+            presets
+          </p>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/20 px-4 py-3 sm:px-5">
-        <Button type="button" variant="ghost" onClick={() => reset()}>
-          Reset filters
-        </Button>
-        {onExport ? (
-          <Button type="button" onClick={onExport} disabled={exportPending}>
-            {exportPending ? "Exporting…" : "Export CSV"}
-          </Button>
-        ) : null}
+        <div className="relative">
+          <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {PRESET_PILLS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setDatePreset(p.value)}
+                className={pillClasses(datePreset === p.value)}
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setDatePreset("THIS_MONTH_ALL_YEARS")}
+              className={pillClasses(datePreset === "THIS_MONTH_ALL_YEARS")}
+            >
+              {thisMonthAllYearsLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDatePreset("LAST_MONTH_ALL_YEARS")}
+              className={pillClasses(datePreset === "LAST_MONTH_ALL_YEARS")}
+            >
+              {lastMonthAllYearsLabel}
+            </button>
+          </div>
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 w-8 opacity-70"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 opacity-70"
+            aria-hidden
+          />
+        </div>
+
+        <p className="max-w-3xl text-xs leading-relaxed text-ink-muted">
+          <strong className="font-medium text-ink">all years</strong> matches that calendar month
+          across every year. <strong className="font-medium text-ink">Last month</strong> is the
+          full previous calendar month only.
+        </p>
       </div>
-    </div>
+    </GlassCard>
   );
 }
 

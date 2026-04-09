@@ -14,8 +14,7 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { err, ok, type Result } from "@/lib/result";
 
-async function assertCategory(id: string | null): Promise<string | null> {
-  if (!id) return null;
+async function assertCategory(id: string): Promise<string | null> {
   const user = await requireUser();
   const row = await db
     .select({ id: categories.id })
@@ -25,8 +24,7 @@ async function assertCategory(id: string | null): Promise<string | null> {
   return row[0] ? null : "Invalid category";
 }
 
-async function assertLocation(id: string | null): Promise<string | null> {
-  if (!id) return null;
+async function assertLocation(id: string): Promise<string | null> {
   const user = await requireUser();
   const row = await db
     .select({ id: locations.id })
@@ -92,8 +90,9 @@ export async function createContactAction(
 
 const ruleSchema = z.object({
   keyword: z.string().trim().min(1).max(80).toLowerCase(),
-  categoryId: z.string().uuid().nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
+  note: z.string().trim().max(500).nullable().optional(),
+  categoryId: z.string().uuid(),
+  locationId: z.string().uuid(),
   contactId: z.string().uuid().nullable().optional(),
 });
 
@@ -102,10 +101,10 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
   const parsed = ruleSchema.safeParse(input);
   if (!parsed.success) return err("Invalid rule");
 
-  const catErr = await assertCategory(parsed.data.categoryId ?? null);
+  const catErr = await assertCategory(parsed.data.categoryId);
   if (catErr) return err(catErr);
 
-  const locErr = await assertLocation(parsed.data.locationId ?? null);
+  const locErr = await assertLocation(parsed.data.locationId);
   if (locErr) return err(locErr);
 
   if (parsed.data.contactId) {
@@ -127,8 +126,9 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
     .values({
       userId: user.id,
       keyword: parsed.data.keyword,
-      categoryId: parsed.data.categoryId ?? null,
-      locationId: parsed.data.locationId ?? null,
+      note: parsed.data.note ?? null,
+      categoryId: parsed.data.categoryId,
+      locationId: parsed.data.locationId,
       contactId: parsed.data.contactId ?? null,
     })
     .returning({ id: rules.id });
@@ -161,10 +161,10 @@ export async function updateRuleAction(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return err("Invalid rule");
 
-  const catErr = await assertCategory(parsed.data.categoryId ?? null);
+  const catErr = await assertCategory(parsed.data.categoryId);
   if (catErr) return err(catErr);
 
-  const locErr = await assertLocation(parsed.data.locationId ?? null);
+  const locErr = await assertLocation(parsed.data.locationId);
   if (locErr) return err(locErr);
 
   if (parsed.data.contactId) {
@@ -185,8 +185,9 @@ export async function updateRuleAction(
     .update(rules)
     .set({
       keyword: parsed.data.keyword,
-      categoryId: parsed.data.categoryId ?? null,
-      locationId: parsed.data.locationId ?? null,
+      note: parsed.data.note ?? null,
+      categoryId: parsed.data.categoryId,
+      locationId: parsed.data.locationId,
       contactId: parsed.data.contactId ?? null,
     })
     .where(and(eq(rules.id, parsed.data.id), eq(rules.userId, user.id)))

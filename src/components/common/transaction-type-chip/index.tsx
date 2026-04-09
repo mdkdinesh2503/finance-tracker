@@ -4,7 +4,7 @@ import { transactionChipClass, transactionTypeLabel } from "@/lib/utilities/tran
 export function TransactionTypeChip({ type }: { type: TransactionType }) {
   return (
     <span
-      className={`inline-flex shrink-0 rounded border px-1 py-px text-[8px] font-semibold uppercase tracking-wide ${transactionChipClass(type)}`}
+      className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${transactionChipClass(type)}`}
     >
       {transactionTypeLabel(type)}
     </span>

@@ -64,7 +64,9 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
   const [newParentName, setNewParentName] = useState("");
   const [newParentType, setNewParentType] = useState<TransactionType>("EXPENSE");
 
-  const [newSubName, setNewSubName] = useState<Record<string, string>>({});
+  const [selectedParentId, setSelectedParentId] = useState<string>(() => tree[0]?.id ?? "");
+  const [newSubParentId, setNewSubParentId] = useState<string>(() => tree[0]?.id ?? "");
+  const [newSubName, setNewSubName] = useState("");
 
   const [editing, setEditing] = useState<{
     id: string;
@@ -97,13 +99,12 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
   function addSub(parentId: string) {
     setErr(null);
     startTransition(async () => {
-      const name = newSubName[parentId] ?? "";
-      const res = await createCategorySubAction(parentId, name);
+      const res = await createCategorySubAction(parentId, newSubName);
       if (!res.ok) {
         setErr(res.error);
         return;
       }
-      setNewSubName((s) => ({ ...s, [parentId]: "" }));
+      setNewSubName("");
       router.refresh();
     });
   }
@@ -149,6 +150,8 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
     }
   }
 
+  const selectedParent = tree.find((p) => p.id === selectedParentId) ?? tree[0] ?? null;
+
   return (
     <>
       <SettingsSection
@@ -193,33 +196,68 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
             </p>
           ) : null}
 
-          <div className="space-y-6">
-            {tree.length === 0 ? (
-              <p className="py-10 text-center text-sm text-zinc-500">No categories yet.</p>
-            ) : (
-              tree.map((p) => (
-                <div key={p.id} className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    {editing?.id === p.id ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Input
-                          value={editing.name}
-                          onChange={(e) =>
-                            setEditing((s) => (s ? { ...s, name: e.target.value } : s))
-                          }
-                          className="w-[min(20rem,70vw)]"
-                          autoFocus
-                        />
-                        <DropdownSelect
-                          value={editing.type ?? p.type}
-                          onChange={(v) =>
-                            setEditing((s) =>
-                              s ? { ...s, type: v as TransactionType } : s,
-                            )
-                          }
-                          options={PARENT_TYPES.map((t) => ({ id: t, name: typeLabel(t) }))}
-                          emptyLabel="Select type"
-                        />
+          {tree.length === 0 ? (
+            <p className="py-10 text-center text-sm text-zinc-500">No categories yet.</p>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
+              <div className="rounded-2xl border border-white/10 bg-white/3 p-4">
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
+                  Parent categories
+                </p>
+                <p className="mt-1 text-xs text-ink-muted">Pick a parent to view its subcategories.</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {tree.map((p) => {
+                    const selected = p.id === (selectedParent?.id ?? "");
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedParentId(p.id);
+                          setNewSubParentId(p.id);
+                        }}
+                        className={`max-w-full rounded-full border px-3 py-1 text-left text-xs font-semibold transition ${
+                          selected
+                            ? "border-primary/35 bg-primary/12 text-ink"
+                            : "border-white/10 bg-white/4 text-ink-muted hover:border-white/16 hover:bg-white/6 hover:text-ink"
+                        }`}
+                        title={`${p.name} · ${typeLabel(p.type)}`}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
+                          {typeLabel(p.type)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  {selectedParent ? (
+                    editing?.id === selectedParent.id ? (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="min-w-[min(16rem,80vw)] flex-1 space-y-1">
+                          <Label>Parent name</Label>
+                          <Input
+                            value={editing.name}
+                            onChange={(e) =>
+                              setEditing((s) => (s ? { ...s, name: e.target.value } : s))
+                            }
+                            autoFocus
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Type</Label>
+                          <DropdownSelect
+                            value={editing.type ?? selectedParent.type}
+                            onChange={(v) =>
+                              setEditing((s) => (s ? { ...s, type: v as TransactionType } : s))
+                            }
+                            options={PARENT_TYPES.map((t) => ({ id: t, name: typeLabel(t) }))}
+                            emptyLabel="Select type"
+                          />
+                        </div>
                         <Button type="button" onClick={saveEdit} disabled={pending}>
                           Save
                         </Button>
@@ -229,92 +267,122 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
                       </div>
                     ) : (
                       <EntityTag
-                        name={`${p.name} · ${typeLabel(p.type)}`}
+                        name={`${selectedParent.name} · ${typeLabel(selectedParent.type)}`}
                         accent="violet"
-                        onEdit={() => startEditParent(p)}
+                        onEdit={() => startEditParent(selectedParent)}
                         onDeleteClick={() =>
                           setDeleteTarget({
-                            id: p.id,
-                            name: p.name,
-                                  usage: p.txAsParentCount ?? 0,
+                            id: selectedParent.id,
+                            name: selectedParent.name,
+                            usage: selectedParent.txAsParentCount ?? 0,
                             kind: "parent",
                           })
                         }
-                              deleteDisabled={(p.txAsParentCount ?? 0) > 0}
+                        deleteDisabled={(selectedParent.txAsParentCount ?? 0) > 0}
                         deleteDisabledTitle="Remove transactions using this category first"
                       />
-                    )}
-                  </div>
-
-                  <div className="ml-2 space-y-2">
-                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                      <div className="space-y-0">
-                        <Label htmlFor={`new-sub-${p.id}`}>New subcategory</Label>
-                        <Input
-                          id={`new-sub-${p.id}`}
-                          value={newSubName[p.id] ?? ""}
-                          onChange={(e) =>
-                            setNewSubName((s) => ({ ...s, [p.id]: e.target.value }))
-                          }
-                          placeholder="e.g. Rent"
-                          autoComplete="off"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={() => addSub(p.id)}
-                        disabled={pending || (newSubName[p.id] ?? "").trim().length === 0}
-                      >
-                        Add sub
-                      </Button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {(p.children ?? []).map((s: CategorySubWithUsage) => (
-                        <Fragment key={s.id}>
-                          {editing?.id === s.id ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Input
-                                value={editing.name}
-                                onChange={(e) =>
-                                  setEditing((st) => (st ? { ...st, name: e.target.value } : st))
-                                }
-                                className="w-[min(18rem,70vw)]"
-                                autoFocus
-                              />
-                              <Button type="button" onClick={saveEdit} disabled={pending}>
-                                Save
-                              </Button>
-                              <Button type="button" variant="ghost" onClick={cancelEdit} disabled={pending}>
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <EntityTag
-                              name={s.name}
-                              badge={s.txCount ? `${s.txCount} tx` : undefined}
-                              accent="violet"
-                              onEdit={() => startEditSub(s)}
-                              onDeleteClick={() =>
-                                setDeleteTarget({
-                                  id: s.id,
-                                  name: s.name,
-                                  usage: s.txCount ?? 0,
-                                  kind: "sub",
-                                })
-                              }
-                              deleteDisabled={(s.txCount ?? 0) > 0}
-                              deleteDisabledTitle="Remove transactions using this subcategory first"
-                            />
-                          )}
-                        </Fragment>
-                      ))}
-                    </div>
-                  </div>
+                    )
+                  ) : null}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/3 p-4">
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
+                  Subcategories
+                </p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Create subcategories under a parent, then use them in Transactions.
+                </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-[220px_1fr_auto] sm:items-end">
+                  <div className="space-y-1">
+                    <Label>Parent</Label>
+                    <DropdownSelect
+                      value={newSubParentId}
+                      onChange={(v) => setNewSubParentId(String(v))}
+                      options={tree.map((p) => ({ id: p.id, name: `${p.name} · ${typeLabel(p.type)}` }))}
+                      emptyLabel="Select parent"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="new-sub-name">Subcategory name</Label>
+                    <Input
+                      id="new-sub-name"
+                      value={newSubName}
+                      onChange={(e) => setNewSubName(e.target.value)}
+                      placeholder="e.g. Rent"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => addSub(newSubParentId)}
+                    disabled={pending || newSubParentId.trim().length === 0 || newSubName.trim().length === 0}
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  {selectedParent ? (
+                    <>
+                      <p className="text-xs text-ink-muted">
+                        Showing subcategories for{" "}
+                        <span className="font-medium text-ink">{selectedParent.name}</span>
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(selectedParent.children ?? []).length === 0 ? (
+                          <p className="py-6 text-sm text-ink-muted">No subcategories yet.</p>
+                        ) : (
+                          (selectedParent.children ?? []).map((s: CategorySubWithUsage) => (
+                            <Fragment key={s.id}>
+                              {editing?.id === s.id ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Input
+                                    value={editing.name}
+                                    onChange={(e) =>
+                                      setEditing((st) => (st ? { ...st, name: e.target.value } : st))
+                                    }
+                                    className="w-[min(18rem,70vw)]"
+                                    autoFocus
+                                  />
+                                  <Button type="button" onClick={saveEdit} disabled={pending}>
+                                    Save
+                                  </Button>
+                                  <Button type="button" variant="ghost" onClick={cancelEdit} disabled={pending}>
+                                    Cancel
+                                  </Button>
+                                </div>
+                              ) : (
+                                <EntityTag
+                                  name={s.name}
+                                  badge={s.txCount ? `${s.txCount} tx` : undefined}
+                                  accent="violet"
+                                  onEdit={() => startEditSub(s)}
+                                  onDeleteClick={() =>
+                                    setDeleteTarget({
+                                      id: s.id,
+                                      name: s.name,
+                                      usage: s.txCount ?? 0,
+                                      kind: "sub",
+                                    })
+                                  }
+                                  deleteDisabled={(s.txCount ?? 0) > 0}
+                                  deleteDisabledTitle="Remove transactions using this subcategory first"
+                                />
+                              )}
+                            </Fragment>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="py-8 text-center text-sm text-ink-muted">Select a parent to view subcategories.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </SettingsSection>
 

@@ -14,7 +14,7 @@ export function TransactionsListSkeleton() {
         </div>
 
         <div className="mt-5 space-y-3 pl-0 sm:pl-11">
-          <div className="overflow-hidden rounded-xl border border-white/12 bg-[color-mix(in_srgb,var(--surface)_88%,transparent)]">
+          <div className="overflow-hidden rounded-2xl border border-white/12 bg-[color-mix(in_srgb,var(--surface)_88%,transparent)]">
             <div className="flex gap-3 p-4 sm:gap-4">
               <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
               <div className="min-w-0 flex-1 space-y-2">
@@ -33,7 +33,7 @@ export function TransactionsListSkeleton() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex gap-2 rounded-lg border border-white/6 bg-white/2 px-3 py-2.5"
+                    className="flex gap-2 rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                   >
                     <Skeleton className="h-4 w-20 shrink-0" />
                     <Skeleton className="h-4 w-14 shrink-0" />

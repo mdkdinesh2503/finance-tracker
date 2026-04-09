@@ -36,6 +36,13 @@
       "when": 1775719243956,
       "tag": "0004_same_random",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775743983744,
+      "tag": "0005_known_blazing_skull",
+      "breakpoints": true
     }
   ]
 }

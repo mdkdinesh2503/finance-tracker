@@ -8,7 +8,7 @@ import {
   formatTransactionTableTime,
 } from "@/lib/utilities/format";
 import { TransactionTypeChip } from "@/components/common/transaction-type-chip";
-import { amountTone } from "@/lib/utilities/transactions/type-ui";
+import { amountTone, transactionRailClass } from "@/lib/utilities/transactions/type-ui";
 
 type MonthGroup = {
   key: string;
@@ -93,7 +93,7 @@ function Chevron({
 }) {
   return (
     <svg
-      className={`h-3.5 w-3.5 text-white transition-transform duration-200 ${expanded ? "rotate-90" : ""} ${className}`}
+      className={`h-3.5 w-3.5 text-ink transition-transform duration-200 ${expanded ? "rotate-90" : ""} ${className}`}
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden
@@ -110,12 +110,13 @@ function categoryLine(r: TransactionRowDTO): string {
   return r.categoryName ?? "—";
 }
 
-function rowTitle(r: TransactionRowDTO): string {
+function rowPrimary(r: TransactionRowDTO): string {
+  return categoryLine(r);
+}
+
+function rowSecondary(r: TransactionRowDTO): string | null {
   const note = r.note?.trim();
-  if (note) return note;
-  if (r.categoryName) return r.categoryName;
-  if (r.parentCategoryName) return r.parentCategoryName;
-  return r.type;
+  return note ? note : null;
 }
 
 function isLoanType(t: TransactionRowDTO["type"]): boolean {
@@ -166,8 +167,11 @@ export function TransactionsAccordion({
 
   if (groups.length === 0) {
     return (
-      <div className="p-10 text-center text-sm text-zinc-500">
-        No transactions for this range.
+      <div className="px-5 py-12 text-center">
+        <p className="text-sm font-medium text-ink">No transactions for this range</p>
+        <p className="mt-1 text-xs text-ink-muted">
+          Try broadening the date range or clearing filters.
+        </p>
       </div>
     );
   }
@@ -180,21 +184,22 @@ export function TransactionsAccordion({
           <section key={yg.year} className="px-4 py-5 sm:px-5">
             <button
               type="button"
-              className="flex w-full items-start gap-3 text-left sm:gap-4"
+              className="group flex w-full items-start gap-3 text-left sm:gap-4"
               onClick={() => toggleYear(yg.year)}
             >
-              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/12 bg-white/3">
+              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-(--border) bg-(--glass-simple-bg) shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                 <Chevron expanded={yearExpanded} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
                   Year
                 </p>
-                <p className="mt-0.5 text-2xl font-semibold tracking-tight text-white">
+                <p className="mt-0.5 text-2xl font-semibold tracking-tight text-ink">
                   {yg.year}
                 </p>
+                <div className="mt-2 h-px w-full bg-linear-to-r from-primary/35 via-(--border) to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               </div>
-              <div className="shrink-0 rounded-full border border-white/12 bg-white/3 px-4 py-2 text-xs font-medium text-white/80">
+              <div className="shrink-0 rounded-full border border-(--border) bg-(--glass-simple-bg) px-4 py-2 text-xs font-medium text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                 {yg.transactionCount} tx
               </div>
             </button>
@@ -206,54 +211,76 @@ export function TransactionsAccordion({
                   return (
                     <div
                       key={mg.key}
-                      className="overflow-hidden rounded-xl border border-white/12 bg-[color-mix(in_srgb,var(--surface)_88%,transparent)]"
+                      className="overflow-hidden rounded-2xl border border-(--border) bg-[color-mix(in_srgb,var(--surface)_88%,transparent)]"
                     >
+                      <div
+                        className="h-0.5 bg-linear-to-r from-primary/70 via-primary/25 to-transparent"
+                        aria-hidden
+                      />
                       <button
                         type="button"
-                        className="flex w-full items-start gap-3 p-4 text-left sm:gap-4"
+                        className="group relative flex w-full items-start gap-3 p-4 text-left sm:items-center sm:gap-4"
                         onClick={() => toggleMonth(mg.key)}
                       >
-                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/12 bg-white/3">
-                          <Chevron expanded={monthExpanded} className="h-3.5 w-3.5" />
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-linear-to-br from-primary/14 to-transparent text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:mt-0">
+                          <Chevron expanded={monthExpanded} className="h-4 w-4" />
                         </div>
+
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">
+                          <p className="text-base font-semibold tracking-tight text-ink sm:text-lg">
                             {mg.monthLabel}
                           </p>
-                          <p className="mt-0.5 text-xs text-zinc-500">
-                            {mg.rows.length} tx · expense{" "}
-                            <span className="font-medium text-zinc-300">
-                              {formatCurrency(mg.expenseOut)}
-                            </span>
+                          <p className="mt-1 text-xs text-ink-muted">
+                            {mg.rows.length} transactions
                           </p>
                         </div>
-                        <div className="shrink-0 self-center rounded-full border border-white/12 bg-white/3 px-3 py-2 text-xs font-medium text-white/80">
+
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border border-rose-500/25 bg-rose-500/10 px-3 py-1 sm:flex">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200/90">
+                            Expense
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums tracking-tight text-rose-200">
+                            {formatCurrency(mg.expenseOut)}
+                          </span>
+                        </div>
+
+                        <div className="shrink-0 self-center rounded-full border border-(--border) bg-(--glass-simple-bg) px-3 py-2 text-xs font-semibold text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors group-hover:border-primary/25 group-hover:bg-primary/8 group-hover:text-ink">
                           {monthExpanded ? "Hide" : "Show"}
                         </div>
                       </button>
 
                       {monthExpanded ? (
-                        <div className="border-t border-white/10 bg-black/20 px-2 py-3">
-                          <div className="mb-2 hidden gap-2 border-b border-white/10 pb-2 sm:grid sm:grid-cols-7">
-                            {[
-                              "Date",
-                              "Time",
-                              "Type",
-                              "Title",
-                              "Category",
-                              "Amount",
-                              "Location / Contact",
-                            ].map((h) => (
-                              <div
-                                key={h}
-                                className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500"
-                              >
-                                {h}
+                        <div className="border-t border-(--border) bg-black/20 px-4 py-3 sm:px-5">
+                          <div
+                            className={`${
+                              mg.rows.length > 10
+                                ? "max-h-[700px] overflow-y-auto overscroll-contain"
+                                : ""
+                            }`}
+                          >
+                            <div className="sticky top-0 z-10 hidden bg-black/55 backdrop-blur-md sm:block">
+                              <div className="grid gap-2 border-b border-(--border) px-4 py-2 sm:grid-cols-[140px_90px_110px_minmax(260px,1fr)_140px_minmax(180px,1fr)] sm:pl-6">
+                                {[
+                                  "Date",
+                                  "Time",
+                                  "Type",
+                                  "Category",
+                                  "Amount",
+                                  "Location / Contact",
+                                ].map((h) => (
+                                  <div
+                                    key={h}
+                                    className={`text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted ${
+                                      h === "Amount" ? "text-center" : ""
+                                    }`}
+                                  >
+                                    {h}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </div>
 
-                          <div className="space-y-2">
+                            <div className="divide-y divide-(--border)">
                             {mg.rows.map((r) => {
                               const loan = isLoanType(r.type);
                               const contactLabel = r.contactName?.trim() || "—";
@@ -265,51 +292,69 @@ export function TransactionsAccordion({
                               return (
                                 <div
                                   key={r.id}
-                                  className="grid grid-cols-1 gap-2 rounded-lg border border-white/6 bg-white/2 px-3 py-2.5 sm:grid-cols-7 sm:items-center"
+                                  className="group/row relative"
                                 >
-                                  <div className="text-xs text-zinc-400">
-                                    {formatTransactionTableDate(r.transactionDate)}
-                                  </div>
-                                  <div className="text-xs text-zinc-500">
-                                    {formatTransactionTableTime(r.transactionTime)}
-                                  </div>
-                                  <div>
-                                    <TransactionTypeChip type={r.type} />
-                                  </div>
-                                  <div className="min-w-0 truncate text-sm font-medium text-white/90">
-                                    {rowTitle(r)}
-                                  </div>
-                                  <div className="min-w-0 truncate text-xs text-zinc-400">
-                                    {categoryLine(r)}
-                                  </div>
                                   <div
-                                    className={`text-sm font-semibold tabular-nums ${amountTone(r.type)}`}
-                                  >
-                                    {formatCurrency(Number(r.amount))}
-                                  </div>
-                                  <div className="min-w-0 truncate text-xs text-zinc-500">
-                                    {loan ? (
-                                      <>
-                                        {contactLabel}
-                                        {showsSettledBadge(r.type) ? (
-                                          <span
-                                            className={`ml-2 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                                              unsettledLoan
-                                                ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-                                                : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                                            }`}
-                                          >
-                                            {unsettledLoan ? "Unsettled" : "Settled"}
-                                          </span>
+                                    className={`pointer-events-none absolute inset-y-3 left-3 w-0.5 rounded-full bg-linear-to-b ${transactionRailClass(r.type)} opacity-85`}
+                                    aria-hidden
+                                  />
+                                  <div className="relative grid grid-cols-1 gap-2 px-4 py-3 transition-colors duration-200 group-hover/row:bg-white/3 sm:grid-cols-[140px_90px_110px_minmax(260px,1fr)_140px_minmax(180px,1fr)] sm:items-center sm:pl-6">
+                                    <div className="flex items-center justify-between gap-3 sm:contents">
+                                      <div className="text-xs text-ink-muted whitespace-nowrap">
+                                        {formatTransactionTableDate(r.transactionDate)}
+                                      </div>
+                                      <div className="text-xs text-(--ink-muted-2) whitespace-nowrap">
+                                        {formatTransactionTableTime(r.transactionTime)}
+                                      </div>
+                                      <div className="shrink-0">
+                                        <TransactionTypeChip type={r.type} />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="min-w-0 truncate text-sm font-semibold tracking-tight text-ink">
+                                          {rowPrimary(r)}
+                                        </p>
+                                        {rowSecondary(r) ? (
+                                          <p className="mt-0.5 min-w-0 truncate text-xs text-ink-muted">
+                                            {rowSecondary(r)}
+                                          </p>
                                         ) : null}
-                                      </>
-                                    ) : (
-                                      locationLabel
-                                    )}
+                                      </div>
+                                      <div
+                                        className={`hidden text-center text-base font-semibold tabular-nums tracking-tight sm:block ${amountTone(r.type)}`}
+                                      >
+                                        {formatCurrency(Number(r.amount))}
+                                      </div>
+                                      <div className="min-w-0 truncate text-xs text-(--ink-muted-2)">
+                                        {loan ? (
+                                          <>
+                                            {contactLabel}
+                                            {showsSettledBadge(r.type) ? (
+                                              <span
+                                                className={`ml-2 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                                                  unsettledLoan
+                                                    ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                                                    : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                                                }`}
+                                              >
+                                                {unsettledLoan ? "Unsettled" : "Settled"}
+                                              </span>
+                                            ) : null}
+                                          </>
+                                        ) : (
+                                          locationLabel
+                                        )}
+                                      </div>
+                                      <div
+                                        className={`shrink-0 text-base font-semibold tabular-nums tracking-tight ${amountTone(r.type)} sm:hidden`}
+                                      >
+                                        {formatCurrency(Number(r.amount))}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                         </div>
                       ) : null}
