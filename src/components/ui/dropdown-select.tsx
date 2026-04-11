@@ -10,6 +10,11 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  ScrollNudgeDown,
+  ScrollNudgeUp,
+  useScrollAreaArrows,
+} from "@/components/ui/scroll-column-arrows";
 
 export type DropdownOption = { id: string; name: string };
 
@@ -73,11 +78,19 @@ export function DropdownSelect({
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuShellRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   const rows: { id: string | null; name: string }[] = includeEmptyOption
     ? [{ id: null, name: emptyLabel }, ...options.map((o) => ({ id: o.id, name: o.name }))]
     : options.map((o) => ({ id: o.id, name: o.name }));
+
+  const scrollEdges = useScrollAreaArrows(
+    listRef,
+    mounted && open && !!menuFixed && !disabled,
+    44,
+    [rows.length],
+  );
 
   const idx = rows.findIndex((r) => r.id === value);
   const selectedIndex = idx >= 0 ? idx : 0;
@@ -88,9 +101,9 @@ export function DropdownSelect({
   const placeMenu = useCallback(() => {
     if (!open || !buttonRef.current) return;
     const btn = buttonRef.current.getBoundingClientRect();
-    const list = listRef.current;
+    const measureEl = menuShellRef.current ?? listRef.current;
     /** Provisional “open below” so the list mounts and we can measure height. */
-    if (!list) {
+    if (!measureEl) {
       const nextPos = {
         top: btn.bottom + GAP,
         left: btn.left,
@@ -107,7 +120,7 @@ export function DropdownSelect({
       return;
     }
 
-    const lh = list.getBoundingClientRect().height;
+    const lh = measureEl.getBoundingClientRect().height;
     let top = btn.bottom + GAP;
 
     const next = wrapRef.current?.nextElementSibling;
@@ -180,7 +193,7 @@ export function DropdownSelect({
     function onDoc(e: MouseEvent) {
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
-      if (listRef.current?.contains(t)) return;
+      if (menuShellRef.current?.contains(t)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
@@ -233,47 +246,55 @@ export function DropdownSelect({
 
   const menu =
     mounted && open && menuFixed && !disabled ? (
-      <ul
-        ref={listRef}
-        id={listId}
-        role="listbox"
-        tabIndex={0}
-        onKeyDown={onListKeyDown}
-        className="glass-dropdown-panel fixed z-10000 max-h-60 overflow-auto py-1 outline-none"
+      <div
+        ref={menuShellRef}
+        className="glass-dropdown-panel fixed z-10000 flex max-h-60 flex-col overflow-hidden py-0 outline-none"
         style={{
           top: menuFixed.top,
           left: menuFixed.left,
           width: menuFixed.width,
+          backgroundColor: "var(--dropdown-panel-bg)",
         }}
       >
-        {rows.map((row, i) => {
-          const isValue = row.id === value;
-          const isHi = i === highlight;
-          const optClass = [
-            "glass-dropdown-option cursor-pointer px-3 py-2.5 text-sm transition-[background-color,color] duration-150",
-            isValue
-              ? "glass-dropdown-option--selected"
-              : isHi
-                ? "glass-dropdown-option--hover"
-                : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <li
-              key={row.id ?? "__empty__"}
-              role="option"
-              aria-selected={isValue}
-              className={optClass}
-              onMouseEnter={() => setHighlight(i)}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick(row.id)}
-            >
-              {row.name}
-            </li>
-          );
-        })}
-      </ul>
+        <ScrollNudgeUp edges={scrollEdges} />
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          tabIndex={0}
+          onKeyDown={onListKeyDown}
+          className="min-h-0 flex-1 overflow-y-auto py-1 outline-none scrollbar-hide"
+        >
+          {rows.map((row, i) => {
+            const isValue = row.id === value;
+            const isHi = i === highlight;
+            const optClass = [
+              "glass-dropdown-option cursor-pointer px-3 py-2.5 text-sm transition-[background-color,color] duration-150",
+              isValue
+                ? "glass-dropdown-option--selected"
+                : isHi
+                  ? "glass-dropdown-option--hover"
+                  : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <li
+                key={row.id ?? "__empty__"}
+                role="option"
+                aria-selected={isValue}
+                className={optClass}
+                onMouseEnter={() => setHighlight(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(row.id)}
+              >
+                {row.name}
+              </li>
+            );
+          })}
+        </ul>
+        <ScrollNudgeDown edges={scrollEdges} />
+      </div>
     ) : null;
 
   return (

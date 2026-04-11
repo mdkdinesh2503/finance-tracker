@@ -81,7 +81,7 @@ export function LocationsLookupForm({ locations: initial }: { locations: Locatio
       <SettingsSection
         eyebrow="Shared lookups"
         title="Location tags"
-        description="Add places you frequently spend at. Delete only when no transactions reference them."
+        description=""
         headerGradient="bg-linear-to-br from-cyan-500/10 via-transparent to-transparent"
         icon={
           <svg

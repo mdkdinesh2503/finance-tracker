@@ -267,7 +267,7 @@ export function QuickEntryRulesForm({
     <SettingsSection
       eyebrow="Quick entry"
       title="Quick-entry rules"
-      description="Type a phrase in Add transaction — we match your keyword and fill category, location, contact, and note automatically."
+      description=""
       headerGradient="bg-linear-to-br from-sky-500/12 via-transparent to-cyan-500/8"
       icon={
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.65}>
@@ -297,7 +297,6 @@ export function QuickEntryRulesForm({
                 </span>
                 <div>
                   <FieldLabel>Trigger keyword</FieldLabel>
-                  <p className="mt-0.5 text-xs text-ink-muted">What you type after an amount (or alone) in quick entry.</p>
                 </div>
               </div>
               <Input
@@ -327,7 +326,6 @@ export function QuickEntryRulesForm({
                 </span>
                 <div>
                   <FieldLabel>Apply when matched</FieldLabel>
-                  <p className="mt-0.5 text-xs text-ink-muted">Category pipeline, then place and person.</p>
                 </div>
               </div>
 

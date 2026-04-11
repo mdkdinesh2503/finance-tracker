@@ -10,6 +10,10 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  ScrollColumnArrows,
+  scrollElementIntoViewport,
+} from "@/components/ui/scroll-column-arrows";
 import { computeAnchoredTop } from "@/lib/utilities/popover-placement";
 
 const HOURS_12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
@@ -154,12 +158,8 @@ export function TimePickerField({
   useEffect(() => {
     if (!open) return;
     requestAnimationFrame(() => {
-      hourColRef.current
-        ?.querySelector<HTMLElement>(`[data-hour="${h12}"]`)
-        ?.scrollIntoView({ block: "center" });
-      minColRef.current
-        ?.querySelector<HTMLElement>(`[data-minute="${m}"]`)
-        ?.scrollIntoView({ block: "center" });
+      scrollElementIntoViewport(hourColRef.current, `[data-hour="${h12}"]`);
+      scrollElementIntoViewport(minColRef.current, `[data-minute="${m}"]`);
     });
   }, [open, h12, m]);
 
@@ -214,9 +214,10 @@ export function TimePickerField({
             <span className="mb-1.5 text-center text-[0.6rem] font-bold uppercase tracking-wider text-zinc-500">
               Hour
             </span>
-            <div
+            <ScrollColumnArrows
               ref={hourColRef}
-              className="max-h-52 overflow-y-auto rounded-lg border border-white/10 scrollbar-hide"
+              className="rounded-lg border border-white/10"
+              enabled={open}
             >
               {HOURS_12.map((h) => (
                 <button
@@ -230,15 +231,16 @@ export function TimePickerField({
                   {String(h).padStart(2, "0")}
                 </button>
               ))}
-            </div>
+            </ScrollColumnArrows>
           </div>
           <div className="flex w-11 shrink-0 flex-col">
             <span className="mb-1.5 text-center text-[0.6rem] font-bold uppercase tracking-wider text-zinc-500">
               Min
             </span>
-            <div
+            <ScrollColumnArrows
               ref={minColRef}
-              className="max-h-52 overflow-y-auto rounded-lg border border-white/10 scrollbar-hide"
+              className="rounded-lg border border-white/10"
+              enabled={open}
             >
               {minutes.map((min) => (
                 <button
@@ -252,7 +254,7 @@ export function TimePickerField({
                   {String(min).padStart(2, "0")}
                 </button>
               ))}
-            </div>
+            </ScrollColumnArrows>
           </div>
           <div className="flex w-14 shrink-0 flex-col">
             <span className="mb-1.5 text-center text-[0.6rem] font-bold uppercase tracking-wider text-zinc-500">

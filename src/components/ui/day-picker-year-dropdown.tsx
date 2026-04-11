@@ -10,6 +10,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { UI, type DropdownProps } from "react-day-picker";
+import {
+  ScrollNudgeDown,
+  ScrollNudgeUp,
+  useScrollAreaArrows,
+} from "@/components/ui/scroll-column-arrows";
 import { computeAnchoredTop } from "@/lib/utilities/popover-placement";
 
 function emitSelectChange(
@@ -42,8 +47,10 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
 
   const selected = options.find((o) => o.value === value);
   const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
+  const menuShellRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
   const [menuFixed, setMenuFixed] = useState<{
@@ -51,8 +58,20 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
     left: number;
     width: number;
   } | null>(null);
+  const scrollEdges = useScrollAreaArrows(
+    listRef,
+    open && mounted && !!menuFixed,
+    44,
+    [options.length],
+  );
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const idx = options.findIndex((o) => o.value === value);
+    setHighlight(idx >= 0 ? idx : 0);
+  }, [open, value, options.length]);
 
   const GAP = 4;
 
@@ -67,11 +86,11 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
       left = Math.max(pad, window.innerWidth - w - pad);
     }
 
-    const list = listRef.current;
-    const top = list
+    const measureEl = menuShellRef.current ?? listRef.current;
+    const top = measureEl
       ? computeAnchoredTop({
           triggerRect: r,
-          panelHeight: list.getBoundingClientRect().height,
+          panelHeight: measureEl.getBoundingClientRect().height,
           anchorRoot: rootRef.current,
           checkNextSibling: false,
           gap: GAP,
@@ -113,7 +132,7 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node;
       if (rootRef.current?.contains(t)) return;
-      if (listRef.current?.contains(t)) return;
+      if (menuShellRef.current?.contains(t)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDocMouseDown);
@@ -137,12 +156,10 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
 
   const menu =
     mounted && open && menuFixed ? (
-      <ul
-        id={listId}
+      <div
+        ref={menuShellRef}
         data-expense-rdp-nav-menu
-        role="listbox"
-        tabIndex={-1}
-        className="glass-dropdown-panel fixed z-10000 max-h-52 overflow-y-auto py-1 shadow-(--shadow-lift) outline-none scrollbar-hide"
+        className="glass-dropdown-panel fixed z-10000 flex max-h-52 flex-col overflow-hidden shadow-(--shadow-lift) outline-none"
         style={{
           top: menuFixed.top,
           left: menuFixed.left,
@@ -150,33 +167,49 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
           backgroundColor: "var(--dropdown-panel-bg)",
         }}
       >
-        {options.map((opt) => {
-          const isSel = opt.value === value;
-          const optClass = [
-            "glass-dropdown-option cursor-pointer px-3 py-2.5 text-sm transition-[background-color,color] duration-150",
-            isSel
-              ? "glass-dropdown-option--selected"
-              : "hover:bg-white/[0.07]",
-          ].join(" ");
-          return (
-            <li
-              key={opt.value}
-              role="option"
-              aria-selected={isSel}
-              aria-disabled={opt.disabled}
-              className={optClass}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                if (opt.disabled) return;
-                emitSelectChange(onChange, opt.value);
-                setOpen(false);
-              }}
-            >
-              {opt.label}
-            </li>
-          );
-        })}
-      </ul>
+        <ScrollNudgeUp edges={scrollEdges} />
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto py-1 outline-none scrollbar-hide"
+        >
+          {options.map((opt, i) => {
+            const isSel = opt.value === value;
+            const isHi = i === highlight;
+            const optClass = [
+              "glass-dropdown-option cursor-pointer px-3 py-2.5 text-sm transition-[background-color,color] duration-150",
+              isSel
+                ? "glass-dropdown-option--selected"
+                : isHi
+                  ? "glass-dropdown-option--hover"
+                  : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <li
+                key={opt.value}
+                role="option"
+                aria-selected={isSel}
+                aria-disabled={opt.disabled}
+                className={optClass}
+                onMouseEnter={() => setHighlight(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  if (opt.disabled) return;
+                  emitSelectChange(onChange, opt.value);
+                  setOpen(false);
+                }}
+              >
+                {opt.label}
+              </li>
+            );
+          })}
+        </ul>
+        <ScrollNudgeDown edges={scrollEdges} />
+      </div>
     ) : null;
 
   return (

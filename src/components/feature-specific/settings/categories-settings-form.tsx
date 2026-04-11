@@ -160,7 +160,7 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
       <SettingsSection
         eyebrow="Reference data"
         title="Categories"
-        description="Parents are transaction types. Subcategories are selectable and appear in Transactions."
+        description=""
         headerGradient="bg-linear-to-br from-violet-500/10 via-transparent to-transparent"
         icon={
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
@@ -170,10 +170,8 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
       >
         <div className="space-y-5">
           <div className="rounded-2xl border border-white/10 bg-white/3 p-4">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">Create</p>
-            <p className="mt-1 text-xs text-ink-muted">Add a parent first, then add subcategories under it.</p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_14rem_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-[1fr_14rem_auto] sm:items-end">
               <div className="space-y-0">
                 <Label htmlFor="new-parent-name">New parent category</Label>
                 <Input
@@ -215,7 +213,6 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
                 <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
                   Parent categories
                 </p>
-                <p className="mt-1 text-xs text-ink-muted">Pick a parent to view its subcategories.</p>
 
                 <div className="mt-4">
                   {selectedParent ? (
@@ -386,67 +383,70 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
                   ) : null}
                 </div>
 
-                <div className="mt-4 grid gap-2">
-                  {[...tree]
-                    .sort((a, b) => {
-                      const aUsed = (a.txAsParentCount ?? 0) > 0;
-                      const bUsed = (b.txAsParentCount ?? 0) > 0;
-                      if (aUsed !== bUsed) return aUsed ? -1 : 1;
-                      return a.name.localeCompare(b.name);
-                    })
-                    .map((p) => {
-                      const selected = p.id === (selectedParent?.id ?? "");
-                      const used = (p.txAsParentCount ?? 0) > 0;
-                      const badge = used ? `${p.txAsParentCount} tx` : null;
+                <div
+                  className="mt-4 max-h-[min(55vh,27rem)] overflow-y-auto overscroll-contain rounded-xl border border-white/8 bg-black/15 py-1 pl-1 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:max-h-[min(62vh,33rem)]"
+                  role="region"
+                  aria-label="Parent category list"
+                >
+                  <div className="grid gap-2 pb-1">
+                    {[...tree]
+                      .sort((a, b) => {
+                        const aUsed = (a.txAsParentCount ?? 0) > 0;
+                        const bUsed = (b.txAsParentCount ?? 0) > 0;
+                        if (aUsed !== bUsed) return aUsed ? -1 : 1;
+                        return a.name.localeCompare(b.name);
+                      })
+                      .map((p) => {
+                        const selected = p.id === (selectedParent?.id ?? "");
+                        const used = (p.txAsParentCount ?? 0) > 0;
+                        const badge = used ? `${p.txAsParentCount} tx` : null;
 
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedParentId(p.id);
-                            setNewSubParentId(p.id);
-                          }}
-                          className={`group relative flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left shadow-[0_14px_44px_-28px_rgba(0,0,0,0.9)] transition ${
-                            selected
-                              ? "border-primary/35 bg-primary/12 ring-1 ring-primary/20"
-                              : used
-                                ? "border-violet-400/20 bg-violet-500/5 ring-1 ring-violet-400/10 hover:border-violet-400/28"
-                                : "border-white/10 bg-white/2 hover:border-white/14 hover:bg-white/3"
-                          }`}
-                          title={`${p.name} · ${typeLabel(p.type)}`}
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-[15px] font-semibold text-ink">{p.name}</p>
-                            <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted/90">
-                              {typeLabel(p.type)}
-                            </p>
-                          </div>
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedParentId(p.id);
+                              setNewSubParentId(p.id);
+                            }}
+                            className={`group relative flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left shadow-[0_14px_44px_-28px_rgba(0,0,0,0.9)] transition ${
+                              selected
+                                ? "border-primary/35 bg-primary/12 ring-1 ring-primary/20"
+                                : used
+                                  ? "border-violet-400/20 bg-violet-500/5 ring-1 ring-violet-400/10 hover:border-violet-400/28"
+                                  : "border-white/10 bg-white/2 hover:border-white/14 hover:bg-white/3"
+                            }`}
+                            title={`${p.name} · ${typeLabel(p.type)}`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-[15px] font-semibold text-ink">{p.name}</p>
+                              <p className="mt-0.5 truncate text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted/90">
+                                {typeLabel(p.type)}
+                              </p>
+                            </div>
 
-                          <div className="flex shrink-0 items-center gap-2">
-                            {badge ? (
-                              <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-ink-muted">
-                                {badge}
-                              </span>
-                            ) : null}
-                            {selected ? (
-                              <span className="rounded-lg border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary/90">
-                                Selected
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })}
+                            <div className="flex shrink-0 items-center gap-2">
+                              {badge ? (
+                                <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-ink-muted">
+                                  {badge}
+                                </span>
+                              ) : null}
+                              {selected ? (
+                                <span className="rounded-lg border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary/90">
+                                  Selected
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/3 p-4">
                 <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
                   Subcategories
-                </p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  Create subcategories under a parent, then use them in Transactions.
                 </p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-[220px_1fr_auto] sm:items-end">
@@ -460,7 +460,8 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
                         setSelectedParentId(id);
                       }}
                       options={tree.map((p) => ({ id: p.id, name: `${p.name} · ${typeLabel(p.type)}` }))}
-                      emptyLabel="Select parent"
+                      emptyLabel=""
+                      includeEmptyOption={false}
                     />
                   </div>
                   <div className="space-y-1">
@@ -484,13 +485,16 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
 
                 <div className="mt-5 border-t border-white/10 pt-4">
                   {selectedParent ? (
-                    <>
-                      <div>
-                        {(selectedParent.children ?? []).length === 0 ? (
-                          <p className="py-6 text-sm text-ink-muted">No subcategories yet.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {[...(selectedParent.children ?? [])]
+                    (selectedParent.children ?? []).length === 0 ? (
+                      <p className="py-6 text-sm text-ink-muted">No subcategories yet.</p>
+                    ) : (
+                      <div
+                        className="max-h-[min(55vh,27rem)] overflow-y-auto overscroll-contain rounded-xl border border-white/8 bg-black/15 py-1 pl-1 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:max-h-[min(62vh,33rem)]"
+                        role="region"
+                        aria-label="Subcategory list"
+                      >
+                        <div className="space-y-2 pb-1">
+                          {[...(selectedParent.children ?? [])]
                               .sort((a, b) => {
                                 const aUsed = (a.txCount ?? 0) > 0;
                                 const bUsed = (b.txCount ?? 0) > 0;
@@ -673,10 +677,9 @@ export function CategoriesSettingsForm({ tree }: { tree: CategoryParentWithSubs[
                                   </div>
                                 );
                               })}
-                          </div>
-                        )}
+                        </div>
                       </div>
-                    </>
+                    )
                   ) : (
                     <p className="py-8 text-center text-sm text-ink-muted">Select a parent to view subcategories.</p>
                   )}

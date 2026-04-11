@@ -82,7 +82,7 @@ export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] 
       <SettingsSection
         eyebrow="Contacts loans"
         title="People you track"
-        description="Add names you borrow from or lend to. Delete only when no loan transactions reference them."
+        description=""
         headerGradient="bg-linear-to-br from-amber-500/10 via-transparent to-transparent"
         icon={
           <svg

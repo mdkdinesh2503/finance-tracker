@@ -11,6 +11,7 @@ const links = [
   { href: "/analytics", label: "Analytics" },
   { href: "/analytics/lending", label: "Lending" },
   { href: "/analytics/income", label: "Income" },
+  { href: "/analytics/investments", label: "Invest" },
   { href: "/settings", label: "Settings" },
 ];
 

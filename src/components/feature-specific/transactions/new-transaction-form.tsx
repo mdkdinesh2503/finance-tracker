@@ -39,6 +39,13 @@ function defaultTime(): string {
   return `${h}:${m}`;
 }
 
+function firstParentCategoryId(categories: CategoryOption[]): string {
+  const parents = categories
+    .filter((c) => !c.isSelectable)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return parents[0]?.id ?? "";
+}
+
 function SectionLabel({
   step,
   title,
@@ -97,7 +104,9 @@ export function NewTransactionForm({
   const [qePending, startQeTransition] = useTransition();
 
   const initialLeaf = suggestions.categoryId ?? "";
-  const initialParent = parentIdForLeaf(categories, initialLeaf);
+  const initialParent =
+    parentIdForLeaf(categories, initialLeaf) || firstParentCategoryId(categories);
+  const initialLocationId = suggestions.locationId ?? locations[0]?.id ?? "";
 
   const [amount, setAmount] = useState(suggestions.amount ?? "");
   const [parentCategoryId, setParentCategoryId] = useState(initialParent);
@@ -105,7 +114,7 @@ export function NewTransactionForm({
   const [txType, setTxType] = useState<TransactionType | "">(
     () => (initialLeaf && categories.find((c) => c.id === initialLeaf)?.type) || "",
   );
-  const [locationId, setLocationId] = useState(suggestions.locationId ?? "");
+  const [locationId, setLocationId] = useState(initialLocationId);
   const [note, setNote] = useState("");
   const [contactId, setContactId] = useState("");
   const [quickText, setQuickText] = useState("");
@@ -221,7 +230,7 @@ export function NewTransactionForm({
       setCategoryId(leaf);
       setParentCategoryId(parentIdForLeaf(categories, leaf));
       setTxType((leaf && categories.find((c) => c.id === leaf)?.type) || "");
-      setLocationId(res.data.locationId ?? "");
+      setLocationId(res.data.locationId ?? locations[0]?.id ?? "");
       setAmount(res.data.amount ?? "");
     });
   }
@@ -349,6 +358,7 @@ export function NewTransactionForm({
                   onChange={(v) => setLocationId(v ?? "")}
                   options={locationOptions}
                   emptyLabel="—"
+                  includeEmptyOption={locationOptions.length === 0}
                   aria-invalid={!!errors.location}
                 />
                 {errors.location ? <p className="text-xs text-rose-400">{errors.location}</p> : null}

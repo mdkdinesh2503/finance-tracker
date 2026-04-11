@@ -62,6 +62,7 @@ export async function createTransactionAction(input: CreateTransactionInput) {
     revalidatePath("/analytics");
     revalidatePath("/analytics/lending");
     revalidatePath("/analytics/income");
+    revalidatePath("/analytics/investments");
   }
   return result;
 }
@@ -399,6 +400,7 @@ export async function createTransactionDirectAction(
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/investments");
   return ok({ id: row.id });
 }
 
@@ -421,6 +423,7 @@ export async function deleteTransactionDirectAction(
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/investments");
   return ok(null);
 }
 

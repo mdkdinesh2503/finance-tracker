@@ -161,7 +161,7 @@ export function DatePickerField({
   const triggerRing =
     ariaInvalid === true
       ? "border-rose-500/50 ring-2 ring-rose-500/20"
-      : "border-[var(--border)] focus:border-primary/50 focus:ring-2 focus:ring-primary/20";
+      : "border-(--border) focus:border-primary/50 focus:ring-2 focus:ring-primary/20";
 
   const panel =
     open && mounted ? (
@@ -214,7 +214,8 @@ export function DatePickerField({
               "rdp-weekday text-[0.65rem] font-semibold uppercase tracking-wider text-zinc-500",
             week: "rdp-week",
             day: "rdp-day",
-            day_button: "rdp-day_button text-sm",
+            day_button:
+              "rdp-day_button text-sm transition-[background-color,color,box-shadow] duration-150",
           }}
         />
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
@@ -259,10 +260,9 @@ export function DatePickerField({
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         onClick={() => !disabled && setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-(--surface)/50 px-3 py-2.5 text-left text-sm backdrop-blur-md outline-none transition ${triggerRing} ${
-          disabled
-            ? "cursor-not-allowed opacity-50"
-            : "cursor-pointer hover:border-white/18"
+        data-state={open ? "open" : "closed"}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-surface px-3 py-2.5 text-left text-sm font-medium text-ink outline-none transition data-[state=open]:border-primary/40 ${triggerRing} ${
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
         }`}
       >
         <span

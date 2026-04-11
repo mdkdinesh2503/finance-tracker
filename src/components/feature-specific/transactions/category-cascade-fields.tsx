@@ -58,7 +58,8 @@ export function CategoryCascadeFields({
             value={parentId || null}
             onChange={(id) => onParentChange(id ?? "")}
             options={parentOptions}
-            emptyLabel="Choose a group"
+            emptyLabel="—"
+            includeEmptyOption={parentOptions.length === 0}
             disabled={disabled}
             aria-invalid={!!error}
           />

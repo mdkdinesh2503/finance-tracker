@@ -18,6 +18,7 @@ function revalidateCategoryPaths() {
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/investments");
   revalidatePath("/dashboard");
 }
 
