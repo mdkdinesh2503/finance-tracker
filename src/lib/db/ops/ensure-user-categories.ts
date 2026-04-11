@@ -9,8 +9,23 @@ import type { TransactionType } from "../schema";
 /**
  * UUID for seeded default admin (`users.id`) and system category template
  * (`categories.user_id`). Env: `SEED_ADMIN_USER_ID`. Legacy: `DEFAULT_SEED_ADMIN_USER_ID`, `SEED_USER_ID`.
+ *
+ * When unset, runtime bootstrap uses the static tree in `CATEGORY_SEED_WITH_CHILDREN` instead of cloning
+ * from a template user (so production works without this env). CLI `db:seed` still requires {@link seedUserId}.
  */
+export function resolveSeedUserId(): string | null {
+  const raw =
+    process.env.SEED_ADMIN_USER_ID?.trim() ||
+    process.env.DEFAULT_SEED_ADMIN_USER_ID?.trim() ||
+    process.env.SEED_USER_ID?.trim();
+  if (!raw) return null;
+  const parsed = z.string().uuid().safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
 export function seedUserId(): string {
+  const id = resolveSeedUserId();
+  if (id) return id;
   const raw =
     process.env.SEED_ADMIN_USER_ID?.trim() ||
     process.env.DEFAULT_SEED_ADMIN_USER_ID?.trim() ||
@@ -20,13 +35,9 @@ export function seedUserId(): string {
       "Set SEED_ADMIN_USER_ID to a UUID (seeded admin id and category template owner).",
     );
   }
-  const parsed = z.string().uuid().safeParse(raw);
-  if (!parsed.success) {
-    throw new Error(
-      `SEED_ADMIN_USER_ID must be a valid UUID, got: ${JSON.stringify(raw)}`,
-    );
-  }
-  return parsed.data;
+  throw new Error(
+    `SEED_ADMIN_USER_ID must be a valid UUID, got: ${JSON.stringify(raw)}`,
+  );
 }
 
 // --- Category tree (template seed + idempotent child sync) -----------------
@@ -212,6 +223,43 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
 
 type Db = PostgresJsDatabase<typeof schema>;
 
+type CategoryTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/** Inserts the full default category tree for `userId` (same shape as CLI system seed). */
+export async function insertCategorySeedTreeForUserTx(
+  tx: CategoryTx,
+  userId: string,
+): Promise<void> {
+  for (let i = 0; i < CATEGORY_SEED_WITH_CHILDREN.length; i++) {
+    const p = CATEGORY_SEED_WITH_CHILDREN[i]!;
+    const [parent] = await tx
+      .insert(categories)
+      .values({
+        userId,
+        name: p.name,
+        parentId: null,
+        type: p.type,
+        isSelectable: false,
+        sortOrder: i,
+      })
+      .returning({ id: categories.id });
+    if (!parent) continue;
+
+    if (p.children.length > 0) {
+      await tx.insert(categories).values(
+        p.children.map((c) => ({
+          userId,
+          name: c.name,
+          parentId: parent.id,
+          type: p.type,
+          isSelectable: true,
+          sortOrder: c.sortOrder,
+        })),
+      );
+    }
+  }
+}
+
 const CATEGORY_BOOTSTRAP_LOCK_NS = 0x63_61_74_31; // "cat1"
 const CATEGORY_CHILD_SYNC_LOCK_NS = 0x63_61_74_32; // "cat2"
 
@@ -287,44 +335,51 @@ export async function ensureDefaultReferenceDataForUser(
       .limit(1);
     if (existing.length > 0) return;
 
-    const template = await tx
-      .select()
-      .from(categories)
-      .where(eq(categories.userId, seedUserId()));
-    if (template.length === 0) return;
+    const templateOwnerId = resolveSeedUserId();
+    const template =
+      templateOwnerId === null
+        ? []
+        : await tx
+            .select()
+            .from(categories)
+            .where(eq(categories.userId, templateOwnerId));
 
-    const roots = template.filter((c) => c.parentId === null);
-    const ordered: typeof template = [];
-    const queue = [...roots];
-    const seen = new Set<string>();
-    while (queue.length > 0) {
-      const c = queue.shift()!;
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      ordered.push(c);
-      for (const row of template) {
-        if (row.parentId === c.id) queue.push(row);
+    if (template.length > 0) {
+      const roots = template.filter((c) => c.parentId === null);
+      const ordered: typeof template = [];
+      const queue = [...roots];
+      const seen = new Set<string>();
+      while (queue.length > 0) {
+        const c = queue.shift()!;
+        if (seen.has(c.id)) continue;
+        seen.add(c.id);
+        ordered.push(c);
+        for (const row of template) {
+          if (row.parentId === c.id) queue.push(row);
+        }
       }
-    }
-    for (const c of template) {
-      if (!seen.has(c.id)) ordered.push(c);
-    }
+      for (const c of template) {
+        if (!seen.has(c.id)) ordered.push(c);
+      }
 
-    const idMap = new Map<string, string>();
-    for (const c of ordered) {
-      const newParentId = c.parentId ? idMap.get(c.parentId) ?? null : null;
-      const [inserted] = await tx
-        .insert(categories)
-        .values({
-          userId,
-          name: c.name,
-          parentId: newParentId,
-          type: c.type,
-          isSelectable: c.isSelectable,
-          sortOrder: c.sortOrder,
-        })
-        .returning({ id: categories.id });
-      if (inserted) idMap.set(c.id, inserted.id);
+      const idMap = new Map<string, string>();
+      for (const c of ordered) {
+        const newParentId = c.parentId ? idMap.get(c.parentId) ?? null : null;
+        const [inserted] = await tx
+          .insert(categories)
+          .values({
+            userId,
+            name: c.name,
+            parentId: newParentId,
+            type: c.type,
+            isSelectable: c.isSelectable,
+            sortOrder: c.sortOrder,
+          })
+          .returning({ id: categories.id });
+        if (inserted) idMap.set(c.id, inserted.id);
+      }
+    } else {
+      await insertCategorySeedTreeForUserTx(tx, userId);
     }
   });
 

@@ -4,9 +4,9 @@ import { and, eq } from "drizzle-orm";
 
 import { closeDatabaseConnection, db } from "../client";
 import {
-  CATEGORY_SEED_WITH_CHILDREN,
   ensureCategorySeedChildrenForUser,
   ensureDefaultReferenceDataForUser,
+  insertCategorySeedTreeForUserTx,
   seedUserId,
 } from "./ensure-user-categories";
 import { accounts, categories, contacts, locations, users } from "../schema";
@@ -31,34 +31,7 @@ async function seedSystemCategories(): Promise<void> {
   }
 
   await db.transaction(async (tx) => {
-    for (let i = 0; i < CATEGORY_SEED_WITH_CHILDREN.length; i++) {
-      const p = CATEGORY_SEED_WITH_CHILDREN[i]!;
-      const [parent] = await tx
-        .insert(categories)
-        .values({
-          userId: templateUserId,
-          name: p.name,
-          parentId: null,
-          type: p.type,
-          isSelectable: false,
-          sortOrder: i,
-        })
-        .returning({ id: categories.id });
-      if (!parent) continue;
-
-      if (p.children.length > 0) {
-        await tx.insert(categories).values(
-          p.children.map((c) => ({
-            userId: templateUserId,
-            name: c.name,
-            parentId: parent.id,
-            type: p.type,
-            isSelectable: true,
-            sortOrder: c.sortOrder,
-          })),
-        );
-      }
-    }
+    await insertCategorySeedTreeForUserTx(tx, templateUserId);
   });
 }
 

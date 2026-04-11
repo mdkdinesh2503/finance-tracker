@@ -109,7 +109,10 @@ export async function signupAction(input: unknown): Promise<Result<AuthOk>> {
         "Database tables are missing. Run: npm run db:migrate (or bun run db:migrate). Use the same DATABASE_URL as in .env.local.",
       );
     }
-    throw e;
+    console.error("signupAction:", e);
+    return err(
+      "Could not create an account. Check Vercel function logs (DATABASE_URL, JWT_SECRET, migrations).",
+    );
   }
 }
 
@@ -147,7 +150,10 @@ export async function loginAction(input: unknown): Promise<Result<AuthOk>> {
         "Database tables are missing. Run: npm run db:migrate (or bun run db:migrate). Use the same DATABASE_URL as in .env.local.",
       );
     }
-    throw e;
+    console.error("loginAction:", e);
+    return err(
+      "Could not sign in. Check Vercel function logs for the real error (often DATABASE_URL, JWT_SECRET, or DB connectivity).",
+    );
   }
 }
 
