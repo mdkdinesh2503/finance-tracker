@@ -32,7 +32,12 @@ import { err, ok, type Result } from "@/lib/types/result";
 import { inferQuickEntry, splitQuickInput } from "@/lib/services/quick-entry";
 import { z } from "zod";
 import { getLoansByContact } from "@/lib/services/queries/transactions";
-import { balanceFromSums } from "@/lib/services/transactions";
+import {
+  balanceFromSums,
+  pendingLiabilityFromSums,
+  pendingReceivableFromSums,
+  sumByTypeForUser,
+} from "@/lib/services/transactions";
 
 export async function fetchTransactionFormDataAction() {
   const user = await requireUser().catch(() => null);
@@ -271,30 +276,6 @@ async function assertOwnershipAndCategoryType(opts: {
   return { parentCategoryId };
 }
 
-async function loanBalanceForContact(userId: string, contactId: string): Promise<{
-  youOwe: number;
-  theyOweYou: number;
-}> {
-  const [row] = await db
-    .select({
-      borrow: sql<string>`coalesce(sum(case when ${transactions.type} = 'BORROW' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      repay: sql<string>`coalesce(sum(case when ${transactions.type} = 'REPAYMENT' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      lend: sql<string>`coalesce(sum(case when ${transactions.type} = 'LEND' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      receive: sql<string>`coalesce(sum(case when ${transactions.type} = 'RECEIVE' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.userId, userId), eq(transactions.contactId, contactId)));
-
-  const num = (v: string | null | undefined) => {
-    const n = Number(v ?? "0");
-    return Number.isFinite(n) ? n : 0;
-  };
-  return {
-    youOwe: Math.max(0, num(row?.borrow) - num(row?.repay)),
-    theyOweYou: Math.max(0, num(row?.lend) - num(row?.receive)),
-  };
-}
-
 /**
  * New direct-DB action matching the code you pasted.
  * Keep `createTransactionAction` (service-based) for existing UI compatibility.
@@ -329,19 +310,25 @@ export async function createTransactionDirectAction(
   if ("error" in own) return err(own.error);
 
   if (v.contactId && (v.type === "REPAYMENT" || v.type === "RECEIVE")) {
-    const bal = await loanBalanceForContact(user.id, v.contactId);
     const amt = Number(amountStored);
     if (!Number.isFinite(amt) || amt <= 0) return err("Invalid amount");
+    const sums = await sumByTypeForUser(db, user.id);
     if (v.type === "REPAYMENT") {
-      if (bal.youOwe <= 0) return err("You have no borrow balance for this contact");
-      if (amt > bal.youOwe + 1e-9) {
-        return err(`Repayment exceeds borrow balance (${bal.youOwe.toFixed(2)})`);
+      const globalYouOwe = pendingLiabilityFromSums(sums);
+      if (globalYouOwe <= 1e-9) {
+        return err("No outstanding borrow to repay. Add a borrow entry first.");
+      }
+      if (amt > globalYouOwe + 1e-9) {
+        return err(`Repayment exceeds total borrow outstanding (${globalYouOwe.toFixed(2)})`);
       }
     }
     if (v.type === "RECEIVE") {
-      if (bal.theyOweYou <= 0) return err("You have no lend balance for this contact");
-      if (amt > bal.theyOweYou + 1e-9) {
-        return err(`Receive exceeds lend balance (${bal.theyOweYou.toFixed(2)})`);
+      const globalTheyOweYou = pendingReceivableFromSums(sums);
+      if (globalTheyOweYou <= 1e-9) {
+        return err("No outstanding lend balance to receive against.");
+      }
+      if (amt > globalTheyOweYou + 1e-9) {
+        return err(`Amount exceeds total they owe you (${globalTheyOweYou.toFixed(2)})`);
       }
     }
   }

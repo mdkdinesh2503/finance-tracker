@@ -403,3 +403,286 @@ body {
     animation: none;
   }
 }
+
+/* Income analytics — ambient + hero cards */
+.income-scope .income-aurora-blob {
+  animation: invest-aurora-shift 16s ease-in-out infinite;
+}
+.income-scope .income-aurora-blob--delayed {
+  animation-delay: -8s;
+}
+.income-scope .income-hero-stat {
+  animation: invest-float 5.5s ease-in-out infinite;
+}
+.income-scope .income-hero-stat:nth-child(2) {
+  animation-delay: -1.3s;
+}
+.income-scope .income-hero-stat:nth-child(3) {
+  animation-delay: -2.6s;
+}
+
+/* Lending analytics */
+.lending-scope .lending-aurora-blob {
+  animation: invest-aurora-shift 17s ease-in-out infinite;
+}
+.lending-scope .lending-aurora-blob--delayed {
+  animation-delay: -9s;
+}
+.lending-scope .lending-hero-stat {
+  animation: invest-float 5.5s ease-in-out infinite;
+}
+.lending-scope .lending-hero-stat:nth-child(2) {
+  animation-delay: -1.3s;
+}
+.lending-scope .lending-hero-stat:nth-child(3) {
+  animation-delay: -2.6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .income-scope .income-aurora-blob,
+  .income-scope .income-aurora-blob--delayed,
+  .income-scope .income-hero-stat,
+  .lending-scope .lending-aurora-blob,
+  .lending-scope .lending-aurora-blob--delayed,
+  .lending-scope .lending-hero-stat {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sonner — glass “prism” toasts (bottom-right host: `.sonner-glass-host`)    */
+/* -------------------------------------------------------------------------- */
+
+@keyframes sonner-glass-sheen {
+  0%,
+  100% {
+    background-position: 0% 0%, 0 0, 0 0;
+  }
+  50% {
+    background-position: 100% 0%, 0 0, 0 0;
+  }
+}
+
+[data-sonner-toaster].sonner-glass-host {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast[data-styled="true"] {
+  --sonner-rail: var(--primary);
+  --sonner-glow: rgba(37, 99, 235, 0.38);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: var(--width) !important;
+  border-radius: 1rem !important;
+  padding: 0.8rem 2.85rem 0.85rem 0.95rem !important;
+  gap: 0.65rem !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--ink) !important;
+  background-color: color-mix(in srgb, #0a1020 58%, transparent) !important;
+  background-image: linear-gradient(
+      118deg,
+      transparent 0%,
+      color-mix(in srgb, var(--sonner-rail) 22%, transparent) 45%,
+      transparent 88%
+    ),
+    linear-gradient(
+      color-mix(in srgb, var(--ink) 5.5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 4%, transparent) 1px,
+      transparent 1px
+    ) !important;
+  background-size: 240% 100%, 40px 40px, 40px 40px !important;
+  background-position: 0 0, 0 0, 0 0 !important;
+  backdrop-filter: blur(22px) saturate(1.45) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.45) !important;
+  border: 1px solid color-mix(in srgb, white 14%, transparent) !important;
+  /* Left “prism” rail + glass rim (no ::before — Sonner uses it for swipe) */
+  box-shadow: inset 3px 0 0 0 var(--sonner-rail),
+    0 0 0 1px color-mix(in srgb, white 7%, transparent) inset,
+    0 2px 4px -1px rgba(0, 0, 0, 0.4), 0 20px 40px -16px rgba(0, 0, 0, 0.55),
+    0 0 48px -14px var(--sonner-glow) !important;
+  animation: sonner-glass-sheen 8s ease-in-out infinite !important;
+  transition: box-shadow 0.35s ease, transform 0.35s ease, border-color 0.35s ease !important;
+}
+
+[data-sonner-toaster].sonner-glass-host
+  [data-sonner-toast].sonner-glass-toast[data-styled="true"]:hover {
+  border-color: color-mix(in srgb, var(--sonner-rail) 35%, white 18%) !important;
+  box-shadow: inset 3px 0 0 0 var(--sonner-rail),
+    0 0 0 1px color-mix(in srgb, white 10%, transparent) inset,
+    0 4px 8px -2px rgba(0, 0, 0, 0.45), 0 24px 56px -18px rgba(0, 0, 0, 0.5),
+    0 0 56px -10px var(--sonner-glow) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast--default[data-styled="true"] {
+  --sonner-rail: #60a5fa;
+  --sonner-glow: rgba(96, 165, 250, 0.42);
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast--success[data-styled="true"] {
+  --sonner-rail: #34d399;
+  --sonner-glow: rgba(52, 211, 153, 0.48);
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast--error[data-styled="true"] {
+  --sonner-rail: #fb7185;
+  --sonner-glow: rgba(251, 113, 133, 0.45);
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast--warning[data-styled="true"] {
+  --sonner-rail: #fbbf24;
+  --sonner-glow: rgba(251, 191, 36, 0.42);
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast--info[data-styled="true"] {
+  --sonner-rail: #38bdf8;
+  --sonner-glow: rgba(56, 189, 248, 0.45);
+}
+
+[data-sonner-toaster].sonner-glass-host .sonner-glass-title {
+  position: relative;
+  z-index: 1;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  letter-spacing: -0.02em;
+  color: var(--ink) !important;
+  line-height: 1.35 !important;
+}
+
+[data-sonner-toaster].sonner-glass-host .sonner-glass-description {
+  position: relative;
+  z-index: 1;
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  color: var(--ink-muted) !important;
+  opacity: 0.95;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast][data-styled="true"] [data-content] {
+  position: relative;
+  z-index: 1;
+  gap: 0.2rem !important;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast][data-styled="true"] [data-icon] {
+  position: relative;
+  z-index: 1;
+  width: 1.35rem !important;
+  height: 1.35rem !important;
+  color: var(--sonner-rail) !important;
+  filter: drop-shadow(0 0 10px var(--sonner-glow));
+}
+
+[data-sonner-toaster].sonner-glass-host [data-sonner-toast][data-styled="true"] [data-icon] svg {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+/* Close: inside the glass (no Sonner corner translate — avoids clip + misalignment) */
+[data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close {
+  position: absolute !important;
+  z-index: 4 !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: 0.55rem !important;
+  inset-inline-end: 0.55rem !important;
+  inset-inline-start: auto !important;
+  transform: none !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+
+  width: 2rem !important;
+  height: 2rem !important;
+  min-width: 2rem !important;
+  min-height: 2rem !important;
+
+  border-radius: 0.5rem !important;
+  background: color-mix(in srgb, white 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, white 18%, transparent) !important;
+  color: var(--ink-muted) !important;
+  cursor: pointer !important;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22) !important;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+    box-shadow 0.18s ease, transform 0.15s ease !important;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close svg {
+  display: block !important;
+  width: 0.8125rem !important;
+  height: 0.8125rem !important;
+  flex-shrink: 0 !important;
+  stroke-width: 2 !important;
+  opacity: 0.9;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close:hover {
+  background: color-mix(in srgb, var(--sonner-rail) 16%, transparent) !important;
+  border-color: color-mix(in srgb, var(--sonner-rail) 48%, white 12%) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sonner-rail) 25%, transparent),
+    0 2px 8px -2px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--sonner-rail) 70%, transparent) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close:active {
+  transform: scale(0.94) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host .sonner-glass-action {
+  border-radius: 0.5rem !important;
+  padding: 0.35rem 0.65rem !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--sonner-rail) 85%, #0f172a),
+    color-mix(in srgb, var(--sonner-rail) 55%, #1e293b)
+  ) !important;
+  color: #f8fafc !important;
+  border: 1px solid color-mix(in srgb, white 18%, transparent) !important;
+  box-shadow: 0 2px 8px -2px var(--sonner-glow) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host .sonner-glass-cancel {
+  border-radius: 0.5rem !important;
+  padding: 0.35rem 0.65rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  background: color-mix(in srgb, white 8%, transparent) !important;
+  color: var(--ink-muted) !important;
+  border: 1px solid color-mix(in srgb, white 12%, transparent) !important;
+}
+
+[data-sonner-toaster].sonner-glass-host .sonner-loading-bar {
+  background: var(--sonner-rail, var(--primary)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster].sonner-glass-host [data-sonner-toast].sonner-glass-toast[data-styled="true"] {
+    animation: none !important;
+  }
+
+  [data-sonner-toaster].sonner-glass-host [data-close-button].sonner-glass-close:active {
+    transform: none !important;
+  }
+}

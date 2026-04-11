@@ -15,6 +15,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { alias } from "drizzle-orm/pg-core";
 import type { DatePreset } from "@/lib/types/filters";
 import {
+  accounts,
   categories,
   contacts,
   locations,
@@ -37,6 +38,8 @@ import type {
   TransactionRowDTO,
 } from "@/lib/types/transactions";
 import { db as serverDb } from "@/lib/db/server";
+import { postgresSqlState } from "@/lib/db/postgres";
+import { parseAmountString } from "@/lib/services/ledger";
 
 const DASHBOARD_TREND_MONTHS = 10;
 const DASHBOARD_RECENT_LIMIT = 12;
@@ -599,65 +602,72 @@ export async function createTransactionForUser(
   }
 
   const type = cat.type;
+
+  const amountStored = parseAmountString(input.amount ?? "");
+  if (!amountStored) {
+    return { ok: false, error: "Invalid amount" };
+  }
+  const amt = Number(amountStored);
+  if (!Number.isFinite(amt) || amt <= 0) {
+    return { ok: false, error: "Invalid amount" };
+  }
+
   const loanTypes =
     type === "BORROW" ||
     type === "REPAYMENT" ||
     type === "LEND" ||
     type === "RECEIVE";
+  const contactIdForLoan = loanTypes ? (input.contactId?.trim() || null) : null;
+
   if (loanTypes) {
-    if (!input.contactId) {
+    if (!contactIdForLoan) {
       return { ok: false, error: "Contact is required for loan transactions" };
     }
     const [con] = await db
       .select()
       .from(contacts)
-      .where(and(eq(contacts.id, input.contactId), eq(contacts.userId, userId)))
+      .where(and(eq(contacts.id, contactIdForLoan), eq(contacts.userId, userId)))
       .limit(1);
     if (!con) {
       return { ok: false, error: "Invalid contact" };
     }
 
-    // Repayment/receive validations: must be against an existing outstanding balance
-    const bal = await loanBalanceForContact(db, userId, input.contactId);
-    const amt = Number(input.amount);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      return { ok: false, error: "Invalid amount" };
-    }
+    // Use ledger-wide outstanding borrow / receivable so repayments work when earlier borrows
+    // had no contact or a different split than this row (per-contact is for display only).
+    const sumsForLoans = await sumByTypeForUser(db, userId);
     if (type === "REPAYMENT") {
-      if (bal.youOwe <= 0) {
+      const globalYouOwe = pendingLiabilityFromSums(sumsForLoans);
+      if (globalYouOwe <= 1e-9) {
         return {
           ok: false,
-          error: "You have no borrow balance for this contact",
+          error: "No outstanding borrow to repay. Add a borrow entry first.",
         };
       }
-      if (amt > bal.youOwe + 1e-9) {
+      if (amt > globalYouOwe + 1e-9) {
         return {
           ok: false,
-          error: `Repayment exceeds borrow balance (${bal.youOwe.toFixed(2)})`,
+          error: `Repayment exceeds total borrow outstanding (${globalYouOwe.toFixed(2)})`,
         };
       }
     }
     if (type === "RECEIVE") {
-      if (bal.theyOweYou <= 0) {
+      const globalTheyOweYou = pendingReceivableFromSums(sumsForLoans);
+      if (globalTheyOweYou <= 1e-9) {
         return {
           ok: false,
-          error: "You have no lend balance for this contact",
+          error: "No outstanding lend balance to receive against.",
         };
       }
-      if (amt > bal.theyOweYou + 1e-9) {
+      if (amt > globalTheyOweYou + 1e-9) {
         return {
           ok: false,
-          error: `Receive exceeds lend balance (${bal.theyOweYou.toFixed(2)})`,
+          error: `Amount exceeds total they owe you (${globalTheyOweYou.toFixed(2)})`,
         };
       }
     }
   }
 
   {
-    const amt = Number(input.amount);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      return { ok: false, error: "Invalid amount" };
-    }
     const isCashOutflow =
       type === "EXPENSE" ||
       type === "INVESTMENT" ||
@@ -675,23 +685,61 @@ export async function createTransactionForUser(
     }
   }
 
-  const parentCategoryId = cat.parentId;
+  const accountRows = await db
+    .select({ id: accounts.id, name: accounts.name })
+    .from(accounts)
+    .where(eq(accounts.userId, userId));
 
-  const [inserted] = await db
-    .insert(transactions)
-    .values({
-      userId,
-      type,
-      amount: input.amount,
-      categoryId: input.categoryId,
-      parentCategoryId,
-      locationId: input.locationId,
-      contactId: input.contactId ?? null,
-      note: input.note ?? null,
-      transactionDate: input.transactionDate,
-      transactionTime: input.transactionTime,
-    })
-    .returning({ id: transactions.id });
+  const accountId =
+    accountRows.find((a) => a.name === "Cash")?.id ?? accountRows[0]?.id ?? null;
+
+  if (!accountId) {
+    return {
+      ok: false,
+      error:
+        "No account found for your profile. Add an account (e.g. Cash) or finish signup.",
+    };
+  }
+
+  const parentCategoryId = cat.parentId;
+  const locationIdStored = input.locationId?.trim() || null;
+
+  let inserted: { id: string } | undefined;
+  try {
+    const rows = await db
+      .insert(transactions)
+      .values({
+        userId,
+        type,
+        amount: amountStored,
+        categoryId: input.categoryId,
+        parentCategoryId,
+        locationId: locationIdStored,
+        contactId: contactIdForLoan,
+        accountId,
+        note: input.note?.trim() || null,
+        transactionDate: input.transactionDate,
+        transactionTime: input.transactionTime,
+      })
+      .returning({ id: transactions.id });
+    inserted = rows[0];
+  } catch (e) {
+    const code = postgresSqlState(e);
+    if (code === "42501") {
+      return {
+        ok: false,
+        error:
+          "Database blocked this row (permissions). If you use Supabase, ensure the server uses a role that bypasses RLS or add policies for inserts.",
+      };
+    }
+    if (code === "23503") {
+      return {
+        ok: false,
+        error: "Save failed: linked account, category, or location is invalid.",
+      };
+    }
+    throw e;
+  }
 
   if (!inserted) {
     return { ok: false, error: "Insert failed" };

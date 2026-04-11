@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { PageHeader } from "@/components/common/page-header";
+import { IncomeSalaryWagesChart } from "@/components/feature-specific/analytics/income-salary-wages-chart";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { IncomeAnalyticsSnapshot } from "@/lib/types/income-analytics";
 import { formatInr, formatYearMonthLabel } from "@/lib/utilities/format";
@@ -17,7 +17,7 @@ function pctVsPrevious(current: number, previous: number): number | null {
 
 function Th({ children }: { children: ReactNode }) {
   return (
-    <th className="border-b border-white/10 px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+    <th className="border-b border-white/10 px-3 py-3 text-left text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
       {children}
     </th>
   );
@@ -34,7 +34,7 @@ function Td({
 }) {
   return (
     <td
-      className={`border-b border-white/5 px-2 py-2 text-sm text-ink ${className}`}
+      className={`border-b border-white/[0.04] px-3 py-2.5 text-sm text-ink transition-colors duration-150 first:rounded-l-lg last:rounded-r-lg ${className}`}
       colSpan={colSpan}
     >
       {children}
@@ -42,17 +42,25 @@ function Td({
   );
 }
 
-function DeltaBadge({ pct }: { pct: number | null }) {
+function DeltaChip({ pct }: { pct: number | null }) {
   if (pct == null) {
-    return <span className="text-xs text-zinc-500">n/a</span>;
+    return (
+      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-zinc-500">
+        n/a vs last month
+      </span>
+    );
   }
   const up = pct >= 0;
   return (
     <span
-      className={`text-xs font-medium ${up ? "text-emerald-300" : "text-rose-300"}`}
+      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
+        up
+          ? "border-emerald-500/35 bg-emerald-500/12 text-emerald-200"
+          : "border-rose-500/30 bg-rose-500/10 text-rose-200"
+      }`}
     >
-      {up ? "+" : ""}
-      {pct.toFixed(1)}% vs last month
+      {up ? "↑" : "↓"} {up ? "+" : ""}
+      {pct.toFixed(1)}% vs prior month
     </span>
   );
 }
@@ -68,92 +76,191 @@ export function IncomeAnalyticsView({ data }: Props) {
   } = data;
 
   const totalDelta = pctVsPrevious(thisMonth.totalIncome, lastMonth.totalIncome);
-  const salaryDelta = pctVsPrevious(
-    thisMonth.salaryWagesTotal,
-    lastMonth.salaryWagesTotal,
+  const salaryDelta = pctVsPrevious(thisMonth.salaryWagesTotal, lastMonth.salaryWagesTotal);
+
+  const salaryChartData = [...salaryWagesMonthly]
+    .sort((a, b) => a.ym.localeCompare(b.ym))
+    .map((r) => ({ month: r.ym, salary: r.total }));
+
+  const salaryRhythmHasData =
+    salaryChartData.length > 0 && salaryChartData.some((d) => d.salary > 0);
+
+  const peakSalaryMonth = salaryWagesMonthly.reduce<{ ym: string; total: number } | null>(
+    (best, r) => {
+      if (!best || r.total > best.total) return { ym: r.ym, total: r.total };
+      return best;
+    },
+    null,
   );
 
+  const salaryMonthRows = [...salaryWagesMonthly].sort((a, b) => b.ym.localeCompare(a.ym));
+  const maxSalaryMonth = salaryMonthRows.reduce((m, r) => Math.max(m, r.total), 0);
+
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Insights"
-        title="Income analytics"
-        subtitle={
-          <>
-            This calendar month vs last month, breakdown by your income categories, and a simple
-            salary trend hint from recent months. General expense trends stay on{" "}
-            <Link href="/analytics" className="text-primary underline-offset-2 hover:underline">
-              Analytics
-            </Link>
-            .
-          </>
-        }
+    <div className="income-scope relative space-y-10 pb-16">
+      <div
+        className="income-aurora-blob pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="income-aurora-blob income-aurora-blob--delayed pointer-events-none absolute -left-24 top-48 h-64 w-64 rounded-full bg-teal-500/8 blur-3xl"
+        aria-hidden
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <GlassCard className="p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            Total income · {thisMonth.label}
-          </p>
-          <p className="mt-1 text-xl font-semibold text-emerald-200">
-            {formatInr(thisMonth.totalIncome)}
-          </p>
-          <p className="mt-2">
-            <DeltaBadge pct={totalDelta} />
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            Last month: {formatInr(lastMonth.totalIncome)}
-          </p>
-        </GlassCard>
+      <header className="relative z-[1] space-y-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary">
+              Insights · Income
+            </p>
+            <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              <span className="bg-linear-to-r from-ink via-emerald-100 to-teal-200 bg-clip-text text-transparent">
+                Cash-in rhythm
+              </span>
+            </h1>
+            <p className="max-w-2xl text-sm leading-snug text-ink-muted">
+              This month vs last, <strong className="text-ink">Salary &amp; Wages</strong> trend, and
+              a naive salary hint from closed months only. Broader trends live on{" "}
+              <Link href="/analytics" className="text-primary underline-offset-2 hover:underline">
+                Analytics
+              </Link>
+              {" · "}
+              <Link
+                href="/analytics/investments"
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                Invest
+              </Link>
+              .
+            </p>
+          </div>
+          <DeltaChip pct={totalDelta} />
+        </div>
 
-        <GlassCard className="p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            Salary &amp; Wages · {thisMonth.label}
-          </p>
-          <p className="mt-1 text-xl font-semibold text-emerald-200/95">
-            {formatInr(thisMonth.salaryWagesTotal)}
-          </p>
-          <p className="mt-2">
-            <DeltaBadge pct={salaryDelta} />
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            Last month: {formatInr(lastMonth.salaryWagesTotal)}
-          </p>
-        </GlassCard>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col overflow-hidden sm:col-span-2 xl:col-span-1"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Total income · {thisMonth.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-emerald-100 tabular-nums sm:text-3xl">
+              {formatInr(thisMonth.totalIncome)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Prev month: {formatInr(lastMonth.totalIncome)}
+            </p>
+          </GlassCard>
 
-        <GlassCard className="p-4 sm:col-span-2 lg:col-span-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            Other income · {thisMonth.label}
-          </p>
-          <p className="mt-1 text-xl font-semibold text-teal-200/90">
-            {formatInr(thisMonth.otherIncomeParentTotal)}
-          </p>
-          <p className="mt-2 text-xs text-zinc-500">
-            Parent group &quot;Other Income&quot; (rental, gifts, etc.). Last month:{" "}
-            {formatInr(lastMonth.otherIncomeParentTotal)}
-          </p>
-        </GlassCard>
-      </div>
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Salary &amp; Wages
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-100/95 tabular-nums">
+              {formatInr(thisMonth.salaryWagesTotal)}
+            </p>
+            <p className="mt-auto pt-3">
+              <DeltaChip pct={salaryDelta} />
+            </p>
+          </GlassCard>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">Salary outlook (informal)</h2>
-        <GlassCard className="space-y-3 p-4">
-          <p className="text-sm text-ink-muted">
-            Uses <strong className="text-ink">Salary &amp; Wages</strong> totals from completed
-            calendar months only (not the current partial month). Average month-over-month change
-            across those months is applied to the latest completed month—rough guess only, not
-            financial advice.
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col sm:col-span-2 xl:col-span-1"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Other income · {thisMonth.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-teal-100/90 tabular-nums">
+              {formatInr(thisMonth.otherIncomeParentTotal)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Parent &quot;Other Income&quot; · Prev {formatInr(lastMonth.otherIncomeParentTotal)}
+            </p>
+          </GlassCard>
+        </div>
+      </header>
+
+      <section className="relative z-[1] space-y-4">
+        <GlassCard
+          variant="signature"
+          hideAccent
+          noLift
+          className="flex min-h-0 flex-col"
+          panelClassName="flex min-h-0 flex-1 flex-col !p-3"
+        >
+          <div className="mb-2 shrink-0">
+            <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between min-[400px]:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-linear-to-br from-emerald-500/15 to-teal-600/5 text-emerald-300"
+                  aria-hidden
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-pretty text-sm font-semibold tracking-tight text-ink">
+                    Salary &amp; Wages · 12-month flow
+                  </h2>
+                  <p className="mt-0.5 text-pretty text-[11px] leading-snug text-ink-muted">
+                    Calendar months in range — hover points for detail
+                  </p>
+                </div>
+              </div>
+              {salaryRhythmHasData && peakSalaryMonth ? (
+                <div
+                  className="grid w-full max-w-sm shrink-0 grid-rows-[auto_auto] gap-2 self-end rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-3 py-2 min-[400px]:w-50 min-[400px]:max-w-[42%] min-[400px]:self-auto"
+                  role="group"
+                  aria-label="Peak salary month in window"
+                >
+                  <p className="border-b border-emerald-500/20 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-200/90">
+                    Peak month
+                  </p>
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold tabular-nums leading-none text-ink">
+                      {formatInr(peakSalaryMonth.total)}
+                    </span>
+                    <span className="shrink-0 text-right text-[10px] leading-snug text-ink-muted">
+                      {formatYearMonthLabel(peakSalaryMonth.ym)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="min-h-0 w-full flex-1">
+            <IncomeSalaryWagesChart data={salaryChartData} />
+          </div>
+        </GlassCard>
+      </section>
+
+      <section className="relative z-[1] space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">Salary outlook</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Completed months only — not advice; rough extrapolation from average MoM change.
           </p>
-          {projection.projectedNextMonthSalary != null &&
-          projection.averageMoMChangePercent != null ? (
-            <div className="space-y-1">
-              <p className="text-lg font-semibold text-emerald-200">
-                ~{formatInr(projection.projectedNextMonthSalary)} next month (Salary &amp; Wages)
+        </div>
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
+          {projection.projectedNextMonthSalary != null && projection.averageMoMChangePercent != null ? (
+            <div className="space-y-2">
+              <p className="text-xl font-semibold text-emerald-100 sm:text-2xl">
+                ~{formatInr(projection.projectedNextMonthSalary)}{" "}
+                <span className="text-base font-normal text-ink-muted">next month (Salary &amp; Wages)</span>
               </p>
-              <p className="text-xs text-zinc-500">
-                Avg MoM change: {projection.averageMoMChangePercent >= 0 ? "+" : ""}
-                {projection.averageMoMChangePercent.toFixed(2)}% · Based on{" "}
-                {projection.completedMonthsUsed} completed month(s), last closed{" "}
+              <p className="text-xs text-ink-muted">
+                Avg MoM {projection.averageMoMChangePercent >= 0 ? "+" : ""}
+                {projection.averageMoMChangePercent.toFixed(2)}% · {projection.completedMonthsUsed} closed
+                month(s) · Last closed{" "}
                 {projection.lastCompletedMonthYm
                   ? formatYearMonthLabel(projection.lastCompletedMonthYm)
                   : "—"}{" "}
@@ -161,109 +268,117 @@ export function IncomeAnalyticsView({ data }: Props) {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">
-              Add at least two past months of Salary &amp; Wages income to see a simple trend-based
-              estimate.
+            <p className="text-sm text-ink-muted">
+              Add at least two past months of Salary &amp; Wages to unlock a simple trend estimate.
             </p>
           )}
         </GlassCard>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">Salary &amp; Wages by month</h2>
-        <p className="text-sm text-ink-muted">Last 12 months of data in range (calendar months).</p>
-        <GlassCard className="overflow-x-auto p-0" hideAccent>
-          <table className="w-full min-w-[280px] border-collapse">
-            <thead>
-              <tr>
-                <Th>Month</Th>
-                <Th>Amount</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {salaryWagesMonthly.length === 0 ? (
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Salary by month</h2>
+        <p className="text-xs text-ink-muted">Newest first · relative bar vs largest month in window</p>
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-3">
+          <div className="rounded-2xl border border-(--border) bg-(--glass-simple-bg) p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            {salaryMonthRows.length === 0 ? (
+              <p className="py-10 text-center text-sm text-ink-muted">No Salary &amp; Wages in the last year.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5" role="list">
+                {salaryMonthRows.map((r) => {
+                  const barPct =
+                    maxSalaryMonth > 0 && r.total > 0 ? (r.total / maxSalaryMonth) * 100 : 0;
+                  return (
+                    <li key={r.ym}>
+                      <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 transition-[border-color,background-color] duration-200 hover:border-emerald-500/20 hover:bg-white/5">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium text-ink">{formatYearMonthLabel(r.ym)}</span>
+                          <span className="text-sm font-semibold tabular-nums text-emerald-100/95">
+                            {formatInr(r.total)}
+                          </span>
+                        </div>
+                        <div
+                          className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5"
+                          aria-hidden
+                        >
+                          <div
+                            className="h-full rounded-full bg-linear-to-r from-emerald-600/90 to-teal-400/75 motion-safe:transition-[width] motion-safe:duration-500"
+                            style={{ width: `${barPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </GlassCard>
+      </section>
+
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">This month · parent groups</h2>
+        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[360px] border-collapse text-left">
+              <thead>
                 <tr>
-                  <Td className="text-zinc-500" colSpan={2}>
-                    No Salary &amp; Wages income in the last year.
-                  </Td>
+                  <Th>Parent</Th>
+                  <Th>Total</Th>
                 </tr>
-              ) : (
-                [...salaryWagesMonthly]
-                  .sort((a, b) => b.ym.localeCompare(a.ym))
-                  .map((r) => (
-                    <tr key={r.ym}>
-                      <Td>{formatYearMonthLabel(r.ym)}</Td>
+              </thead>
+              <tbody className="[&_tr:hover]:bg-white/[0.04]">
+                {byParentThisMonth.length === 0 ? (
+                  <tr>
+                    <Td className="text-zinc-500" colSpan={2}>
+                      No income recorded this month.
+                    </Td>
+                  </tr>
+                ) : (
+                  byParentThisMonth.map((r) => (
+                    <tr key={r.parentName}>
+                      <Td className="font-medium">{r.parentName}</Td>
                       <Td className="tabular-nums">{formatInr(r.total)}</Td>
                     </tr>
                   ))
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </GlassCard>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">This month by parent category</h2>
-        <GlassCard className="overflow-x-auto p-0" hideAccent>
-          <table className="w-full min-w-[360px] border-collapse">
-            <thead>
-              <tr>
-                <Th>Parent</Th>
-                <Th>Total</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {byParentThisMonth.length === 0 ? (
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">This month · subcategories</h2>
+        <p className="text-xs text-ink-muted">Leaf categories with parent context</p>
+        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] border-collapse text-left">
+              <thead>
                 <tr>
-                  <Td className="text-zinc-500" colSpan={2}>
-                    No income recorded this month.
-                  </Td>
+                  <Th>Parent</Th>
+                  <Th>Subcategory</Th>
+                  <Th>Total</Th>
                 </tr>
-              ) : (
-                byParentThisMonth.map((r) => (
-                  <tr key={r.parentName}>
-                    <Td className="font-medium">{r.parentName}</Td>
-                    <Td className="tabular-nums">{formatInr(r.total)}</Td>
+              </thead>
+              <tbody className="[&_tr:hover]:bg-white/[0.04]">
+                {byLeafThisMonth.length === 0 ? (
+                  <tr>
+                    <Td className="text-zinc-500" colSpan={3}>
+                      No income recorded this month.
+                    </Td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </GlassCard>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">This month by subcategory</h2>
-        <p className="text-sm text-ink-muted">
-          Leaf categories (Primary Salary, Bonus, Rental Income, …).
-        </p>
-        <GlassCard className="overflow-x-auto p-0" hideAccent>
-          <table className="w-full min-w-[480px] border-collapse">
-            <thead>
-              <tr>
-                <Th>Parent</Th>
-                <Th>Subcategory</Th>
-                <Th>Total</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {byLeafThisMonth.length === 0 ? (
-                <tr>
-                  <Td className="text-zinc-500" colSpan={3}>
-                    No income recorded this month.
-                  </Td>
-                </tr>
-              ) : (
-                byLeafThisMonth.map((r, i) => (
-                  <tr key={`${r.parentName}-${r.leafName}-${i}`}>
-                    <Td>{r.parentName}</Td>
-                    <Td className="font-medium">{r.leafName}</Td>
-                    <Td className="tabular-nums">{formatInr(r.total)}</Td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  byLeafThisMonth.map((r, i) => (
+                    <tr key={`${r.parentName}-${r.leafName}-${i}`}>
+                      <Td className="text-ink-muted">{r.parentName}</Td>
+                      <Td className="font-medium">{r.leafName}</Td>
+                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </GlassCard>
       </section>
     </div>

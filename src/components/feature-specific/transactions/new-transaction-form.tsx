@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import type { TransactionType } from "@/lib/db/schema";
 import { createTransactionAction, quickEntrySuggestAction } from "@/app/actions/transactions";
 import type { CategoryOption } from "./category-selector";
@@ -64,33 +65,6 @@ function SectionLabel({
   );
 }
 
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <GlassCard
-      variant="signature"
-      noLift
-      hideAccent
-      panelClassName="!p-4"
-      className="border-rose-500/25"
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-200"
-          aria-hidden
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M4.5 19h15L12 4 4.5 19z" />
-          </svg>
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-ink">Couldn’t save</p>
-          <p className="mt-0.5 text-sm text-rose-200/90">{message}</p>
-        </div>
-      </div>
-    </GlassCard>
-  );
-}
-
 export function NewTransactionForm({
   categories,
   locations,
@@ -121,8 +95,6 @@ export function NewTransactionForm({
   const [date, setDate] = useState(() => formatLocalYMD(new Date()));
   const [time, setTime] = useState(defaultTime);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-
   const showLoanPerson =
     txType === "BORROW" ||
     txType === "REPAYMENT" ||
@@ -198,7 +170,6 @@ export function NewTransactionForm({
 
   function submit() {
     if (!validate()) return;
-    setFormError(null);
     startTransition(async () => {
       const res = await createTransactionAction({
         amount,
@@ -210,9 +181,10 @@ export function NewTransactionForm({
         transactionTime: time,
       });
       if (!res.ok) {
-        setFormError(res.error);
+        toast.error("Couldn’t save", { description: res.error });
         return;
       }
+      toast.success("Transaction saved");
       router.replace("/transactions");
       router.refresh();
     });
@@ -220,10 +192,9 @@ export function NewTransactionForm({
 
   function runQuickEntry() {
     startQeTransition(async () => {
-      setFormError(null);
       const res = await quickEntrySuggestAction({ text: quickText });
       if (!res.ok) {
-        setFormError(res.error);
+        toast.error("Quick entry didn’t work", { description: res.error });
         return;
       }
       const leaf = res.data.categoryId ?? "";
@@ -237,8 +208,6 @@ export function NewTransactionForm({
 
   return (
     <div className="space-y-6">
-      {formError ? <ErrorBanner message={formError} /> : null}
-
       <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-linear-to-br from-[#070b12] via-[#0a1220] to-[#05070d] shadow-(--shadow-lift) ring-1 ring-white/8 backdrop-blur-xl">
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -left-28 -bottom-24 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden />
