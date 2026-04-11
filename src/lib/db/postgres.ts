@@ -13,11 +13,14 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 export function postgresOptionsFromUrl(databaseUrl: string) {
   const lower = databaseUrl.toLowerCase();
 
+  const isSupabaseHost =
+    lower.includes("supabase.co") || lower.includes("pooler.supabase.com");
+
   const useSsl =
     process.env.DATABASE_SSL === "require" ||
     lower.includes("sslmode=require") ||
     lower.includes("sslmode=verify-full") ||
-    lower.includes("supabase.co") ||
+    isSupabaseHost ||
     lower.includes("neon.tech") ||
     lower.includes(".neon.tech") ||
     lower.includes("render.com") ||
@@ -39,12 +42,23 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     Math.max(1, parsePositiveInt(process.env.DATABASE_CONNECT_TIMEOUT, 10)),
   );
 
+  // Supabase (direct + pooler) commonly documents Node/serverless clients with
+  // `rejectUnauthorized: false` to avoid TLS chain issues. Stricter verify: set
+  // DATABASE_SSL_VERIFY=1 to use `ssl: "require"` instead.
+  const sslVerifyStrict = process.env.DATABASE_SSL_VERIFY === "1";
+  const ssl =
+    !useSsl
+      ? undefined
+      : isSupabaseHost && !sslVerifyStrict
+        ? ({ rejectUnauthorized: false } as const)
+        : ("require" as const);
+
   return {
     prepare: !disablePrepare,
     max,
     idle_timeout: 20,
     connect_timeout: connectTimeout,
-    ssl: useSsl ? ("require" as const) : undefined,
+    ssl,
   };
 }
 
