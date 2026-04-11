@@ -11,6 +11,46 @@ import { clearSessionCookie, setSessionCookie } from "@/lib/auth/cookies";
 import { isUndefinedTableError } from "@/lib/db/postgres";
 import { revalidatePath } from "next/cache";
 
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+/** User-safe hints for common production failures (no connection strings). */
+function mapKnownServerAuthError(e: unknown): string | null {
+  const msg = errorMessage(e);
+
+  if (msg.includes("DATABASE_URL is required")) {
+    return "DATABASE_URL is not set for this Vercel environment. Add it under Project → Settings → Environment Variables (Production), then redeploy.";
+  }
+  if (msg.includes("JWT_SECRET is required")) {
+    return "JWT_SECRET is not set. Add it under Project → Settings → Environment Variables (Production), then redeploy.";
+  }
+  if (/ECONNREFUSED|connect ECONNREFUSED/i.test(msg)) {
+    return "Cannot connect to the database (connection refused). Check DATABASE_URL and that the database accepts public connections.";
+  }
+  if (/ENOTFOUND/i.test(msg)) {
+    return "Database hostname in DATABASE_URL could not be resolved. Check for typos.";
+  }
+  if (/ETIMEDOUT|timeout/i.test(msg)) {
+    return "Database connection timed out. Check the provider’s firewall / IP allow list and region.";
+  }
+  if (/28P01|password authentication failed/i.test(msg)) {
+    return "The database rejected the username or password in DATABASE_URL.";
+  }
+  if (/self signed certificate|SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE/i.test(msg)) {
+    return "Database TLS verification failed. Use your host’s recommended connection string (often with sslmode=require) or adjust SSL settings per provider docs.";
+  }
+  if (
+    /argon2|@node-rs\/argon2/i.test(msg) ||
+    /Cannot find module ['"]@node-rs\/argon2/i.test(msg)
+  ) {
+    return "Server could not load the password library. Ensure next.config.ts sets serverExternalPackages: [\"@node-rs/argon2\"] and redeploy.";
+  }
+
+  return null;
+}
+
 const emailSchema = z.string().trim().toLowerCase().email();
 const passwordSchema = z.string().min(8).max(128);
 
@@ -109,9 +149,14 @@ export async function signupAction(input: unknown): Promise<Result<AuthOk>> {
         "Database tables are missing. Run: npm run db:migrate (or bun run db:migrate). Use the same DATABASE_URL as in .env.local.",
       );
     }
+    const mapped = mapKnownServerAuthError(e);
+    if (mapped) {
+      console.error("signupAction:", e);
+      return err(mapped);
+    }
     console.error("signupAction:", e);
     return err(
-      "Could not create an account. Check Vercel function logs (DATABASE_URL, JWT_SECRET, migrations).",
+      "Could not create an account. In Vercel: Deployments → latest → Logs (or Observability → Runtime Logs) and search for signupAction.",
     );
   }
 }
@@ -150,9 +195,14 @@ export async function loginAction(input: unknown): Promise<Result<AuthOk>> {
         "Database tables are missing. Run: npm run db:migrate (or bun run db:migrate). Use the same DATABASE_URL as in .env.local.",
       );
     }
+    const mapped = mapKnownServerAuthError(e);
+    if (mapped) {
+      console.error("loginAction:", e);
+      return err(mapped);
+    }
     console.error("loginAction:", e);
     return err(
-      "Could not sign in. Check Vercel function logs for the real error (often DATABASE_URL, JWT_SECRET, or DB connectivity).",
+      "Could not sign in. In Vercel: Deployments → latest → Logs (or Observability → Runtime Logs) and search for loginAction.",
     );
   }
 }
