@@ -9,6 +9,8 @@ const links = [
   { href: "/transactions", label: "Transactions" },
   { href: "/transactions/new", label: "Add" },
   { href: "/analytics", label: "Analytics" },
+  { href: "/analytics/lending", label: "Lending" },
+  { href: "/analytics/income", label: "Income" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -17,6 +19,9 @@ function navLinkActive(pathname: string, href: string): boolean {
   if (!pathname.startsWith(`${href}/`)) return false;
   if (href === "/transactions") {
     return !pathname.startsWith("/transactions/new");
+  }
+  if (href === "/analytics") {
+    return pathname === "/analytics";
   }
   return true;
 }

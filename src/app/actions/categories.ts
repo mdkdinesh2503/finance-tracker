@@ -16,6 +16,8 @@ function revalidateCategoryPaths() {
   revalidatePath("/transactions/new");
   revalidatePath("/transactions");
   revalidatePath("/analytics");
+  revalidatePath("/analytics/lending");
+  revalidatePath("/analytics/income");
   revalidatePath("/dashboard");
 }
 

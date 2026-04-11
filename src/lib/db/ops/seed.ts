@@ -4,29 +4,12 @@ import { and, eq } from "drizzle-orm";
 
 import { closeDatabaseConnection, db } from "../client";
 import {
+  CATEGORY_SEED_WITH_CHILDREN,
+  ensureCategorySeedChildrenForUser,
   ensureDefaultReferenceDataForUser,
   seedUserId,
 } from "./ensure-user-categories";
 import { accounts, categories, contacts, locations, users } from "../schema";
-
-const SYSTEM_CATEGORY_SEED_DEF = [
-  { name: "Essential Housing & Utilities", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 0 },
-  { name: "Food & Dining", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 1 },
-  { name: "Shopping & Lifestyle", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 2 },
-  { name: "Transport", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 3 },
-  { name: "Health & Wellness", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 4 },
-  { name: "Subscriptions & Entertainment", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 5 },
-  { name: "Gifts & Occasions", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 6 },
-  { name: "Miscellaneous", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 7 },
-  { name: "Financial & Obligations", type: "INVESTMENT" as const, isSelectable: false, parentId: null, sortOrder: 8 },
-  { name: "Cash Savings", type: "INVESTMENT" as const, isSelectable: false, parentId: null, sortOrder: 9 },
-  { name: "Salary & Wages", type: "INCOME" as const, isSelectable: false, parentId: null, sortOrder: 10 },
-  { name: "Other Income", type: "INCOME" as const, isSelectable: false, parentId: null, sortOrder: 11 },
-  { name: "Friends & Family Loan", type: "LEND" as const, isSelectable: false, parentId: null, sortOrder: 12 },
-  { name: "Loan Recovery", type: "RECEIVE" as const, isSelectable: false, parentId: null, sortOrder: 13 },
-  { name: "Personal Borrowing", type: "BORROW" as const, isSelectable: false, parentId: null, sortOrder: 14 },
-  { name: "Debt Settlement", type: "REPAYMENT" as const, isSelectable: false, parentId: null, sortOrder: 15 },
-] as const;
 
 async function hashPassword(password: string): Promise<string> {
   return hash(password, {
@@ -47,12 +30,36 @@ async function seedSystemCategories(): Promise<void> {
     return;
   }
 
-  await db.insert(categories).values(
-    SYSTEM_CATEGORY_SEED_DEF.map((row) => ({
-      ...row,
-      userId: templateUserId,
-    })),
-  );
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < CATEGORY_SEED_WITH_CHILDREN.length; i++) {
+      const p = CATEGORY_SEED_WITH_CHILDREN[i]!;
+      const [parent] = await tx
+        .insert(categories)
+        .values({
+          userId: templateUserId,
+          name: p.name,
+          parentId: null,
+          type: p.type,
+          isSelectable: false,
+          sortOrder: i,
+        })
+        .returning({ id: categories.id });
+      if (!parent) continue;
+
+      if (p.children.length > 0) {
+        await tx.insert(categories).values(
+          p.children.map((c) => ({
+            userId: templateUserId,
+            name: c.name,
+            parentId: parent.id,
+            type: p.type,
+            isSelectable: true,
+            sortOrder: c.sortOrder,
+          })),
+        );
+      }
+    }
+  });
 }
 
 const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai"] as const;
@@ -141,6 +148,7 @@ async function seedAdminUserDefaults(): Promise<void> {
 async function main() {
   await seedSystemCategories();
   await seedAdminUserDefaults();
+  await ensureCategorySeedChildrenForUser(db, seedUserId());
   console.log("Seed: done");
 }
 

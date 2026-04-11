@@ -2,14 +2,20 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 
 import * as schema from "./schema";
-import { requireEnv } from "@/lib/env/server";
 import { postgresOptionsFromUrl } from "./postgres";
 
 const globalForDb = globalThis as unknown as {
   __postgres?: ReturnType<typeof postgres>;
 };
 
-const databaseUrl = requireEnv("DATABASE_URL");
+/** Avoid `@/lib/env/server` here so CLI scripts (seed, migrate) can import `db` without `server-only`. */
+function requireDatabaseUrl(): string {
+  const value = process.env.DATABASE_URL?.trim();
+  if (!value) throw new Error("DATABASE_URL is required");
+  return value;
+}
+
+const databaseUrl = requireDatabaseUrl();
 
 const sql =
   globalForDb.__postgres ??
