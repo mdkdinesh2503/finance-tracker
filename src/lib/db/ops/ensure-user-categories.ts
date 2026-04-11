@@ -2,8 +2,8 @@ import { eq, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { z } from "zod";
 
-import * as schema from "./schema";
-import { categories } from "./schema";
+import * as schema from "../schema";
+import { categories } from "../schema";
 
 /**
  * UUID for seeded default admin (`users.id`) and system category template

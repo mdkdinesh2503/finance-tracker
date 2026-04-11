@@ -175,12 +175,15 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Notes
 2026-03-31,12:00:00,EXPENSE,450.00,Subscriptions & Entertainment,,Hyderabad,,Movie
 2026-03-31,12:00:00,EXPENSE,520.00,Gifts & Occasions,,Hyderabad,,Birthday Sweets
 2026-03-31,12:00:00,EXPENSE,5500.00,Food & Dining,,Hyderabad,,Treat
-2026-03-31,12:00:00,EXPENSE,287.00,Health & Wellness,,Hyderabad,,Body wash
-2026-04-03,12:00:00,EXPENSE,11000.00,Essential Housing & Utilities,,Hyderabad,,Pg Rent
-2026-04-03,12:00:00,INVESTMENT,2000.00,Cash Savings,,Hyderabad,,Chit
-2026-04-03,12:00:00,EXPENSE,500.00,Essential Housing & Utilities,,Hyderabad,,Current Bill
-2026-04-03,12:00:00,EXPENSE,706.00,Food & Dining,,Hyderabad,,Food
-2026-04-03,12:00:00,EXPENSE,75.00,Food & Dining,,Hyderabad,,Snack
-2026-04-03,12:00:00,EXPENSE,380.00,Food & Dining,,Hyderabad,,Treat
-2026-04-03,12:00:00,EXPENSE,308.00,Shopping & Lifestyle,,Hyderabad,,Jainam
-2026-04-03,12:00:00,EXPENSE,1460.00,Subscriptions & Entertainment,,Hyderabad,,Cursor
+2026-03-31,12:00:00,EXPENSE,288.00,Health & Wellness,,Hyderabad,,Body wash
+2026-04-10,12:00:00,EXPENSE,11000.00,Essential Housing & Utilities,,Hyderabad,,Pg Rent
+2026-04-10,12:00:00,INVESTMENT,2000.00,Cash Savings,,Hyderabad,,Chit
+2026-04-10,12:00:00,INVESTMENT,1000.00,Cash Savings,,Hyderabad,,RD
+2026-04-10,12:00:00,EXPENSE,500.00,Essential Housing & Utilities,,Hyderabad,,Current Bill
+2026-04-10,12:00:00,EXPENSE,995.00,Health & Wellness,,Hyderabad,,Dhobi
+2026-04-10,12:00:00,EXPENSE,1536.00,Food & Dining,,Hyderabad,,Food
+2026-04-10,12:00:00,EXPENSE,315.00,Food & Dining,,Hyderabad,,Snack
+2026-04-10,12:00:00,EXPENSE,380.00,Food & Dining,,Hyderabad,,Treat
+2026-04-10,12:00:00,EXPENSE,308.00,Gifts & Occasions,,Hyderabad,,Jainam
+2026-04-10,12:00:00,EXPENSE,1460.00,Subscriptions & Entertainment,,Hyderabad,,Cursor
+2026-04-10,12:00:00,EXPENSE,530.00,Shopping & Lifestyle,,Hyderabad,,Laundry bag Shopping

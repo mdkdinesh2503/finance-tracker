@@ -1,4 +1,4 @@
 import "server-only";
 
 export { db } from "./client";
-export { ensureDefaultReferenceDataForUser } from "./ensure-user-categories";
+export { ensureDefaultReferenceDataForUser } from "./ops/ensure-user-categories";

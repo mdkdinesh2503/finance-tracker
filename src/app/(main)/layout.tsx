@@ -1,5 +1,5 @@
 import { MainNav } from "@/components/common/main-nav";
-import { PageFade } from "@/components/motion/page-fade";
+import { PageFade } from "@/components/common/page-fade";
 import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 

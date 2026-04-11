@@ -2,12 +2,12 @@ import "dotenv/config";
 import { hash } from "@node-rs/argon2";
 import { and, eq } from "drizzle-orm";
 
-import { closeDatabaseConnection, db } from "./client";
+import { closeDatabaseConnection, db } from "../client";
 import {
   ensureDefaultReferenceDataForUser,
   seedUserId,
 } from "./ensure-user-categories";
-import { accounts, categories, contacts, locations, users } from "./schema";
+import { accounts, categories, contacts, locations, users } from "../schema";
 
 const SYSTEM_CATEGORY_SEED_DEF = [
   { name: "Essential Housing & Utilities", type: "EXPENSE" as const, isSelectable: false, parentId: null, sortOrder: 0 },

@@ -28,7 +28,7 @@ import {
   type TransactionType,
 } from "@/lib/db/schema";
 import { parseAmountString } from "@/lib/services/ledger";
-import { err, ok, type Result } from "@/lib/result";
+import { err, ok, type Result } from "@/lib/types/result";
 import { inferQuickEntry, splitQuickInput } from "@/lib/services/quick-entry";
 import { z } from "zod";
 import { getLoansByContact } from "@/lib/services/queries/transactions";

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/ui/cn";
+import { cn } from "@/lib/utilities/cn";
 import type { HTMLAttributes } from "react";
 
 export function Card(props: HTMLAttributes<HTMLDivElement>) {

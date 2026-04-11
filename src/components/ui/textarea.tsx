@@ -1,4 +1,4 @@
-import { cn } from "@/lib/ui/cn";
+import { cn } from "@/lib/utilities/cn";
 import type { TextareaHTMLAttributes } from "react";
 
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

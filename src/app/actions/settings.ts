@@ -13,7 +13,7 @@ import {
   type TransactionType,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { err, ok, type Result } from "@/lib/result";
+import { err, ok, type Result } from "@/lib/types/result";
 
 async function assertCategory(id: string): Promise<string | null> {
   const user = await requireUser();

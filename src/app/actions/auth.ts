@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
 import { users, accounts, locations, rules, categories } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import { err, ok, type Result } from "@/lib/result";
+import { err, ok, type Result } from "@/lib/types/result";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession } from "@/lib/auth/jwt";
 import { clearSessionCookie, setSessionCookie } from "@/lib/auth/cookies";

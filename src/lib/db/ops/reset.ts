@@ -3,7 +3,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 
-import { postgresOptionsFromUrl } from "./postgres";
+import { postgresOptionsFromUrl } from "../postgres";
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_DB_RESET !== "1") {

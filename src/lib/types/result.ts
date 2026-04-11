@@ -9,4 +9,3 @@ export function ok<T>(data: T): Ok<T> {
 export function err(error: string): Err {
   return { ok: false, error };
 }
-

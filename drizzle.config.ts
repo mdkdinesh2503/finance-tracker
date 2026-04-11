@@ -14,7 +14,7 @@ const databaseUrl =
   })();
 
 export default {
-  schema: "./src/lib/db/schema.ts",
+  schema: "./src/lib/db/schema/index.ts",
   out: "./src/lib/db/migrations",
   dialect: "postgresql",
   dbCredentials: {

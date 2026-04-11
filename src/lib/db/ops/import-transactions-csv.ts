@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
 
-import { closeDatabaseConnection, db } from "./client";
+import { closeDatabaseConnection, db } from "../client";
 import { seedUserId } from "./ensure-user-categories";
 import {
   accounts,
@@ -13,7 +13,7 @@ import {
   transactions,
   users,
   type TransactionType,
-} from "./schema";
+} from "../schema";
 
 const TX_TYPES = new Set<string>([
   "EXPENSE",
@@ -143,7 +143,10 @@ function resolveCategoryForImport(
 
   if (!c) {
     const root = findRoot();
-    return root ? { id: root.id, parentId: root.parentId } : null;
+    if (!root) return null;
+    // Seeded parent rows have `parent_id` null; analytics rollups join `transactions.parent_category_id`
+    // to the parent group. Use the same id so parent-only CSV rows are not "Uncategorized".
+    return { id: root.id, parentId: root.id };
   }
 
   const parent = findRoot();

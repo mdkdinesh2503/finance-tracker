@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { DashboardSkeleton } from "@/components/feature-specific/dashboard/dashboard-skeleton";
-import { DashboardInner } from "./dashboard-inner";
+import { DashboardInner } from "@/components/feature-specific/dashboard/dashboard-inner";
 
 export default function DashboardPage() {
   return (

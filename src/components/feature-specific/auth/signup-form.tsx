@@ -1,28 +1,20 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { z } from "zod";
-import { loginAction } from "@/app/actions/auth";
+import { signupAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(8),
 });
 
-function safeInternalPath(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
-  return raw;
-}
-
-export function LoginForm() {
+export function SignupForm() {
   const router = useRouter();
-  const search = useSearchParams();
-  const next = safeInternalPath(search.get("next"));
-
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [show, setShow] = useState(false);
@@ -38,16 +30,16 @@ export function LoginForm() {
         const password = String(form.get("password") ?? "");
         const parsed = schema.safeParse({ email, password });
         if (!parsed.success) {
-          setError("Enter a valid email and password");
+          setError("Use a valid email and a password of at least 8 characters");
           return;
         }
         startTransition(async () => {
-          const res = await loginAction(parsed.data);
+          const res = await signupAction(parsed.data);
           if (!res.ok) {
             setError(res.error);
             return;
           }
-          router.replace(next);
+          router.replace("/dashboard");
           router.refresh();
         });
       }}
@@ -77,9 +69,12 @@ export function LoginForm() {
           id="password"
           name="password"
           type={show ? "text" : "password"}
-          autoComplete="current-password"
-          placeholder="Your password"
+          autoComplete="new-password"
+          placeholder="Create a strong password"
         />
+        <div className="text-xs text-white/50">
+          Minimum 8 characters. Use a phrase you can remember.
+        </div>
       </div>
 
       {error ? (
@@ -92,19 +87,18 @@ export function LoginForm() {
       ) : null}
 
       <Button className="w-full" type="submit" disabled={pending}>
-        {pending ? "Logging in…" : "Log in"}
+        {pending ? "Creating…" : "Create account"}
       </Button>
 
       <div className="border-t border-white/8 pt-5 text-center text-sm text-white/55">
-        No account?{" "}
+        Already have an account?{" "}
         <a
           className="font-medium text-cyan-300/90 underline decoration-cyan-500/30 underline-offset-4 transition hover:text-cyan-200"
-          href="/signup"
+          href="/login"
         >
-          Sign up
+          Log in
         </a>
       </div>
     </form>
   );
 }
-

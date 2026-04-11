@@ -7,6 +7,13 @@ export function formatCurrency(n: number, currency = "INR"): string {
   }).format(n);
 }
 
+/** INR for string or numeric inputs; non-finite values → `₹0`. */
+export function formatInr(amount: string | number): string {
+  const n = typeof amount === "string" ? Number(amount) : amount;
+  if (!Number.isFinite(n)) return "₹0";
+  return formatCurrency(n, "INR");
+}
+
 /** Signed deltas for comparisons: `+₹1,460.00`, `-₹5,120.00`, `+₹0.00`. */
 export function formatDeltaCurrency(n: number): string {
   const abs = formatCurrency(Math.abs(n));

@@ -11,7 +11,6 @@ import { getSessionUserId } from "@/lib/auth/session";
 import { NewTransactionForm } from "@/components/feature-specific/transactions/new-transaction-form";
 import { redirect } from "next/navigation";
 import { getLoansByContact } from "@/lib/services/queries/transactions";
-import { PageHeader } from "@/components/common/page-header";
 
 export default async function NewTransactionPage() {
   const userId = await getSessionUserId();
