@@ -161,6 +161,7 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     children: [
       { name: "Chit Fund", sortOrder: 0 },
       { name: "Emergency Fund", sortOrder: 1 },
+      { name: "Partial Fund (PF)", sortOrder: 2 },
     ],
   },
   {
@@ -179,6 +180,7 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     children: [
       { name: "Rental Income", sortOrder: 0 },
       { name: "Cash Gifts Received", sortOrder: 1 },
+      { name: "Family Support", sortOrder: 2 },
     ],
   },
   {

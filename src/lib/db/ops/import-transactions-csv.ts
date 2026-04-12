@@ -17,6 +17,7 @@ import {
 } from "../schema";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
+  OTHER_INCOME_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
 } from "@/lib/constants/category-rules";
@@ -442,6 +443,8 @@ async function main() {
 
     const needsSalaryCompany =
       parentResolvedName === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
+    const optionalIncomeCompany =
+      parentResolvedName === OTHER_INCOME_PARENT_NAME && txType === "INCOME";
     const needsGiftRecipient =
       parentResolvedName === GIFTS_OCCASIONS_PARENT_NAME &&
       txType === "EXPENSE" &&
@@ -472,9 +475,18 @@ async function main() {
         process.exit(1);
       }
       companyId = coid;
+    } else if (optionalIncomeCompany && companyTrim) {
+      const coid = companyByName.get(companyTrim.toLowerCase());
+      if (!coid) {
+        console.error(
+          `Row ${i + 1}: company "${companyTrim}" not found. Add it under Settings → Employers.`,
+        );
+        process.exit(1);
+      }
+      companyId = coid;
     } else if (companyTrim) {
       console.error(
-        `Row ${i + 1}: Company is only used for Salary & Wages income rows; clear the column or fix the category.`,
+        `Row ${i + 1}: Company is only used for Salary & Wages and Other Income rows; clear the column or fix the category.`,
       );
       process.exit(1);
     }

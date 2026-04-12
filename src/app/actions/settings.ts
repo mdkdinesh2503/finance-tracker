@@ -13,6 +13,7 @@ import {
   type TransactionType,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { deleteContactIfUnused } from "@/lib/services/transactions";
 import { err, ok, type Result } from "@/lib/types/result";
 
 async function assertCategory(id: string): Promise<string | null> {
@@ -260,11 +261,8 @@ export async function deleteContactAction(id: string): Promise<Result<null>> {
   const uuid = z.string().uuid().safeParse(id);
   if (!uuid.success) return err("Invalid id");
 
-  const del = await db
-    .delete(contacts)
-    .where(and(eq(contacts.id, uuid.data), eq(contacts.userId, user.id)))
-    .returning({ id: contacts.id });
-  if (!del.length) return err("Not found");
+  const result = await deleteContactIfUnused(db, user.id, uuid.data);
+  if (!result.ok) return err(result.error);
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
   return ok(null);

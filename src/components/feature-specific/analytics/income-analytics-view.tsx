@@ -2,9 +2,32 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { IncomeSalaryWagesChart } from "@/components/feature-specific/analytics/income-salary-wages-chart";
+import { SalaryByEmployerChart } from "@/components/feature-specific/analytics/salary-by-employer-chart";
 import { GlassCard } from "@/components/ui/glass-card";
-import type { IncomeAnalyticsSnapshot } from "@/lib/types/income-analytics";
+import type {
+  IncomeAnalyticsSnapshot,
+  SalaryHistoryRow,
+} from "@/lib/types/income-analytics";
+import type { IncomeSalaryChartPoint } from "@/components/feature-specific/analytics/income-salary-wages-chart";
 import { formatInr, formatYearMonthLabel } from "@/lib/utilities/format";
+
+function mergeSalaryChartSeries(
+  calendar: SalaryHistoryRow[],
+  spend: SalaryHistoryRow[],
+): IncomeSalaryChartPoint[] {
+  const keys = new Set<string>();
+  for (const r of calendar) keys.add(r.ym);
+  for (const r of spend) keys.add(r.ym);
+  const cMap = new Map(calendar.map((r) => [r.ym, r.total]));
+  const sMap = new Map(spend.map((r) => [r.ym, r.total]));
+  return [...keys]
+    .sort((a, b) => a.localeCompare(b))
+    .map((month) => ({
+      month,
+      salary: cMap.get(month) ?? 0,
+      salarySpendAligned: sMap.get(month) ?? 0,
+    }));
+}
 
 type Props = {
   data: IncomeAnalyticsSnapshot;
@@ -65,22 +88,29 @@ function DeltaChip({ pct }: { pct: number | null }) {
   );
 }
 
-export function IncomeAnalyticsView({ data }: Props) {
+function SalaryIncomeAnalyticsViewContent({ data }: Props) {
   const {
     thisMonth,
     lastMonth,
     byParentThisMonth,
     byLeafThisMonth,
     salaryWagesMonthly,
+    salaryWagesSpendAlignedMonthly,
     projection,
+    lifetimeSalaryWagesTotal,
+    lifetimeByParent,
+    lifetimeByLeaf,
+    lifetimeSalaryByEmployer,
+    salaryEmployerMonthlyCells,
+    employerSalaryInsights,
   } = data;
 
-  const totalDelta = pctVsPrevious(thisMonth.totalIncome, lastMonth.totalIncome);
-  const salaryDelta = pctVsPrevious(thisMonth.salaryWagesTotal, lastMonth.salaryWagesTotal);
+  const salaryDelta = pctVsPrevious(thisMonth.totalIncome, lastMonth.totalIncome);
 
-  const salaryChartData = [...salaryWagesMonthly]
-    .sort((a, b) => a.ym.localeCompare(b.ym))
-    .map((r) => ({ month: r.ym, salary: r.total }));
+  const salaryChartData = mergeSalaryChartSeries(
+    salaryWagesMonthly,
+    salaryWagesSpendAlignedMonthly,
+  );
 
   const salaryRhythmHasData =
     salaryChartData.length > 0 && salaryChartData.some((d) => d.salary > 0);
@@ -96,6 +126,11 @@ export function IncomeAnalyticsView({ data }: Props) {
   const salaryMonthRows = [...salaryWagesMonthly].sort((a, b) => b.ym.localeCompare(a.ym));
   const maxSalaryMonth = salaryMonthRows.reduce((m, r) => Math.max(m, r.total), 0);
 
+  const compareMax = Math.max(thisMonth.totalIncome, lastMonth.totalIncome, 1);
+  const barThisPct = (thisMonth.totalIncome / compareMax) * 100;
+  const barLastPct = (lastMonth.totalIncome / compareMax) * 100;
+  const absDeltaInr = thisMonth.totalIncome - lastMonth.totalIncome;
+
   return (
     <div className="income-scope relative space-y-10 pb-16">
       <div
@@ -108,90 +143,194 @@ export function IncomeAnalyticsView({ data }: Props) {
       />
 
       <header className="relative z-[1] space-y-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary">
-              Insights · Income
-            </p>
-            <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              <span className="bg-linear-to-r from-ink via-emerald-100 to-teal-200 bg-clip-text text-transparent">
-                Cash-in rhythm
-              </span>
-            </h1>
-            <p className="max-w-2xl text-sm leading-snug text-ink-muted">
-              This month vs last, <strong className="text-ink">Salary &amp; Wages</strong> trend, and
-              a naive salary hint from closed months only. Broader trends live on{" "}
-              <Link
-                href="/analytics"
-                prefetch={false}
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                Analytics
-              </Link>
-              {" · "}
-              <Link
-                href="/analytics/investments"
-                prefetch={false}
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                Invest
-              </Link>
-              .
-            </p>
-          </div>
-          <DeltaChip pct={totalDelta} />
+        <div className="max-w-2xl space-y-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary">
+            Insights · Income · Salary &amp; Wages
+          </p>
+          <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            <span className="bg-linear-to-r from-ink via-emerald-100 to-teal-200 bg-clip-text text-transparent">
+              Salary &amp; Wages
+            </span>
+          </h1>
+          <p className="max-w-2xl text-sm leading-snug text-ink-muted">
+            Totals use each row&apos;s transaction date. Multiple employers appear together on the
+            chart below. Other income is on{" "}
+            <Link
+              href="/analytics/income/other"
+              prefetch={false}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Other income
+            </Link>
+            .
+          </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
           <GlassCard
             variant="signature"
-            className="income-hero-stat flex h-full min-h-0 flex-col overflow-hidden sm:col-span-2 xl:col-span-1"
+            className="income-hero-stat flex min-h-0 flex-col overflow-hidden"
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Total income · {thisMonth.label}
+              Total · all time
             </p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-emerald-100 tabular-nums sm:text-3xl">
+            <p className="mt-2 text-xl font-semibold tracking-tight text-emerald-100 tabular-nums sm:text-2xl">
+              {formatInr(lifetimeSalaryWagesTotal)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">Salary &amp; Wages only</p>
+          </GlassCard>
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex min-h-0 flex-col overflow-hidden"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Current month · {thisMonth.label}
+            </p>
+            <p className="mt-2 text-xl font-semibold tracking-tight text-emerald-100 tabular-nums sm:text-2xl">
               {formatInr(thisMonth.totalIncome)}
             </p>
-            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Prev month: {formatInr(lastMonth.totalIncome)}
-            </p>
           </GlassCard>
-
           <GlassCard
             variant="signature"
-            className="income-hero-stat flex h-full min-h-0 flex-col"
+            className="income-hero-stat flex min-h-0 flex-col overflow-hidden"
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Salary &amp; Wages
+              Previous month · {lastMonth.label}
             </p>
-            <p className="mt-2 text-2xl font-semibold text-emerald-100/95 tabular-nums">
-              {formatInr(thisMonth.salaryWagesTotal)}
-            </p>
-            <p className="mt-auto pt-3">
-              <DeltaChip pct={salaryDelta} />
-            </p>
-          </GlassCard>
-
-          <GlassCard
-            variant="signature"
-            className="income-hero-stat flex h-full min-h-0 flex-col sm:col-span-2 xl:col-span-1"
-            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
-          >
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Other income · {thisMonth.label}
-            </p>
-            <p className="mt-2 text-2xl font-semibold text-teal-100/90 tabular-nums">
-              {formatInr(thisMonth.otherIncomeParentTotal)}
-            </p>
-            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Parent &quot;Other Income&quot; · Prev {formatInr(lastMonth.otherIncomeParentTotal)}
+            <p className="mt-2 text-xl font-semibold tracking-tight text-emerald-100/90 tabular-nums sm:text-2xl">
+              {formatInr(lastMonth.totalIncome)}
             </p>
           </GlassCard>
         </div>
       </header>
+
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">This month vs previous month</h2>
+        <p className="text-xs text-ink-muted">
+          Calendar-month totals for all Salary &amp; Wages credits (every employer combined).
+        </p>
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                {thisMonth.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-100">
+                {formatInr(thisMonth.totalIncome)}
+              </p>
+              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/8 ring-1 ring-white/10">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-emerald-500 to-teal-400"
+                  style={{ width: `${barThisPct}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                {lastMonth.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-100/85">
+                {formatInr(lastMonth.totalIncome)}
+              </p>
+              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/8 ring-1 ring-white/10">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-emerald-700/80 to-teal-700/60"
+                  style={{ width: `${barLastPct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-5">
+            <DeltaChip pct={salaryDelta} />
+            <span className="text-sm tabular-nums text-ink-muted">
+              Absolute change:{" "}
+              <span className="font-semibold text-ink">
+                {absDeltaInr >= 0 ? "+" : ""}
+                {formatInr(absDeltaInr)}
+              </span>
+            </span>
+          </div>
+        </GlassCard>
+      </section>
+
+      <section className="relative z-[1] space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">By employer over time</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            One line per company. When you add a new employer, it appears as another line on the same
+            chart so you can compare.
+          </p>
+        </div>
+        {employerSalaryInsights.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {employerSalaryInsights.map((e) => (
+              <GlassCard key={e.companyName} variant="signature" hideAccent noLift panelClassName="!p-4">
+                <p className="text-xs font-semibold text-ink">{e.companyName}</p>
+                {e.firstMonthYm != null ? (
+                  <p className="mt-1 text-[11px] text-ink-muted">
+                    First in data:{" "}
+                    <span className="font-medium text-ink">
+                      {formatYearMonthLabel(e.firstMonthYm)}
+                    </span>{" "}
+                    · {formatInr(e.firstAmount)}
+                  </p>
+                ) : null}
+                {e.stepUpMonthYm != null ? (
+                  <p className="mt-2 text-sm text-ink-muted">
+                    <span className="font-medium text-emerald-200">Increase</span> from{" "}
+                    {formatInr(e.amountBeforeStepUp)} to {formatInr(e.amountAfterStepUp)} starting{" "}
+                    <span className="font-semibold text-ink">
+                      {formatYearMonthLabel(e.stepUpMonthYm)}
+                    </span>
+                    .
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-ink-muted">
+                    No month-over-month increase detected yet (flat or only decreases).
+                  </p>
+                )}
+              </GlassCard>
+            ))}
+          </div>
+        ) : null}
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-3">
+          <SalaryByEmployerChart cells={salaryEmployerMonthlyCells} />
+        </GlassCard>
+      </section>
+
+      {lifetimeSalaryByEmployer.length > 0 ? (
+        <section className="relative z-[1] space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Salary &amp; Wages by employer · all time totals
+          </h2>
+          <p className="text-xs text-ink-muted">
+            Uses the <em>Employer</em> field on each salary income row.
+          </p>
+          <GlassCard variant="signature" hideAccent noLift panelClassName="!p-0 !overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[280px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <Th>Employer</Th>
+                    <Th>Total</Th>
+                  </tr>
+                </thead>
+                <tbody className="[&_tr:hover]:bg-white/[0.04]">
+                  {lifetimeSalaryByEmployer.map((r) => (
+                    <tr key={r.companyName}>
+                      <Td className="font-medium">{r.companyName}</Td>
+                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
+        </section>
+      ) : null}
 
       <section className="relative z-[1] space-y-4">
         <GlassCard
@@ -217,7 +356,8 @@ export function IncomeAnalyticsView({ data }: Props) {
                     Salary &amp; Wages · 12-month flow
                   </h2>
                   <p className="mt-0.5 text-pretty text-[11px] leading-snug text-ink-muted">
-                    Calendar months in range — hover points for detail
+                    Green = credited calendar month. Blue (when shown) = same cash attributed to the
+                    month you spend it in (last-day-of-month rule).
                   </p>
                 </div>
               </div>
@@ -243,61 +383,211 @@ export function IncomeAnalyticsView({ data }: Props) {
             </div>
           </div>
           <div className="min-h-0 w-full flex-1">
-            <IncomeSalaryWagesChart data={salaryChartData} />
+            <IncomeSalaryWagesChart
+              data={salaryChartData}
+              primarySeriesLabel="Salary & Wages"
+              showSpendMonthInTooltip
+            />
+          </div>
+        </GlassCard>
+      </section>
+    </div>
+  );
+}
+
+function OtherIncomeAnalyticsView({ data }: Props) {
+  const {
+    thisMonth,
+    lastMonth,
+    byParentThisMonth,
+    byLeafThisMonth,
+    otherIncomeMonthly,
+    lifetimeOtherIncomeParentTotal,
+    lifetimeFamilySupportTotal,
+    lifetimeByParent,
+    lifetimeByLeaf,
+  } = data;
+
+  const totalDelta = pctVsPrevious(thisMonth.totalIncome, lastMonth.totalIncome);
+  const chartData = mergeSalaryChartSeries(otherIncomeMonthly, otherIncomeMonthly);
+  const otherRhythmHasData =
+    chartData.length > 0 && chartData.some((d) => d.salary > 0);
+  const peakOtherMonth = otherIncomeMonthly.reduce<{ ym: string; total: number } | null>(
+    (best, r) => {
+      if (!best || r.total > best.total) return { ym: r.ym, total: r.total };
+      return best;
+    },
+    null,
+  );
+  const otherMonthRows = [...otherIncomeMonthly].sort((a, b) => b.ym.localeCompare(a.ym));
+  const maxOtherMonth = otherMonthRows.reduce((m, r) => Math.max(m, r.total), 0);
+
+  return (
+    <div className="income-scope relative space-y-10 pb-16">
+      <div
+        className="income-aurora-blob pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-500/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="income-aurora-blob income-aurora-blob--delayed pointer-events-none absolute -left-24 top-48 h-64 w-64 rounded-full bg-cyan-500/8 blur-3xl"
+        aria-hidden
+      />
+
+      <header className="relative z-[1] space-y-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary">
+              Insights · Income · Other Income
+            </p>
+            <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              <span className="bg-linear-to-r from-ink via-teal-100 to-cyan-200 bg-clip-text text-transparent">
+                Other income
+              </span>
+            </h1>
+            <p className="max-w-2xl text-sm leading-snug text-ink-muted">
+              Gifts, family support, and other non-salary cash-in (parent{" "}
+              <strong className="text-ink">Other Income</strong>). Salary is on{" "}
+              <Link
+                href="/analytics/income/salary"
+                prefetch={false}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                Salary &amp; Wages
+              </Link>
+              .
+            </p>
+          </div>
+          <DeltaChip pct={totalDelta} />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col overflow-hidden"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Other Income · {thisMonth.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-teal-100 tabular-nums sm:text-3xl">
+              {formatInr(thisMonth.totalIncome)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Prev month: {formatInr(lastMonth.totalIncome)}
+            </p>
+          </GlassCard>
+
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Family support · all time
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-cyan-100/90 tabular-nums">
+              {formatInr(lifetimeFamilySupportTotal)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Subcategory under Other Income (not a loan).
+            </p>
+          </GlassCard>
+        </div>
+      </header>
+
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · Other Income</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <GlassCard variant="signature" panelClassName="!p-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Other Income parent · all time
+            </p>
+            <p className="mt-2 text-xl font-semibold tabular-nums text-teal-100/90 sm:text-2xl">
+              {formatInr(lifetimeOtherIncomeParentTotal)}
+            </p>
+          </GlassCard>
+        </div>
+      </section>
+
+      <section className="relative z-[1] space-y-4">
+        <GlassCard
+          variant="signature"
+          hideAccent
+          noLift
+          className="flex min-h-0 flex-col"
+          panelClassName="flex min-h-0 flex-1 flex-col !p-3"
+        >
+          <div className="mb-2 shrink-0">
+            <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between min-[400px]:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-linear-to-br from-teal-500/15 to-cyan-600/5 text-teal-300"
+                  aria-hidden
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-pretty text-sm font-semibold tracking-tight text-ink">
+                    Other Income · 12-month flow
+                  </h2>
+                  <p className="mt-0.5 text-pretty text-[11px] leading-snug text-ink-muted">
+                    Totals by calendar month of each credit.
+                  </p>
+                </div>
+              </div>
+              {otherRhythmHasData && peakOtherMonth ? (
+                <div
+                  className="grid w-full max-w-sm shrink-0 grid-rows-[auto_auto] gap-2 self-end rounded-lg border border-teal-500/25 bg-teal-500/8 px-3 py-2 min-[400px]:w-50 min-[400px]:max-w-[42%] min-[400px]:self-auto"
+                  role="group"
+                  aria-label="Peak other income month in window"
+                >
+                  <p className="border-b border-teal-500/20 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-teal-200/90">
+                    Peak month
+                  </p>
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold tabular-nums leading-none text-ink">
+                      {formatInr(peakOtherMonth.total)}
+                    </span>
+                    <span className="shrink-0 text-right text-[10px] leading-snug text-ink-muted">
+                      {formatYearMonthLabel(peakOtherMonth.ym)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="min-h-0 w-full flex-1">
+            <IncomeSalaryWagesChart
+              data={chartData}
+              primarySeriesLabel="Other Income"
+              showSpendMonthInTooltip={false}
+              emptyTitle="No Other Income history in range"
+              emptyHint="Record income under Other Income to see the trend."
+            />
           </div>
         </GlassCard>
       </section>
 
-      <section className="relative z-[1] space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-ink">Salary outlook</h2>
-          <p className="mt-1 text-xs text-ink-muted">
-            Completed months only — not advice; rough extrapolation from average MoM change.
-          </p>
-        </div>
-        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
-          {projection.projectedNextMonthSalary != null && projection.averageMoMChangePercent != null ? (
-            <div className="space-y-2">
-              <p className="text-xl font-semibold text-emerald-100 sm:text-2xl">
-                ~{formatInr(projection.projectedNextMonthSalary)}{" "}
-                <span className="text-base font-normal text-ink-muted">next month (Salary &amp; Wages)</span>
-              </p>
-              <p className="text-xs text-ink-muted">
-                Avg MoM {projection.averageMoMChangePercent >= 0 ? "+" : ""}
-                {projection.averageMoMChangePercent.toFixed(2)}% · {projection.completedMonthsUsed} closed
-                month(s) · Last closed{" "}
-                {projection.lastCompletedMonthYm
-                  ? formatYearMonthLabel(projection.lastCompletedMonthYm)
-                  : "—"}{" "}
-                at {formatInr(projection.lastCompletedMonthSalary)}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-ink-muted">
-              Add at least two past months of Salary &amp; Wages to unlock a simple trend estimate.
-            </p>
-          )}
-        </GlassCard>
-      </section>
-
       <section className="relative z-[1] space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Salary by month</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-ink">Other Income by month</h2>
         <p className="text-xs text-ink-muted">Newest first · relative bar vs largest month in window</p>
         <GlassCard variant="signature" hideAccent noLift panelClassName="!p-3">
           <div className="rounded-2xl border border-(--border) bg-(--glass-simple-bg) p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            {salaryMonthRows.length === 0 ? (
-              <p className="py-10 text-center text-sm text-ink-muted">No Salary &amp; Wages in the last year.</p>
+            {otherMonthRows.length === 0 ? (
+              <p className="py-10 text-center text-sm text-ink-muted">No Other Income in the last year.</p>
             ) : (
               <ul className="flex flex-col gap-1.5" role="list">
-                {salaryMonthRows.map((r) => {
+                {otherMonthRows.map((r) => {
                   const barPct =
-                    maxSalaryMonth > 0 && r.total > 0 ? (r.total / maxSalaryMonth) * 100 : 0;
+                    maxOtherMonth > 0 && r.total > 0 ? (r.total / maxOtherMonth) * 100 : 0;
                   return (
                     <li key={r.ym}>
-                      <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 transition-[border-color,background-color] duration-200 hover:border-emerald-500/20 hover:bg-white/5">
+                      <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 transition-[border-color,background-color] duration-200 hover:border-teal-500/20 hover:bg-white/5">
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="text-sm font-medium text-ink">{formatYearMonthLabel(r.ym)}</span>
-                          <span className="text-sm font-semibold tabular-nums text-emerald-100/95">
+                          <span className="text-sm font-semibold tabular-nums text-teal-100/95">
                             {formatInr(r.total)}
                           </span>
                         </div>
@@ -306,7 +596,7 @@ export function IncomeAnalyticsView({ data }: Props) {
                           aria-hidden
                         >
                           <div
-                            className="h-full rounded-full bg-linear-to-r from-emerald-600/90 to-teal-400/75 motion-safe:transition-[width] motion-safe:duration-500"
+                            className="h-full rounded-full bg-linear-to-r from-teal-600/90 to-cyan-400/75 motion-safe:transition-[width] motion-safe:duration-500"
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
@@ -335,7 +625,7 @@ export function IncomeAnalyticsView({ data }: Props) {
                 {byParentThisMonth.length === 0 ? (
                   <tr>
                     <Td className="text-zinc-500" colSpan={2}>
-                      No income recorded this month.
+                      No Other Income recorded this month.
                     </Td>
                   </tr>
                 ) : (
@@ -354,7 +644,7 @@ export function IncomeAnalyticsView({ data }: Props) {
 
       <section className="relative z-[1] space-y-3">
         <h2 className="text-lg font-semibold tracking-tight text-ink">This month · subcategories</h2>
-        <p className="text-xs text-ink-muted">Leaf categories with parent context</p>
+        <p className="text-xs text-ink-muted">Leaf categories</p>
         <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-left">
@@ -369,7 +659,7 @@ export function IncomeAnalyticsView({ data }: Props) {
                 {byLeafThisMonth.length === 0 ? (
                   <tr>
                     <Td className="text-zinc-500" colSpan={3}>
-                      No income recorded this month.
+                      No Other Income recorded this month.
                     </Td>
                   </tr>
                 ) : (
@@ -386,6 +676,79 @@ export function IncomeAnalyticsView({ data }: Props) {
           </div>
         </GlassCard>
       </section>
+
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · parent groups</h2>
+        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[360px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <Th>Parent</Th>
+                  <Th>Total</Th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:hover]:bg-white/[0.04]">
+                {lifetimeByParent.length === 0 ? (
+                  <tr>
+                    <Td className="text-zinc-500" colSpan={2}>
+                      No Other Income yet.
+                    </Td>
+                  </tr>
+                ) : (
+                  lifetimeByParent.map((r) => (
+                    <tr key={r.parentName}>
+                      <Td className="font-medium">{r.parentName}</Td>
+                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </section>
+
+      <section className="relative z-[1] space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · subcategories</h2>
+        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <Th>Parent</Th>
+                  <Th>Subcategory</Th>
+                  <Th>Total</Th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:hover]:bg-white/[0.04]">
+                {lifetimeByLeaf.length === 0 ? (
+                  <tr>
+                    <Td className="text-zinc-500" colSpan={3}>
+                      No Other Income yet.
+                    </Td>
+                  </tr>
+                ) : (
+                  lifetimeByLeaf.map((r, i) => (
+                    <tr key={`${r.parentName}-${r.leafName}-${i}`}>
+                      <Td className="text-ink-muted">{r.parentName}</Td>
+                      <Td className="font-medium">{r.leafName}</Td>
+                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </section>
     </div>
   );
+}
+
+export function IncomeAnalyticsView({ data }: Props) {
+  if (data.scope === "other") {
+    return <OtherIncomeAnalyticsView data={data} />;
+  }
+  return <SalaryIncomeAnalyticsViewContent data={data} />;
 }

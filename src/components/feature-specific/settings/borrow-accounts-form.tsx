@@ -14,7 +14,12 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EntityTag } from "./entity-tag";
 import { SettingsSection } from "./settings-section";
 
-export type BorrowAccountRow = { id: string; name: string; loanTxCount: number };
+export type BorrowAccountRow = {
+  id: string;
+  name: string;
+  txCount: number;
+  ruleCount: number;
+};
 
 export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] }) {
   const router = useRouter();
@@ -27,12 +32,7 @@ export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
-  const sortedAccounts = [...accounts].sort((a, b) => {
-    const aUsed = a.loanTxCount > 0;
-    const bUsed = b.loanTxCount > 0;
-    if (aUsed !== bUsed) return aUsed ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  const sortedAccounts = accounts;
 
   function add() {
     setErr(null);
@@ -135,7 +135,15 @@ export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] 
             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
               {sortedAccounts.map((a) => {
                 const editing = editingId === a.id;
-                const deleteDisabled = a.loanTxCount > 0;
+                const deleteDisabled = a.txCount > 0 || a.ruleCount > 0;
+                const deleteTitle =
+                  deleteDisabled === false
+                    ? "Delete"
+                    : a.txCount > 0 && a.ruleCount > 0
+                      ? "Remove transactions and quick entry rules first"
+                      : a.txCount > 0
+                        ? "Remove transactions using this contact first"
+                        : "Remove quick entry rules using this contact first";
 
                 const initial = (a.name.trim()[0] ?? "?").toUpperCase();
 
@@ -243,7 +251,7 @@ export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] 
                                 type="button"
                                 onClick={() => setDeleteTarget({ id: a.id, name: a.name })}
                                 disabled={pending || deleteDisabled}
-                                title={deleteDisabled ? "Remove loan transactions first" : "Delete"}
+                                title={deleteTitle}
                                 className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-linear-to-br shadow-[0_10px_26px_-18px_rgba(0,0,0,0.95)] transition ${
                                   deleteDisabled
                                     ? "border-amber-400/18 from-amber-500/10 to-white/4 text-amber-200/70 opacity-80"
@@ -276,7 +284,7 @@ export function BorrowAccountsForm({ accounts }: { accounts: BorrowAccountRow[] 
         title="Remove contact?"
         description={
           deleteTarget
-            ? `This will delete “${deleteTarget.name}”. You can only remove contacts not referenced by loan transactions.`
+            ? `This will delete “${deleteTarget.name}”. You can only remove contacts not referenced by transactions or quick entry rules.`
             : ""
         }
         pending={deletePending}

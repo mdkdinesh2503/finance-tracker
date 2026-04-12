@@ -13,7 +13,7 @@ import {
   listLocations,
   listCompanies,
   createContact,
-  deleteContactIfNoLoans,
+  deleteContactIfUnused,
   updateContactForUser,
 } from "@/lib/services/transactions";
 import { toTransactionsCsv } from "@/lib/utilities/csv";
@@ -76,6 +76,8 @@ export async function createTransactionAction(input: CreateTransactionInput) {
     revalidatePath("/analytics");
     revalidatePath("/analytics/lending");
     revalidatePath("/analytics/income");
+    revalidatePath("/analytics/income/salary");
+    revalidatePath("/analytics/income/other");
     revalidatePath("/analytics/investments");
   }
   return result;
@@ -153,7 +155,7 @@ export async function updateContactAction(
 export async function deleteContactAction(contactId: string) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const result = await deleteContactIfNoLoans(db, user.id, contactId);
+  const result = await deleteContactIfUnused(db, user.id, contactId);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/transactions/new");
@@ -477,6 +479,8 @@ export async function createTransactionDirectAction(
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   revalidatePath("/analytics/investments");
   return ok({ id: row.id });
 }
@@ -500,6 +504,8 @@ export async function deleteTransactionDirectAction(
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   revalidatePath("/analytics/investments");
   return ok(null);
 }

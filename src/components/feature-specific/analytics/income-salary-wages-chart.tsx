@@ -5,6 +5,7 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,7 +17,13 @@ import {
   formatYearMonthLabel,
 } from "@/lib/utilities/format";
 
-type Point = { month: string; salary: number };
+export type IncomeSalaryChartPoint = {
+  month: string;
+  /** Salary & Wages total by calendar month of the bank credit date. */
+  salary: number;
+  /** Same cash, shifted when credit falls on the last day of a month (→ next spend month). */
+  salarySpendAligned?: number;
+};
 
 function formatYAxisTick(v: number): string {
   if (!Number.isFinite(v)) return String(v);
@@ -25,12 +32,45 @@ function formatYAxisTick(v: number): string {
   return `₹${v}`;
 }
 
-export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
+export function IncomeSalaryWagesChart({
+  data,
+  primarySeriesLabel = "Salary & Wages",
+  showSpendMonthInTooltip = true,
+  emptyTitle,
+  emptyHint,
+}: {
+  data: IncomeSalaryChartPoint[];
+  /** Tooltip / copy for the main area series. */
+  primarySeriesLabel?: string;
+  /** When false, tooltip omits “credited vs spend month” wording (e.g. Other Income). */
+  showSpendMonthInTooltip?: boolean;
+  emptyTitle?: string;
+  emptyHint?: string;
+}) {
   const rawId = useId();
   const fillId = `incomeSalaryFill-${rawId.replace(/:/g, "")}`;
 
-  const empty = data.length === 0 || data.every((d) => d.salary === 0);
-  const maxSal = Math.max(0, ...data.map((d) => d.salary));
+  const hasSpendSeries = useMemo(
+    () => data.some((d) => d.salarySpendAligned != null && d.salarySpendAligned > 0),
+    [data],
+  );
+  const spendDiffers = useMemo(
+    () =>
+      hasSpendSeries &&
+      data.some(
+        (d) =>
+          Math.round(d.salary) !== Math.round(d.salarySpendAligned ?? d.salary),
+      ),
+    [data, hasSpendSeries],
+  );
+
+  const empty =
+    data.length === 0 ||
+    data.every((d) => d.salary === 0 && (d.salarySpendAligned ?? 0) === 0);
+  const maxSal = Math.max(
+    0,
+    ...data.flatMap((d) => [d.salary, d.salarySpendAligned ?? 0]),
+  );
   const yAxisMax = maxSal <= 0 ? 1 : maxSal * 1.1;
 
   const ordered = useMemo(() => [...data].sort((a, b) => a.month.localeCompare(b.month)), [data]);
@@ -39,12 +79,14 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
     return (
       <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-500/25 bg-(--glass-simple-bg) px-5 py-8 text-center">
         <p className="text-sm font-medium text-ink-muted">
-          {data.length === 0
-            ? "No Salary & Wages history in range"
-            : "No salary amounts in these months"}
+          {emptyTitle ??
+            (data.length === 0
+              ? "No Salary & Wages history in range"
+              : "No salary amounts in these months")}
         </p>
         <p className="mt-1 max-w-xs text-xs text-(--ink-muted-2)">
-          Record income under Salary &amp; Wages to see the trend.
+          {emptyHint ??
+            "Record income under Salary & Wages to see the trend."}
         </p>
       </div>
     );
@@ -87,7 +129,7 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
             cursor={{ stroke: "#34d399", strokeWidth: 1, strokeDasharray: "4 4" }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const row = payload[0].payload as Point;
+              const row = payload[0].payload as IncomeSalaryChartPoint;
               const ym = row?.month ?? "";
               const raw = payload[0].value;
               const amount =
@@ -103,6 +145,7 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
                   ? ((amount - prior.salary) / prior.salary) * 100
                   : null;
               const pctPeak = maxSal > 0 && Number.isFinite(amount) ? (amount / maxSal) * 100 : null;
+              const spend = row?.salarySpendAligned;
 
               return (
                 <div
@@ -119,12 +162,25 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
                     {Number.isFinite(amount) ? formatCurrency(amount) : "—"}
                   </p>
                   <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                    Salary &amp; Wages
+                    {showSpendMonthInTooltip
+                      ? "Credited (calendar month)"
+                      : primarySeriesLabel}
                   </p>
+                  {showSpendMonthInTooltip && spendDiffers && spend != null && spend > 0 ? (
+                    <>
+                      <p className="mt-2 text-sm font-medium tabular-nums text-sky-200/95">
+                        {formatCurrency(spend)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-500/90">
+                        Spend / budget month
+                      </p>
+                    </>
+                  ) : null}
                   {pctPrior != null ? (
                     <p className="mt-1.5 text-[10px] leading-snug text-zinc-400">
                       {pctPrior >= 0 ? "+" : ""}
                       {pctPrior.toFixed(1)}% vs prior month
+                      {showSpendMonthInTooltip ? " (credited)" : ""}
                     </p>
                   ) : null}
                   {pctPeak != null ? (
@@ -139,6 +195,7 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
           <Area
             type="monotone"
             dataKey="salary"
+            name="Credited month"
             stroke="#34d399"
             strokeWidth={2.5}
             fill={`url(#${fillId})`}
@@ -151,6 +208,18 @@ export function IncomeSalaryWagesChart({ data }: { data: Point[] }) {
               strokeWidth: 2,
             }}
           />
+          {spendDiffers ? (
+            <Line
+              type="monotone"
+              dataKey="salarySpendAligned"
+              name="Spend month"
+              stroke="#38bdf8"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "#7dd3fc", stroke: "#0c4a6e", strokeWidth: 1.2 }}
+              activeDot={{ r: 5, fill: "#e0f2fe", stroke: "#0284c7", strokeWidth: 2 }}
+              connectNulls
+            />
+          ) : null}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

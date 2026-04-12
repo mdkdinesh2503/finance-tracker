@@ -46,7 +46,7 @@ const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai", "General
 
 const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith", "Appa", "Sajun", "Mayu", "Nandhini"] as const;
 
-const DEFAULT_COMPANIES = ["Aretedge"] as const;
+const DEFAULT_COMPANIES = ["Aretedge", "Family"] as const;
 
 /**
  * When `SEED_ADMIN_EMAIL` is set: ensures the default admin exists with

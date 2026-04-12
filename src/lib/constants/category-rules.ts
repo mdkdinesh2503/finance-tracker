@@ -1,5 +1,6 @@
 /** Seeded category group names — used for validation and form hints. */
 export const SALARY_WAGES_PARENT_NAME = "Salary & Wages";
+export const OTHER_INCOME_PARENT_NAME = "Other Income";
 export const GIFTS_OCCASIONS_PARENT_NAME = "Gifts & Occasions";
 
 export const GIFT_SUBCATEGORIES_REQUIRING_RECIPIENT = [

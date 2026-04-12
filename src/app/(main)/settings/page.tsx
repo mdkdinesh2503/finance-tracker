@@ -1,5 +1,5 @@
 import {
-  listContactsWithLoanUsage,
+  listContactsWithUsage,
   listContacts,
   listCategoriesWithUsageTree,
   listCompaniesWithUsage,
@@ -44,7 +44,7 @@ export default async function SettingsPage({
   if (!userId) {
     redirect("/login");
   }
-  const accounts = await listContactsWithLoanUsage(db, userId);
+  const accounts = await listContactsWithUsage(db, userId);
   const locs = await listLocationsWithUsage(db, userId);
   const companyRows = await listCompaniesWithUsage(db, userId);
   const categoryTree = await listCategoriesWithUsageTree(db, userId);

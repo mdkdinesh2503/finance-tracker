@@ -1,5 +1,5 @@
 Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,Notes
-18-08-2024,12:00:00,BORROW,7000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+18-08-2024,12:00:00,INCOME,30400,Other Income,Family Support,Home,,Family,Money (Insufficient)
 23-08-2024,12:00:00,EXPENSE,7300,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 20-08-2024,12:00:00,EXPENSE,1360,Essential Housing & Utilities,Rent,Hyderabad,,,Hotel Stay
 21-08-2024,12:00:00,EXPENSE,1300,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
@@ -9,7 +9,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 12-08-2024,12:00:00,EXPENSE,200,Health & Wellness,Personal Care,Home,,,Hair cut
 13-08-2024,12:00:00,BORROW,5000,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Lack of Money
 25-08-2024,12:00:00,EXPENSE,4660,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
-30-08-2024,12:00:00,INCOME,12580,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-09-2024,12:00:00,INCOME,12580,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+02-09-2024,12:00:00,INCOME,30000,Other Income,Family Support,Home,,Family,Money (Insufficient)
 02-09-2024,12:00:00,EXPENSE,510,Health & Wellness,Laundry & Cleaning,Hyderabad,,,Dhobi Time
 30-09-2024,12:00:00,EXPENSE,10860,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 15-09-2024,12:00:00,EXPENSE,5000,Gifts & Occasions,Festival Gifts,Home,,,Muruga Amount
@@ -21,7 +22,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-09-2024,12:00:00,EXPENSE,1000,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
 06-09-2024,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 30-09-2024,12:00:00,REPAYMENT,5000,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
-30-09-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-10-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 31-10-2024,12:00:00,EXPENSE,12525,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-10-2024,12:00:00,EXPENSE,860,Shopping & Lifestyle,Personal Purchases,Hyderabad,,,Flask
 25-10-2024,12:00:00,EXPENSE,1250,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
@@ -29,25 +30,27 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-10-2024,12:00:00,EXPENSE,580,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung M30 (VI)
 06-10-2024,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-10-2024,12:00:00,EXPENSE,2250,Shopping & Lifestyle,Clothing,Home,,,Diwali Shopping
-31-10-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-11-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 30-11-2024,12:00:00,EXPENSE,5977,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 30-11-2024,12:00:00,EXPENSE,880,Shopping & Lifestyle,Personal Purchases,Hyderabad,,,Flipkart Expenses
 30-11-2024,12:00:00,EXPENSE,2227,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 06-11-2024,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
-30-11-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-12-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+02-12-2024,12:00:00,INCOME,30000,Other Income,Family Support,Home,,Family,Money (Insufficient)
 31-12-2024,12:00:00,EXPENSE,6410,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 06-12-2024,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-12-2024,12:00:00,EXPENSE,1200,Food & Dining,Treats & Parties,Hyderabad,,,Fun Treat
 31-12-2024,12:00:00,EXPENSE,2240,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-12-2024,12:00:00,EXPENSE,1550,Shopping & Lifestyle,Clothing,Home,,,Dress Purchase
 31-12-2024,12:00:00,EXPENSE,1300,Shopping & Lifestyle,Electronics & Gadgets,Hyderabad,,,Boat Airdopes
-31-12-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-01-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+02-01-2025,12:00:00,INCOME,10000,Other Income,Family Support,Home,,Family,Money (Insufficient)
 06-01-2025,12:00:00,EXPENSE,12000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-01-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-01-2025,12:00:00,EXPENSE,7230,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-01-2025,12:00:00,EXPENSE,800,Gifts & Occasions,Family Events,Home,,,Pongal Purchase
 31-01-2025,12:00:00,EXPENSE,2415,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
-31-01-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-02-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 28-02-2025,12:00:00,EXPENSE,368,Gifts & Occasions,Personal Gifts,Home,Sajun,,Remote Car
 28-02-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 28-02-2025,12:00:00,EXPENSE,300,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
@@ -56,14 +59,14 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 28-02-2025,12:00:00,EXPENSE,2615,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 28-02-2025,12:00:00,EXPENSE,520,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Mobile Charger
 28-02-2025,12:00:00,EXPENSE,10300,Shopping & Lifestyle,Repairs & Accessories,Home,,,HP - Laptop Storage (1TB)
-28-02-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-03-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 06-03-2025,12:00:00,EXPENSE,12000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-03-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-03-2025,12:00:00,EXPENSE,10045,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-03-2025,12:00:00,EXPENSE,1200,Transport,Trips & Vacations,Hyderabad,,,Charminar & Museum
 31-03-2025,12:00:00,EXPENSE,2970,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 25-03-2025,12:00:00,EXPENSE,4450,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Treat
-31-03-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-04-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 30-04-2025,12:00:00,EXPENSE,2850,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 06-04-2025,12:00:00,EXPENSE,12000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 30-04-2025,12:00:00,EXPENSE,745,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
@@ -75,13 +78,15 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-04-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 30-04-2025,12:00:00,EXPENSE,1500,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Laptop SSD Connector
 30-04-2025,12:00:00,EXPENSE,8500,Subscriptions & Entertainment,Software Subscriptions,Hyderabad,,,Coursera Plus
-30-04-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-05-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-05-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-05-2025,12:00:00,EXPENSE,12000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-05-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-05-2025,12:00:00,EXPENSE,12072,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-05-2025,12:00:00,EXPENSE,343,Gifts & Occasions,Personal Gifts,Hyderabad,Nandhini,,Nandhini Marriage
 31-05-2025,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung M30 (VI)
-31-05-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-06-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-06-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 30-06-2025,12:00:00,EXPENSE,1200,Shopping & Lifestyle,Repairs & Accessories,Hyderabad,,,Phone Temper Glass
 30-06-2025,12:00:00,EXPENSE,1211,Food & Dining,Eating Out,Hyderabad,,,Split DriveIn
 30-06-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
@@ -91,7 +96,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-06-2025,12:00:00,EXPENSE,5000,Essential Housing & Utilities,Advance / Deposit,Hyderabad,,,PG Advance
 30-06-2025,12:00:00,EXPENSE,9650,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 30-06-2025,12:00:00,EXPENSE,1500,Gifts & Occasions,Festival Gifts,Home,,,Mariamman Katalai (FLEX)
-30-06-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-07-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-07-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-07-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-07-2025,12:00:00,EXPENSE,6580,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-07-2025,12:00:00,EXPENSE,3053,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
@@ -99,8 +105,9 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-07-2025,12:00:00,EXPENSE,1550,Food & Dining,Eating Out,Home,,,KFC with Mamz
 31-07-2025,12:00:00,BORROW,4114,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Lack of Money
 31-07-2025,12:00:00,EXPENSE,30000,Shopping & Lifestyle,Electronics & Gadgets,Hyderabad,,,Phone (Samsung S24)
-31-07-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
-31-07-2025,12:00:00,BORROW,2500,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+01-08-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-08-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
+31-07-2025,12:00:00,INCOME,2500,Other Income,Family Support,Home,,Family,Money (Travel Insufficient)
 31-08-2025,12:00:00,EXPENSE,5489,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-08-2025,12:00:00,REPAYMENT,4114,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
 06-08-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
@@ -111,7 +118,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-08-2025,12:00:00,BORROW,2050,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Lack of Money
 31-08-2025,12:00:00,EXPENSE,2000,Transport,Trips & Vacations,Hyderabad,,,Farm House (Aretedge)
 31-08-2025,12:00:00,EXPENSE,6710,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
-31-08-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-09-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-09-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 30-09-2025,12:00:00,REPAYMENT,2000,Debt Settlement,Full Repayment,Hyderabad,Likhith,,Resettled the Money
 30-09-2025,12:00:00,REPAYMENT,2050,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
 06-09-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
@@ -121,7 +129,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-09-2025,12:00:00,EXPENSE,550,Shopping & Lifestyle,Personal Purchases,Hyderabad,,,Tiffin box
 30-09-2025,12:00:00,EXPENSE,300,Transport,Trips & Vacations,Bangalore,,,Shivagange Hills Trek
 30-09-2025,12:00:00,EXPENSE,7407,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
-30-09-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-10-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-10-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 31-10-2025,12:00:00,EXPENSE,700,Shopping & Lifestyle,Electronics & Gadgets,Hyderabad,,,Phone Temper Glass
 31-10-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-10-2025,12:00:00,REPAYMENT,2000,Debt Settlement,Full Repayment,Hyderabad,Likhith,,Resettled the Money
@@ -130,10 +139,11 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-10-2025,12:00:00,EXPENSE,500,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
 31-10-2025,12:00:00,EXPENSE,1900,Food & Dining,Treats & Parties,Home,,,Birthday Treat to Mamz
 31-10-2025,12:00:00,EXPENSE,284,Shopping & Lifestyle,Electronics & Gadgets,Hyderabad,,,Wired Headset
-31-10-2025,12:00:00,BORROW,2500,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+31-10-2025,12:00:00,INCOME,2500,Other Income,Family Support,Home,,Family,Money (Travel Insufficient)
 31-10-2025,12:00:00,EXPENSE,6255,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-10-2025,12:00:00,EXPENSE,500,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
-31-10-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-11-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-11-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-11-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 30-11-2025,12:00:00,EXPENSE,1000,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
 30-11-2025,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
@@ -144,7 +154,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-11-2025,12:00:00,EXPENSE,1230,Food & Dining,Treats & Parties,Bangalore,,,Fun Treat
 30-11-2025,12:00:00,EXPENSE,1650,Shopping & Lifestyle,Personal Purchases,Bangalore,,,Shoe
 30-11-2025,12:00:00,EXPENSE,350,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung S24 (Airtel)
-30-11-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-12-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-12-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-12-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-12-2025,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-12-2025,12:00:00,EXPENSE,2500,Transport,Trips & Vacations,Bangalore,,,Sid Sriram Concert
@@ -153,12 +164,13 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-12-2025,12:00:00,EXPENSE,660,Gifts & Occasions,Birthday Gifts,Hyderabad,Mayu,,Birthday Shares
 31-12-2025,12:00:00,EXPENSE,790,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
 31-12-2025,12:00:00,BORROW,2200,Personal Borrowing,Borrow from Friend,Hyderabad,Likhith,,Lack of Money
-31-12-2025,12:00:00,BORROW,2000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+31-12-2025,12:00:00,INCOME,2000,Other Income,Family Support,Home,,Family,Money (Travel Insufficient)
 31-12-2025,12:00:00,EXPENSE,5800,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-12-2025,12:00:00,EXPENSE,1750,Shopping & Lifestyle,Clothing,Home,,,Dress Purchase
 31-12-2025,12:00:00,EXPENSE,900,Subscriptions & Entertainment,Software Subscriptions,Hyderabad,,,Cursor IDE Pro
 31-12-2025,12:00:00,EXPENSE,300,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
-31-12-2025,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-01-2026,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-01-2026,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-01-2026,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-01-2026,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-01-2026,12:00:00,EXPENSE,500,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
@@ -166,14 +178,15 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-01-2026,12:00:00,EXPENSE,1725,Food & Dining,Eating Out,Hyderabad,,,Food
 31-01-2026,12:00:00,EXPENSE,995,Food & Dining,Snacks,Hyderabad,,,Snacks
 31-01-2026,12:00:00,EXPENSE,400,Health & Wellness,Personal Care,Hyderabad,,,Face Wash (Dot & Key)
-31-01-2026,12:00:00,BORROW,3000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+31-01-2026,12:00:00,INCOME,3000,Other Income,Family Support,Home,,Family,Money (Travel Insufficient)
 31-01-2026,12:00:00,EXPENSE,9510,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-01-2026,12:00:00,EXPENSE,400,Transport,Fuel,Hyderabad,,,Srija Bike
 31-01-2026,12:00:00,EXPENSE,500,Gifts & Occasions,Festival Gifts,Home,,,Pongal Purchase
 31-01-2026,12:00:00,EXPENSE,655,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
 31-01-2026,12:00:00,EXPENSE,685,Transport,Local Travel,Hyderabad,,,Rapido
 31-01-2026,12:00:00,REPAYMENT,2200,Debt Settlement,Full Repayment,Hyderabad,Likhith,,Resettled the Money
-31-01-2026,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-02-2026,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-02-2026,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-02-2026,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 28-02-2026,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
 28-02-2026,12:00:00,EXPENSE,500,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
@@ -186,14 +199,15 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 28-02-2026,12:00:00,EXPENSE,610,Health & Wellness,Personal Care,Hyderabad,,,Shampoo (Sabamed Anti Dandruf)
 28-02-2026,12:00:00,EXPENSE,285,Shopping & Lifestyle,Personal Purchases,Hyderabad,,,Laundry Bag Shopping
 28-02-2026,12:00:00,EXPENSE,350,Health & Wellness,Personal Care,Hyderabad,,,Body wash (Be Bodywise 5%)
-28-02-2026,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-03-2026,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-03-2026,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-03-2026,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-03-2026,12:00:00,EXPENSE,500,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
 31-03-2026,12:00:00,EXPENSE,1500,Shopping & Lifestyle,Clothing,Home,,,Dress Purchase
 31-03-2026,12:00:00,INVESTMENT,2000,Financial & Obligations,Mutual Funds,Hyderabad,,,Mutual Funds
 31-03-2026,12:00:00,INVESTMENT,1000,Financial & Obligations,Recurring Deposit (RD),Hyderabad,,,Recurring Deposit (RD)
 31-03-2026,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
-31-03-2026,12:00:00,BORROW,3000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel Insufficient)
+31-03-2026,12:00:00,INCOME,3000,Other Income,Family Support,Home,,Family,Money (Travel Insufficient)
 31-03-2026,12:00:00,EXPENSE,2095,Transport,Local Travel,Hyderabad,,,Rapido
 31-03-2026,12:00:00,EXPENSE,5400,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
 31-03-2026,12:00:00,EXPENSE,530,Food & Dining,Snacks,Hyderabad,,,Snacks
@@ -207,7 +221,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 25-03-2026,12:00:00,EXPENSE,520,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Sweets
 25-03-2026,12:00:00,EXPENSE,5500,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Treat
 31-03-2026,12:00:00,EXPENSE,288,Health & Wellness,Personal Care,Hyderabad,,,Body wash (Guava Tini DeTan)
-31-03-2026,12:00:00,INCOME,26200,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-04-2026,12:00:00,INCOME,23600,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-04-2026,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-04-2026,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 05-04-2026,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
 06-04-2026,12:00:00,INVESTMENT,1000,Financial & Obligations,Recurring Deposit (RD),Hyderabad,,,Recurring Deposit (RD)

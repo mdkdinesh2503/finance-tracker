@@ -109,7 +109,7 @@ export function LendingAnalyticsView({ data }: Props) {
               </Link>{" "}
               for expenses &amp; income ·{" "}
               <Link
-                href="/analytics/income"
+                href="/analytics/income/salary"
                 prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >

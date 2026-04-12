@@ -18,6 +18,8 @@ function revalidateCategoryPaths() {
   revalidatePath("/analytics");
   revalidatePath("/analytics/lending");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   revalidatePath("/analytics/investments");
   revalidatePath("/dashboard");
 }

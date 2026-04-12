@@ -117,6 +117,8 @@ export async function addCompanyLookupAction(name: string) {
   revalidatePath("/transactions/new");
   revalidatePath("/analytics");
   revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   return {
     ok: true as const,
     alreadyExists: false as const,
@@ -136,6 +138,8 @@ export async function updateCompanyLookupAction(companyId: string, name: string)
     revalidatePath("/transactions/new");
     revalidatePath("/analytics");
     revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   }
   return result;
 }
@@ -152,6 +156,8 @@ export async function deleteCompanyLookupAction(companyId: string) {
     revalidatePath("/transactions/new");
     revalidatePath("/analytics");
     revalidatePath("/analytics/income");
+  revalidatePath("/analytics/income/salary");
+  revalidatePath("/analytics/income/other");
   }
   return result;
 }

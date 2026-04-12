@@ -1070,45 +1070,60 @@ export async function listContacts(db: Db, userId: string) {
     .orderBy(contacts.name);
 }
 
-export type ContactWithLoanUsage = {
+export type ContactWithUsage = {
   id: string;
   name: string;
-  loanTxCount: number;
+  txCount: number;
+  ruleCount: number;
 };
 
-export async function listContactsWithLoanUsage(
+export async function listContactsWithUsage(
   db: Db,
   userId: string
-): Promise<ContactWithLoanUsage[]> {
-  const rows = await db
+): Promise<ContactWithUsage[]> {
+  const txRows = await db
     .select({
       id: contacts.id,
       name: contacts.name,
-      loanTxCount: sql<number>`count(${transactions.id})::int`,
+      txCount: sql<number>`count(${transactions.id})::int`,
     })
     .from(contacts)
     .leftJoin(
       transactions,
-      and(
-        eq(transactions.contactId, contacts.id),
-        eq(transactions.userId, userId),
-        or(
-          eq(transactions.type, "BORROW"),
-          eq(transactions.type, "REPAYMENT"),
-          eq(transactions.type, "LEND"),
-          eq(transactions.type, "RECEIVE")
-        )
-      )
+      and(eq(transactions.contactId, contacts.id), eq(transactions.userId, userId)),
     )
     .where(eq(contacts.userId, userId))
-    .groupBy(contacts.id, contacts.name)
-    .orderBy(contacts.name);
+    .groupBy(contacts.id, contacts.name);
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    loanTxCount: Number(r.loanTxCount),
-  }));
+  const ruleRows = await db
+    .select({
+      contactId: rules.contactId,
+      n: count(),
+    })
+    .from(rules)
+    .where(and(eq(rules.userId, userId), isNotNull(rules.contactId)))
+    .groupBy(rules.contactId);
+
+  const ruleByContact = new Map<string, number>();
+  for (const r of ruleRows) {
+    if (r.contactId != null) {
+      ruleByContact.set(r.contactId, Number(r.n));
+    }
+  }
+
+  return txRows
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      txCount: Number(r.txCount),
+      ruleCount: ruleByContact.get(r.id) ?? 0,
+    }))
+    .sort((a, b) => {
+      const aUsed = a.txCount > 0 || a.ruleCount > 0;
+      const bUsed = b.txCount > 0 || b.ruleCount > 0;
+      if (aUsed !== bUsed) return aUsed ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 export async function createContact(
@@ -1143,31 +1158,33 @@ export async function updateContactForUser(
   return { ok: true };
 }
 
-export async function deleteContactIfNoLoans(
+export async function deleteContactIfUnused(
   db: Db,
   userId: string,
   contactId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const [row] = await db
+  const [txN] = await db
     .select({ n: count() })
     .from(transactions)
     .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.contactId, contactId),
-        or(
-          eq(transactions.type, "BORROW"),
-          eq(transactions.type, "REPAYMENT"),
-          eq(transactions.type, "LEND"),
-          eq(transactions.type, "RECEIVE")
-        )
-      )
+      and(eq(transactions.userId, userId), eq(transactions.contactId, contactId)),
     );
-  if (Number(row?.n ?? 0) > 0) {
+  if (Number(txN?.n ?? 0) > 0) {
     return {
       ok: false,
       error:
-        "This person is linked to loan transactions. Remove or change those entries before deleting.",
+        "This person is linked to transactions. Remove or change those entries before deleting.",
+    };
+  }
+  const [ruleN] = await db
+    .select({ n: count() })
+    .from(rules)
+    .where(and(eq(rules.userId, userId), eq(rules.contactId, contactId)));
+  if (Number(ruleN?.n ?? 0) > 0) {
+    return {
+      ok: false,
+      error:
+        "This person is linked to quick entry rules. Remove or change those rules before deleting.",
     };
   }
   const removed = await db

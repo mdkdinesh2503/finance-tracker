@@ -10,10 +10,17 @@ const links = [
   { href: "/transactions/new", label: "Add" },
   { href: "/analytics", label: "Analytics" },
   { href: "/analytics/lending", label: "Lending" },
-  { href: "/analytics/income", label: "Income" },
   { href: "/analytics/investments", label: "Invest" },
   { href: "/settings", label: "Settings" },
-];
+] as const;
+
+const beforeIncome = links.slice(0, 5);
+const afterIncome = links.slice(5);
+
+const incomeSubLinks = [
+  { href: "/analytics/income/salary", label: "Salary & Wages" },
+  { href: "/analytics/income/other", label: "Other income" },
+] as const;
 
 function navLinkActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
@@ -25,6 +32,10 @@ function navLinkActive(pathname: string, href: string): boolean {
     return pathname === "/analytics";
   }
   return true;
+}
+
+function incomeNavActive(pathname: string): boolean {
+  return pathname === "/analytics/income" || pathname.startsWith("/analytics/income/");
 }
 
 export function MainNav() {
@@ -44,7 +55,75 @@ export function MainNav() {
           </Link>
         </div>
         <nav className="flex shrink-0 flex-wrap items-center justify-center gap-1">
-          {links.map(({ href, label }) => {
+          {beforeIncome.map(({ href, label }) => {
+            const active = navLinkActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                prefetch={false}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? "text-primary"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+          <div className="group/income relative">
+            <div className="flex items-center">
+              <Link
+                href="/analytics/income/salary"
+                prefetch={false}
+                className={`rounded-l-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  incomeNavActive(pathname)
+                    ? "text-primary"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                Income
+              </Link>
+              <span
+                className={`rounded-r-xl py-2 pr-2 pl-0.5 text-sm transition-colors ${
+                  incomeNavActive(pathname)
+                    ? "text-primary"
+                    : "text-ink-muted group-hover/income:text-ink"
+                }`}
+                aria-hidden
+              >
+                ▾
+              </span>
+            </div>
+            <div
+              className="invisible absolute left-0 top-full z-50 min-w-[11.5rem] pt-1 opacity-0 transition-all duration-150 group-hover/income:visible group-hover/income:opacity-100"
+              role="menu"
+              aria-label="Income views"
+            >
+              <div className="rounded-xl border border-white/10 bg-(--header-bg) py-1 shadow-lg shadow-black/40 backdrop-blur-xl">
+                {incomeSubLinks.map(({ href, label }) => {
+                  const subActive = pathname === href;
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      prefetch={false}
+                      role="menuitem"
+                      className={`block px-3 py-2 text-sm font-medium transition-colors ${
+                        subActive
+                          ? "bg-primary/12 text-primary"
+                          : "text-ink-muted hover:bg-white/5 hover:text-ink"
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {afterIncome.map(({ href, label }) => {
             const active = navLinkActive(pathname, href);
             return (
               <Link

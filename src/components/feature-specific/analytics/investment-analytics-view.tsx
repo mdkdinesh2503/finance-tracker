@@ -273,7 +273,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
               and <strong className="text-ink">Cash Savings</strong>—money you
               recorded, not live quotes;{" "}
               <Link
-                href="/analytics/income"
+                href="/analytics/income/salary"
                 prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >
