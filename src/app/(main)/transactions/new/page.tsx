@@ -1,6 +1,7 @@
 import {
   balanceFromSums,
   getSuggestions,
+  listCompanies,
   listContacts,
   listLocations,
   listSelectableCategories,
@@ -10,7 +11,7 @@ import { db } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 import { NewTransactionForm } from "@/components/feature-specific/transactions/new-transaction-form";
 import { redirect } from "next/navigation";
-import { getLoansByContact } from "@/lib/services/queries/transactions";
+import { getLoansByContact } from "@/lib/services/queries";
 
 export const revalidate = 60;
 
@@ -22,6 +23,7 @@ export default async function NewTransactionPage() {
   const categories = await listSelectableCategories(db, userId);
   const locations = await listLocations(db, userId);
   const contacts = await listContacts(db, userId);
+  const companyList = await listCompanies(db, userId);
   const suggestions = await getSuggestions(db, userId);
   const loans = await getLoansByContact(userId);
   const sums = await sumByTypeForUser(db, userId);
@@ -56,6 +58,7 @@ export default async function NewTransactionPage() {
         categories={categories}
         locations={locations}
         contacts={contacts}
+        companies={companyList}
         suggestions={suggestions}
         loansSummary={loansSummary}
         cashBalance={cashBalance}

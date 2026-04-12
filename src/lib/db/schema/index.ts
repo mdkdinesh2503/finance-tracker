@@ -91,6 +91,21 @@ export const contacts = pgTable("contacts", {
   name: text("name").notNull(),
 });
 
+export const companies = pgTable(
+  "companies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+  },
+  (t) => ({
+    userIdx: index("companies_user_id_idx").on(t.userId),
+    userNameUq: uniqueIndex("companies_user_name_uq").on(t.userId, t.name),
+  }),
+);
+
 export const rules = pgTable("rules", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull(),
@@ -114,6 +129,7 @@ export const transactions = pgTable(
     ),
     locationId: uuid("location_id").references(() => locations.id),
     contactId: uuid("contact_id").references(() => contacts.id),
+    companyId: uuid("company_id").references(() => companies.id),
     accountId: uuid("account_id").references(() => accounts.id),
     note: text("note"),
     transactionDate: date("transaction_date").notNull(),
@@ -138,6 +154,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   locations: many(locations),
   contacts: many(contacts),
+  companies: many(companies),
   rules: many(rules),
   transactions: many(transactions),
 }));
@@ -154,6 +171,11 @@ export const locationsRelations = relations(locations, ({ one, many }) => ({
 
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
   user: one(users, { fields: [contacts.userId], references: [users.id] }),
+  transactions: many(transactions),
+}));
+
+export const companiesRelations = relations(companies, ({ one, many }) => ({
+  user: one(users, { fields: [companies.userId], references: [users.id] }),
   transactions: many(transactions),
 }));
 
@@ -187,6 +209,10 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   contact: one(contacts, {
     fields: [transactions.contactId],
     references: [contacts.id],
+  }),
+  company: one(companies, {
+    fields: [transactions.companyId],
+    references: [companies.id],
   }),
 }));
 

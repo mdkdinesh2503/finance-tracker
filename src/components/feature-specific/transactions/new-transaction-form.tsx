@@ -18,9 +18,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatLocalYMD } from "@/lib/utilities/date-presets";
 import { formatCurrency } from "@/lib/utilities/format";
 import type { SuggestionDTO } from "@/lib/types/transactions";
+import {
+  GIFTS_OCCASIONS_PARENT_NAME,
+  SALARY_WAGES_PARENT_NAME,
+  giftRecipientRequiredForSubcategory,
+} from "@/lib/constants/category-rules";
 
 type BorrowRow = { id: string; name: string };
 type LocRow = { id: string; name: string };
+type CoRow = { id: string; name: string };
 
 const FALLBACK_SUGGESTED_AMOUNT = "250.00";
 
@@ -28,6 +34,7 @@ type Props = {
   categories: CategoryOption[];
   locations: LocRow[];
   contacts: BorrowRow[];
+  companies: CoRow[];
   suggestions: SuggestionDTO;
   loansSummary: { youOwe: number; theyOweYou: number };
   cashBalance: number;
@@ -69,6 +76,7 @@ export function NewTransactionForm({
   categories,
   locations,
   contacts,
+  companies,
   suggestions,
   loansSummary,
   cashBalance,
@@ -91,6 +99,7 @@ export function NewTransactionForm({
   const [locationId, setLocationId] = useState(initialLocationId);
   const [note, setNote] = useState("");
   const [contactId, setContactId] = useState("");
+  const [companyId, setCompanyId] = useState("");
   const [quickText, setQuickText] = useState("");
   const [date, setDate] = useState(() => formatLocalYMD(new Date()));
   const [time, setTime] = useState(defaultTime);
@@ -101,6 +110,29 @@ export function NewTransactionForm({
     txType === "LEND" ||
     txType === "RECEIVE";
 
+  const selectedLeafCat = useMemo(
+    () => (categoryId ? categories.find((c) => c.id === categoryId) : undefined),
+    [categories, categoryId],
+  );
+
+  const parentOfSelected = useMemo(() => {
+    if (!selectedLeafCat?.parentId) return undefined;
+    return categories.find((c) => c.id === selectedLeafCat.parentId);
+  }, [categories, selectedLeafCat]);
+
+  const showSalaryCompany =
+    parentOfSelected?.name === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
+
+  const showGiftRecipient =
+    parentOfSelected?.name === GIFTS_OCCASIONS_PARENT_NAME &&
+    txType === "EXPENSE" &&
+    selectedLeafCat != null &&
+    giftRecipientRequiredForSubcategory(selectedLeafCat.name);
+
+  const showContactBlock = showLoanPerson || showGiftRecipient;
+
+  const notesStepLabel = `${4 + (showSalaryCompany ? 1 : 0) + (showContactBlock ? 1 : 0)} · Extra`;
+
   const locationOptions = useMemo(
     () => locations.map((l) => ({ id: l.id, name: l.name })),
     [locations],
@@ -109,6 +141,11 @@ export function NewTransactionForm({
   const contactOptions = useMemo(
     () => contacts.map((b) => ({ id: b.id, name: b.name })),
     [contacts],
+  );
+
+  const companyOptions = useMemo(
+    () => companies.map((c) => ({ id: c.id, name: c.name })),
+    [companies],
   );
 
   const categoryTypeLabel = useMemo(() => {
@@ -163,7 +200,10 @@ export function NewTransactionForm({
     if (!txType) next.type = "Pick a transaction type";
     if (!date) next.date = "Pick a date";
     if (!time) next.time = "Pick a time";
-    if (showLoanPerson && !contactId) next.contact = "Pick a contact";
+    if (showContactBlock && !contactId) {
+      next.contact = showGiftRecipient ? "Pick who the gift is for" : "Pick a contact";
+    }
+    if (showSalaryCompany && !companyId) next.company = "Pick an employer (company)";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -176,7 +216,8 @@ export function NewTransactionForm({
         categoryId,
         locationId: locationId ?? "",
         note: note ?? "",
-        contactId: showLoanPerson ? contactId ?? "" : "",
+        contactId: showContactBlock ? contactId ?? "" : "",
+        companyId: showSalaryCompany ? companyId ?? "" : "",
         transactionDate: date,
         transactionTime: time,
       });
@@ -334,9 +375,39 @@ export function NewTransactionForm({
               </div>
             </div>
 
-            {showLoanPerson ? (
+            {showSalaryCompany ? (
               <div>
-                <SectionLabel step="04 · Person" title="Contact" hint="Required for loan transactions." />
+                <SectionLabel
+                  step="04 · Employer"
+                  title="Company"
+                  hint="Required for Salary & Wages. Add names under Settings → Employers."
+                />
+                <div className="mt-4 space-y-2">
+                  <DropdownSelect
+                    id="company"
+                    value={companyId || null}
+                    onChange={(v) => setCompanyId(v ?? "")}
+                    options={companyOptions}
+                    emptyLabel="—"
+                    includeEmptyOption={companyOptions.length === 0}
+                    aria-invalid={!!errors.company}
+                  />
+                  {errors.company ? <p className="text-xs text-rose-400">{errors.company}</p> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {showContactBlock ? (
+              <div>
+                <SectionLabel
+                  step={`${4 + (showSalaryCompany ? 1 : 0)} · Person`}
+                  title={showGiftRecipient ? "Gift for" : "Contact"}
+                  hint={
+                    showGiftRecipient
+                      ? "Who is this birthday or personal gift for?"
+                      : "Required for loan transactions."
+                  }
+                />
                 <div className="mt-4 space-y-2">
                   <DropdownSelect
                     id="contact"
@@ -352,7 +423,11 @@ export function NewTransactionForm({
             ) : null}
 
             <div>
-              <SectionLabel step="05 · Extra" title="Notes" hint="Optional — visible in your transaction list." />
+              <SectionLabel
+                step={notesStepLabel}
+                title="Notes"
+                hint="Optional — visible in your transaction list."
+              />
               <div className="mt-4">
                 <Textarea
                   id="note"

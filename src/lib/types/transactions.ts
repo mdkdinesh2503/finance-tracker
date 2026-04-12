@@ -8,6 +8,7 @@ export type TransactionRowDTO = {
   parentCategoryId: string | null;
   locationId: string | null;
   contactId: string | null;
+  companyId: string | null;
   note: string | null;
   transactionDate: string;
   transactionTime: string;
@@ -15,6 +16,7 @@ export type TransactionRowDTO = {
   parentCategoryName: string | null;
   locationName: string | null;
   contactName: string | null;
+  companyName: string | null;
 };
 
 export type CreateTransactionInput = {
@@ -22,6 +24,7 @@ export type CreateTransactionInput = {
   categoryId: string;
   locationId: string;
   contactId?: string;
+  companyId?: string;
   transactionDate: string;
   transactionTime: string;
   note?: string;

@@ -8,12 +8,18 @@ import { seedUserId } from "./ensure-user-categories";
 import {
   accounts,
   categories,
+  companies,
   contacts,
   locations,
   transactions,
   users,
   type TransactionType,
 } from "../schema";
+import {
+  GIFTS_OCCASIONS_PARENT_NAME,
+  SALARY_WAGES_PARENT_NAME,
+  giftRecipientRequiredForSubcategory,
+} from "@/lib/constants/category-rules";
 
 const TX_TYPES = new Set<string>([
   "EXPENSE",
@@ -55,10 +61,42 @@ function normalizeTime(t: string): string {
   return s.length === 5 ? `${s}:00` : s;
 }
 
+/** CSV uses DD-MM-YYYY; Postgres `date` expects YYYY-MM-DD. */
+function normalizeTransactionDateForPg(raw: string, rowLabel: string): string {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (m) {
+    const d = Number(m[1]);
+    const mo = Number(m[2]);
+    const y = Number(m[3]);
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) {
+      return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+  }
+  console.error(
+    `${rowLabel}: unparseable date "${raw}" (use DD-MM-YYYY or YYYY-MM-DD)`,
+  );
+  process.exit(1);
+}
+
 function parseCsv(text: string): string[][] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   return lines.map(parseCsvRow);
 }
+
+const HEADER_V4 = [
+  "Date",
+  "Time",
+  "Type",
+  "Amount",
+  "Parent Category",
+  "Child Category",
+  "Location",
+  "Contact",
+  "Company",
+  "Notes",
+] as const;
 
 const HEADER_V3 = [
   "Date",
@@ -93,8 +131,14 @@ const HEADER_V1 = [
   "Notes",
 ] as const;
 
-function detectCsvFormat(header: string[]): "v3" | "v2" | "v1" {
+function detectCsvFormat(header: string[]): "v4" | "v3" | "v2" | "v1" {
   const h = header.map((x) => x.trim());
+  if (
+    h.length === HEADER_V4.length &&
+    HEADER_V4.every((name, i) => h[i] === name)
+  ) {
+    return "v4";
+  }
   if (
     h.length === HEADER_V3.length &&
     HEADER_V3.every((name, i) => h[i] === name)
@@ -114,7 +158,7 @@ function detectCsvFormat(header: string[]): "v3" | "v2" | "v1" {
     return "v1";
   }
   throw new Error(
-    "Unexpected CSV header. Use v3: Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Notes — or v2 without Contact, or legacy v1.",
+    "Unexpected CSV header. Use v4: Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,Notes — or v3 without Company, v2 without Contact, or legacy v1.",
   );
 }
 
@@ -160,6 +204,23 @@ function resolveCategoryForImport(
   return child ? { id: child.id, parentId: child.parentId } : null;
 }
 
+function parentCategoryNameForImport(
+  catRows: CatRow[],
+  resolved: { id: string; parentId: string | null },
+): string | null {
+  if (!resolved.parentId) return null;
+  const p = catRows.find((r) => r.id === resolved.parentId);
+  return p?.name.trim() ?? null;
+}
+
+function leafCategoryNameForImport(
+  catRows: CatRow[],
+  resolved: { id: string; parentId: string | null },
+): string | null {
+  const leaf = catRows.find((r) => r.id === resolved.id);
+  return leaf?.name.trim() ?? null;
+}
+
 async function main() {
   const userId = seedUserId();
 
@@ -180,7 +241,7 @@ async function main() {
   }
 
   const header = rows[0]!.map((h) => h.trim());
-  let format: "v3" | "v2" | "v1";
+  let format: "v4" | "v3" | "v2" | "v1";
   try {
     format = detectCsvFormat(header);
   } catch (e) {
@@ -246,10 +307,19 @@ async function main() {
     contactRows.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
   );
 
+  const companyRows = await db
+    .select({ id: companies.id, name: companies.name })
+    .from(companies)
+    .where(eq(companies.userId, userId));
+  const companyByName = new Map(
+    companyRows.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
+  );
+
   let inserted = 0;
   for (let i = 1; i < rows.length; i++) {
     const cols = rows[i]!;
-    const expectedCols = format === "v3" ? 9 : format === "v2" ? 8 : 7;
+    const expectedCols =
+      format === "v4" ? 10 : format === "v3" ? 9 : format === "v2" ? 8 : 7;
     if (cols.length !== expectedCols) {
       console.error(
         `Row ${i + 1}: expected ${expectedCols} columns, got ${cols.length}`,
@@ -265,9 +335,23 @@ async function main() {
     let childCategory: string;
     let locationName: string;
     let contactName: string;
+    let companyName: string;
     let note: string;
 
-    if (format === "v3") {
+    if (format === "v4") {
+      [
+        dateStr,
+        timeStr,
+        typeStr,
+        amountStr,
+        parentCategory,
+        childCategory,
+        locationName,
+        contactName,
+        companyName,
+        note,
+      ] = cols;
+    } else if (format === "v3") {
       [
         dateStr,
         timeStr,
@@ -279,6 +363,7 @@ async function main() {
         contactName,
         note,
       ] = cols;
+      companyName = "";
     } else if (format === "v2") {
       [
         dateStr,
@@ -291,11 +376,13 @@ async function main() {
         note,
       ] = cols;
       contactName = "";
+      companyName = "";
     } else {
       [dateStr, timeStr, typeStr, amountStr, parentCategory, locationName, note] =
         cols;
       childCategory = "";
       contactName = "";
+      companyName = "";
     }
 
     const txType = typeStr.trim().toUpperCase();
@@ -350,8 +437,51 @@ async function main() {
       contactId = cid;
     }
 
+    const parentResolvedName = parentCategoryNameForImport(catRows, cat);
+    const leafResolvedName = leafCategoryNameForImport(catRows, cat);
+
+    const needsSalaryCompany =
+      parentResolvedName === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
+    const needsGiftRecipient =
+      parentResolvedName === GIFTS_OCCASIONS_PARENT_NAME &&
+      txType === "EXPENSE" &&
+      leafResolvedName != null &&
+      giftRecipientRequiredForSubcategory(leafResolvedName);
+
+    if (needsGiftRecipient && !contactId) {
+      console.error(
+        `Row ${i + 1}: contact is required for "${leafResolvedName}" under Gifts & Occasions.`,
+      );
+      process.exit(1);
+    }
+
+    let companyId: string | null = null;
+    const companyTrim = companyName.trim();
+    if (needsSalaryCompany) {
+      if (!companyTrim) {
+        console.error(
+          `Row ${i + 1}: company is required for Salary & Wages income. Add it under Settings → Employers.`,
+        );
+        process.exit(1);
+      }
+      const coid = companyByName.get(companyTrim.toLowerCase());
+      if (!coid) {
+        console.error(
+          `Row ${i + 1}: company "${companyTrim}" not found. Add it under Settings → Employers.`,
+        );
+        process.exit(1);
+      }
+      companyId = coid;
+    } else if (companyTrim) {
+      console.error(
+        `Row ${i + 1}: Company is only used for Salary & Wages income rows; clear the column or fix the category.`,
+      );
+      process.exit(1);
+    }
+
     const noteTrim = note.trim() || null;
     const timeNorm = normalizeTime(timeStr);
+    const datePg = normalizeTransactionDateForPg(dateStr, `Row ${i + 1}`);
 
     if (dry) {
       inserted++;
@@ -366,9 +496,10 @@ async function main() {
       parentCategoryId: cat.parentId,
       locationId,
       contactId,
+      companyId,
       accountId: accRow.id,
       note: noteTrim,
-      transactionDate: dateStr.trim(),
+      transactionDate: datePg,
       transactionTime: timeNorm,
     });
     inserted++;

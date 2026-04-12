@@ -5,6 +5,7 @@ import { db } from "@/lib/db/server";
 import {
   accounts,
   categories,
+  companies,
   contacts,
   locations,
   transactions,
@@ -44,12 +45,14 @@ export async function GET() {
       categoryName: categories.name,
       locationName: locations.name,
       contactName: contacts.name,
+      companyName: companies.name,
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(locations, eq(transactions.locationId, locations.id))
     .leftJoin(contacts, eq(transactions.contactId, contacts.id))
+    .leftJoin(companies, eq(transactions.companyId, companies.id))
     .where(eq(transactions.userId, userId))
     .orderBy(
       desc(transactions.transactionDate),
@@ -67,6 +70,7 @@ export async function GET() {
     "category",
     "location",
     "contact",
+    "company",
     "note",
     "created_at",
   ];
@@ -84,6 +88,7 @@ export async function GET() {
         csvEscape(r.categoryName ?? ""),
         csvEscape(r.locationName ?? ""),
         csvEscape(r.contactName ?? ""),
+        csvEscape(r.companyName ?? ""),
         csvEscape(r.note ?? ""),
         csvEscape(r.createdAt.toISOString()),
       ].join(","),

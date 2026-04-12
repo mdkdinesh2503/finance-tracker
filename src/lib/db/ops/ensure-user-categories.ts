@@ -150,8 +150,9 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     children: [
       { name: "Mutual Funds", sortOrder: 0 },
       { name: "Stocks", sortOrder: 1 },
-      { name: "Fixed Deposit", sortOrder: 2 },
-      { name: "Taxes", sortOrder: 3 },
+      { name: "Recurring Deposit (RD)", sortOrder: 2 },
+      { name: "Fixed Deposit", sortOrder: 3 },
+      { name: "Taxes", sortOrder: 4 },
     ],
   },
   {
@@ -159,8 +160,7 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     name: "Cash Savings",
     children: [
       { name: "Chit Fund", sortOrder: 0 },
-      { name: "Recurring Deposit (RD)", sortOrder: 1 },
-      { name: "Emergency Fund", sortOrder: 2 },
+      { name: "Emergency Fund", sortOrder: 1 },
     ],
   },
   {

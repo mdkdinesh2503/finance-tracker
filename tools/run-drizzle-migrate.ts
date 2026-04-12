@@ -41,9 +41,7 @@ try {
   console.error(
     [
       "",
-      "If the message looks like duplicate type/table (leftovers from an old migration journal), run:",
-      "  bun run db:repair-migrate",
-      "Or wipe and re-apply:",
+      "Baseline migration is idempotent (skip-if-exists). If you still see errors, try a clean slate:",
       "  bun run db:reset",
     ].join("\n"),
   );

@@ -2,6 +2,7 @@ import {
   listContactsWithLoanUsage,
   listContacts,
   listCategoriesWithUsageTree,
+  listCompaniesWithUsage,
   listLocationsWithUsage,
 } from "@/lib/services/transactions";
 import { db } from "@/lib/db/server";
@@ -11,6 +12,7 @@ import { BorrowAccountsForm } from "@/components/feature-specific/settings/borro
 import { QuickEntryRulesForm } from "@/components/feature-specific/settings/quick-entry-rules-form";
 import { CategoriesSettingsForm } from "@/components/feature-specific/settings/categories-settings-form";
 import { LocationsLookupForm } from "@/components/feature-specific/settings/locations-lookup-form";
+import { CompaniesLookupForm } from "@/components/feature-specific/settings/companies-lookup-form";
 import { redirect } from "next/navigation";
 import { getRulesForUser } from "@/lib/services/transactions";
 import Link from "next/link";
@@ -21,6 +23,7 @@ const SETTINGS_TABS = [
   { id: "categories", label: "Categories" },
   { id: "quick-entry", label: "Quick entry" },
   { id: "locations", label: "Locations" },
+  { id: "companies", label: "Employers" },
   { id: "people", label: "People you track" },
 ] as const;
 
@@ -43,6 +46,7 @@ export default async function SettingsPage({
   }
   const accounts = await listContactsWithLoanUsage(db, userId);
   const locs = await listLocationsWithUsage(db, userId);
+  const companyRows = await listCompaniesWithUsage(db, userId);
   const categoryTree = await listCategoriesWithUsageTree(db, userId);
   const contacts = await listContacts(db, userId);
   const rules = await getRulesForUser(userId);
@@ -68,7 +72,7 @@ export default async function SettingsPage({
         <div className="sticky top-3 z-10 -mx-2">
           <div className="rounded-3xl bg-linear-to-r from-primary/35 via-white/12 to-cyan-500/28 p-px">
             <div className="rounded-3xl border border-white/8 bg-black/30 p-2 backdrop-blur-xl">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
                 {SETTINGS_TABS.map((t) => {
                   const active = t.id === activeTab;
                   const icon =
@@ -84,6 +88,10 @@ export default async function SettingsPage({
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.5 7-11a7 7 0 10-14 0c0 6.5 7 11 7 11z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5h.01" />
+                      </svg>
+                    ) : t.id === "companies" ? (
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     ) : (
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -152,6 +160,7 @@ export default async function SettingsPage({
             />
           ) : null}
           {activeTab === "locations" ? <LocationsLookupForm locations={locs} /> : null}
+          {activeTab === "companies" ? <CompaniesLookupForm companies={companyRows} /> : null}
           {activeTab === "people" ? <BorrowAccountsForm accounts={accounts} /> : null}
         </div>
       </div>

@@ -127,6 +127,20 @@ function showsSettledBadge(t: TransactionRowDTO["type"]): boolean {
   return t === "BORROW" || t === "LEND";
 }
 
+function placeContactLine(r: TransactionRowDTO): string {
+  if (isLoanType(r.type)) {
+    return r.contactName?.trim() || "—";
+  }
+  const parts: string[] = [];
+  const loc = r.locationName?.trim();
+  const co = r.companyName?.trim();
+  const person = r.contactName?.trim();
+  if (loc) parts.push(loc);
+  if (co) parts.push(co);
+  if (person) parts.push(person);
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
 export function TransactionsAccordion({
   rows,
   unsettledLoanContacts,
@@ -266,7 +280,7 @@ export function TransactionsAccordion({
                                   "Type",
                                   "Category",
                                   "Amount",
-                                  "Location / Contact",
+                                  "Place / employer / person",
                                 ].map((h) => (
                                   <div
                                     key={h}
@@ -284,7 +298,7 @@ export function TransactionsAccordion({
                             {mg.rows.map((r) => {
                               const loan = isLoanType(r.type);
                               const contactLabel = r.contactName?.trim() || "—";
-                              const locationLabel = r.locationName?.trim() || "—";
+                              const placeLine = placeContactLine(r);
                               const unsettledLoan =
                                 loan &&
                                 r.contactId &&
@@ -341,7 +355,7 @@ export function TransactionsAccordion({
                                             ) : null}
                                           </>
                                         ) : (
-                                          locationLabel
+                                          placeLine
                                         )}
                                       </div>
                                       <div

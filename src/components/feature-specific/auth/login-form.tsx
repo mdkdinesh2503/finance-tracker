@@ -48,7 +48,6 @@ export function LoginForm() {
             return;
           }
           router.replace(next);
-          router.refresh();
         });
       }}
     >

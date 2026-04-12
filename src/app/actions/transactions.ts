@@ -11,6 +11,7 @@ import {
   listTransactionsFiltered,
   listContacts,
   listLocations,
+  listCompanies,
   createContact,
   deleteContactIfNoLoans,
   updateContactForUser,
@@ -21,17 +22,23 @@ import { db } from "@/lib/db/server";
 import {
   accounts,
   categories,
+  companies,
   contacts,
   locations,
   rules,
   transactions,
   type TransactionType,
 } from "@/lib/db/schema";
+import {
+  GIFTS_OCCASIONS_PARENT_NAME,
+  SALARY_WAGES_PARENT_NAME,
+  giftRecipientRequiredForSubcategory,
+} from "@/lib/constants/category-rules";
 import { parseAmountString } from "@/lib/services/ledger";
 import { err, ok, type Result } from "@/lib/types/result";
 import { inferQuickEntry, splitQuickInput } from "@/lib/services/quick-entry";
 import { z } from "zod";
-import { getLoansByContact } from "@/lib/services/queries/transactions";
+import { getLoansByContact } from "@/lib/services/queries";
 import {
   balanceFromSums,
   pendingLiabilityFromSums,
@@ -42,10 +49,11 @@ import {
 export async function fetchTransactionFormDataAction() {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
-  const [categories, locs, contacts, suggestions] = await Promise.all([
+  const [categories, locs, contacts, cos, suggestions] = await Promise.all([
     listSelectableCategories(db, user.id),
     listLocations(db, user.id),
     listContacts(db, user.id),
+    listCompanies(db, user.id),
     getSuggestions(db, user.id),
   ]);
   return {
@@ -53,6 +61,7 @@ export async function fetchTransactionFormDataAction() {
     categories,
     locations: locs,
     contacts,
+    companies: cos,
     suggestions,
   };
 }
@@ -171,6 +180,7 @@ const createTransactionDirectSchema = z.object({
   categoryId: uuidNullable,
   locationId: uuidNullable,
   contactId: uuidNullable,
+  companyId: uuidNullable,
   accountId: z.string().uuid(),
   note: z.string().max(2000).optional().nullable(),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -224,11 +234,13 @@ async function assertOwnershipAndCategoryType(opts: {
   categoryId: string | null | undefined;
   locationId: string | null | undefined;
   contactId: string | null | undefined;
+  companyId: string | null | undefined;
 }): Promise<
   | { error: string }
   | { parentCategoryId: string | null }
 > {
-  const { userId, txType, accountId, categoryId, locationId, contactId } = opts;
+  const { userId, txType, accountId, categoryId, locationId, contactId, companyId } =
+    opts;
 
   const acc = await db
     .select({ id: accounts.id })
@@ -273,7 +285,74 @@ async function assertOwnershipAndCategoryType(opts: {
     if (!con[0]) return { error: "Invalid contact" };
   }
 
+  if (companyId) {
+    const co = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+      .limit(1);
+    if (!co[0]) return { error: "Invalid company" };
+  }
+
   return { parentCategoryId };
+}
+
+async function resolveTransactionTagFields(opts: {
+  userId: string;
+  categoryId: string | null | undefined;
+  txType: TransactionType;
+  contactId: string | null | undefined;
+  companyId: string | null | undefined;
+}): Promise<{ error: string } | { companyIdForInsert: string | null }> {
+  const { userId, categoryId, txType, contactId, companyId } = opts;
+  if (!categoryId) {
+    return { companyIdForInsert: null };
+  }
+  const [cat] = await db
+    .select({
+      name: categories.name,
+      parentId: categories.parentId,
+    })
+    .from(categories)
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .limit(1);
+  if (!cat) return { error: "Invalid category" };
+
+  let parentName: string | null = null;
+  if (cat.parentId) {
+    const [p] = await db
+      .select({ name: categories.name })
+      .from(categories)
+      .where(and(eq(categories.id, cat.parentId), eq(categories.userId, userId)))
+      .limit(1);
+    parentName = p?.name ?? null;
+  }
+
+  const needsGiftRecipient =
+    parentName === GIFTS_OCCASIONS_PARENT_NAME &&
+    txType === "EXPENSE" &&
+    giftRecipientRequiredForSubcategory(cat.name);
+  if (needsGiftRecipient && !contactId?.trim()) {
+    return { error: "Select who this gift is for (contact)." };
+  }
+
+  const needsSalaryCompany =
+    parentName === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
+  if (needsSalaryCompany) {
+    const cid = companyId?.trim() || null;
+    if (!cid) {
+      return { error: "Employer (company) is required for Salary & Wages." };
+    }
+    const [co] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.id, cid), eq(companies.userId, userId)))
+      .limit(1);
+    if (!co) return { error: "Invalid company" };
+    return { companyIdForInsert: cid };
+  }
+
+  return { companyIdForInsert: null };
 }
 
 /**
@@ -306,8 +385,18 @@ export async function createTransactionDirectAction(
     categoryId: v.categoryId ?? null,
     locationId: v.locationId ?? null,
     contactId: v.contactId ?? null,
+    companyId: v.companyId ?? null,
   });
   if ("error" in own) return err(own.error);
+
+  const tags = await resolveTransactionTagFields({
+    userId: user.id,
+    categoryId: v.categoryId ?? null,
+    txType: v.type,
+    contactId: v.contactId ?? null,
+    companyId: v.companyId ?? null,
+  });
+  if ("error" in tags) return err(tags.error);
 
   if (v.contactId && (v.type === "REPAYMENT" || v.type === "RECEIVE")) {
     const amt = Number(amountStored);
@@ -373,6 +462,7 @@ export async function createTransactionDirectAction(
       parentCategoryId: own.parentCategoryId,
       locationId: v.locationId ?? null,
       contactId: v.contactId ?? null,
+      companyId: tags.companyIdForInsert,
       accountId: v.accountId,
       note: v.note ?? null,
       transactionDate: v.transactionDate,

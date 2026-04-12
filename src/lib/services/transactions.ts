@@ -17,11 +17,17 @@ import type { DatePreset } from "@/lib/types/filters";
 import {
   accounts,
   categories,
+  companies,
   contacts,
   locations,
   rules,
   transactions,
 } from "@/lib/db/schema";
+import {
+  GIFTS_OCCASIONS_PARENT_NAME,
+  SALARY_WAGES_PARENT_NAME,
+  giftRecipientRequiredForSubcategory,
+} from "@/lib/constants/category-rules";
 import {
   formatLocalYMD,
   localCalendarMonthRange,
@@ -329,9 +335,7 @@ export async function loadDashboard(
   userId: string,
   now = new Date()
 ): Promise<DashboardPayload> {
-  console.log("START dashboard fetch");
   await pingPostgres();
-  console.log("dashboard db ping ok");
 
   const thisStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -359,8 +363,6 @@ export async function loadDashboard(
   const cumulativeBalance = balanceFromSums(allSums);
   const cumulativePendingLiability = pendingLiabilityFromSums(allSums);
   const cumulativePendingReceivable = pendingReceivableFromSums(allSums);
-
-  console.log("END dashboard fetch");
 
   return {
     thisMonth,
@@ -453,6 +455,7 @@ export async function listTransactionsFiltered(
 
   const parentCat = alias(categories, "parent_cat");
   const contactAlias = alias(contacts, "contact");
+  const companyAlias = alias(companies, "company");
 
   const rows = await db
     .select({
@@ -463,6 +466,7 @@ export async function listTransactionsFiltered(
       parentCategoryId: transactions.parentCategoryId,
       locationId: transactions.locationId,
       contactId: transactions.contactId,
+      companyId: transactions.companyId,
       note: transactions.note,
       transactionDate: transactions.transactionDate,
       transactionTime: transactions.transactionTime,
@@ -470,6 +474,7 @@ export async function listTransactionsFiltered(
       parentCategoryName: parentCat.name,
       locationName: locations.name,
       contactName: contactAlias.name,
+      companyName: companyAlias.name,
     })
     .from(transactions)
     .leftJoin(
@@ -500,6 +505,13 @@ export async function listTransactionsFiltered(
         eq(contactAlias.userId, userId)
       )
     )
+    .leftJoin(
+      companyAlias,
+      and(
+        eq(transactions.companyId, companyAlias.id),
+        eq(companyAlias.userId, userId)
+      )
+    )
     .where(whereClause)
     .orderBy(desc(transactions.transactionDate), desc(transactions.transactionTime));
 
@@ -511,6 +523,7 @@ export async function listTransactionsFiltered(
     parentCategoryId: r.parentCategoryId,
     locationId: r.locationId,
     contactId: r.contactId,
+    companyId: r.companyId,
     note: r.note,
     transactionDate: String(r.transactionDate),
     transactionTime: String(r.transactionTime),
@@ -518,6 +531,7 @@ export async function listTransactionsFiltered(
     parentCategoryName: r.parentCategoryName,
     locationName: r.locationName,
     contactName: r.contactName,
+    companyName: r.companyName,
   }));
 }
 
@@ -627,20 +641,61 @@ export async function createTransactionForUser(
     type === "REPAYMENT" ||
     type === "LEND" ||
     type === "RECEIVE";
-  const contactIdForLoan = loanTypes ? (input.contactId?.trim() || null) : null;
+
+  const [parentCatRow] = cat.parentId
+    ? await db
+        .select({ name: categories.name })
+        .from(categories)
+        .where(
+          and(eq(categories.id, cat.parentId), eq(categories.userId, userId)),
+        )
+        .limit(1)
+    : [undefined];
+  const parentCategoryName = parentCatRow?.name ?? null;
+
+  const needsSalaryCompany =
+    parentCategoryName === SALARY_WAGES_PARENT_NAME && type === "INCOME";
+  const needsGiftRecipient =
+    parentCategoryName === GIFTS_OCCASIONS_PARENT_NAME &&
+    type === "EXPENSE" &&
+    giftRecipientRequiredForSubcategory(cat.name);
+
+  let companyIdStored: string | null = null;
+  if (needsSalaryCompany) {
+    const coId = input.companyId?.trim() || null;
+    if (!coId) {
+      return {
+        ok: false,
+        error: "Employer (company) is required for Salary & Wages.",
+      };
+    }
+    const [co] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.id, coId), eq(companies.userId, userId)))
+      .limit(1);
+    if (!co) {
+      return { ok: false, error: "Invalid company" };
+    }
+    companyIdStored = coId;
+  }
+
+  const rawContact = input.contactId?.trim() || null;
+  let contactIdStored: string | null = null;
 
   if (loanTypes) {
-    if (!contactIdForLoan) {
+    if (!rawContact) {
       return { ok: false, error: "Contact is required for loan transactions" };
     }
     const [con] = await db
       .select()
       .from(contacts)
-      .where(and(eq(contacts.id, contactIdForLoan), eq(contacts.userId, userId)))
+      .where(and(eq(contacts.id, rawContact), eq(contacts.userId, userId)))
       .limit(1);
     if (!con) {
       return { ok: false, error: "Invalid contact" };
     }
+    contactIdStored = rawContact;
 
     // Use ledger-wide outstanding borrow / receivable so repayments work when earlier borrows
     // had no contact or a different split than this row (per-contact is for display only).
@@ -675,6 +730,23 @@ export async function createTransactionForUser(
         };
       }
     }
+  } else if (rawContact) {
+    const [con] = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(and(eq(contacts.id, rawContact), eq(contacts.userId, userId)))
+      .limit(1);
+    if (!con) {
+      return { ok: false, error: "Invalid contact" };
+    }
+    contactIdStored = rawContact;
+  }
+
+  if (needsGiftRecipient && !contactIdStored) {
+    return {
+      ok: false,
+      error: "Select who this gift is for (contact).",
+    };
   }
 
   {
@@ -725,7 +797,8 @@ export async function createTransactionForUser(
         categoryId: input.categoryId,
         parentCategoryId,
         locationId: locationIdStored,
-        contactId: contactIdForLoan,
+        contactId: contactIdStored,
+        companyId: companyIdStored,
         accountId,
         note: input.note?.trim() || null,
         transactionDate: input.transactionDate,
@@ -1193,6 +1266,99 @@ export async function deleteLocationIfUnused(
   return { ok: true };
 }
 
+export type CompanyWithUsage = {
+  id: string;
+  name: string;
+  txCount: number;
+};
+
+export async function listCompaniesWithUsage(
+  db: Db,
+  userId: string,
+): Promise<CompanyWithUsage[]> {
+  const rows = await db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      txCount: sql<number>`count(${transactions.id})::int`,
+    })
+    .from(companies)
+    .leftJoin(
+      transactions,
+      and(
+        eq(transactions.companyId, companies.id),
+        eq(transactions.userId, userId),
+      ),
+    )
+    .where(eq(companies.userId, userId))
+    .groupBy(companies.id, companies.name)
+    .orderBy(companies.name);
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    txCount: Number(r.txCount),
+  }));
+}
+
+export async function updateCompanyForUser(
+  db: Db,
+  userId: string,
+  companyId: string,
+  name: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Name required" };
+  }
+  const dup = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(eq(companies.userId, userId), eq(companies.name, trimmed)))
+    .limit(1);
+  if (dup.length > 0 && dup[0].id !== companyId) {
+    return { ok: false, error: "A company with that name already exists" };
+  }
+  const updated = await db
+    .update(companies)
+    .set({ name: trimmed })
+    .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+    .returning({ id: companies.id });
+  if (updated.length === 0) {
+    return { ok: false, error: "Company not found" };
+  }
+  return { ok: true };
+}
+
+export async function deleteCompanyIfUnused(
+  db: Db,
+  userId: string,
+  companyId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(transactions)
+    .where(
+      and(eq(transactions.companyId, companyId), eq(transactions.userId, userId)),
+    );
+  const n = Number(row?.n ?? 0);
+  if (n > 0) {
+    return {
+      ok: false,
+      error:
+        "This company is used on transactions. Change or remove those rows before deleting.",
+    };
+  }
+  const removed = await db
+    .delete(companies)
+    .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
+    .returning({ id: companies.id });
+  if (removed.length === 0) {
+    return { ok: false, error: "Company not found" };
+  }
+  return { ok: true };
+}
+
 export type CategorySubWithUsage = {
   id: string;
   name: string;
@@ -1623,6 +1789,14 @@ export async function listLocations(db: Db, userId: string) {
     .from(locations)
     .where(eq(locations.userId, userId))
     .orderBy(locations.name);
+}
+
+export async function listCompanies(db: Db, userId: string) {
+  return db
+    .select()
+    .from(companies)
+    .where(eq(companies.userId, userId))
+    .orderBy(companies.name);
 }
 
 export async function listSelectableCategories(db: Db, userId: string) {

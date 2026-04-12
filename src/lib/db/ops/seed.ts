@@ -9,7 +9,14 @@ import {
   insertCategorySeedTreeForUserTx,
   seedUserId,
 } from "./ensure-user-categories";
-import { accounts, categories, contacts, locations, users } from "../schema";
+import {
+  accounts,
+  categories,
+  companies,
+  contacts,
+  locations,
+  users,
+} from "../schema";
 
 async function hashPassword(password: string): Promise<string> {
   return hash(password, {
@@ -35,9 +42,11 @@ async function seedSystemCategories(): Promise<void> {
   });
 }
 
-const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai"] as const;
+const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai", "General"] as const;
 
-const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith"] as const;
+const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith", "Appa", "Sajun", "Mayu", "Nandhini"] as const;
+
+const DEFAULT_COMPANIES = ["Aretedge"] as const;
 
 /**
  * When `SEED_ADMIN_EMAIL` is set: ensures the default admin exists with
@@ -112,6 +121,17 @@ async function seedAdminUserDefaults(): Promise<void> {
       .limit(1);
     if (!row) {
       await db.insert(contacts).values({ userId, name });
+    }
+  }
+
+  for (const name of DEFAULT_COMPANIES) {
+    const [row] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.userId, userId), eq(companies.name, name)))
+      .limit(1);
+    if (!row) {
+      await db.insert(companies).values({ userId, name });
     }
   }
 

@@ -40,7 +40,6 @@ export function SignupForm() {
             return;
           }
           router.replace("/dashboard");
-          router.refresh();
         });
       }}
     >
