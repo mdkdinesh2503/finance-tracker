@@ -32,9 +32,18 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     lower.includes("pooler") ||
     lower.includes("pgbouncer=true");
 
-  // Vercel serverless: one request per instance usually; a large pool wastes
-  // Supabase/neon connection slots and can queue behind the provider limit.
-  const defaultPoolMax = process.env.VERCEL === "1" ? 1 : 10;
+  // Vercel / Netlify / explicit flag: small pool + short connection lifetime.
+  // Without max_lifetime, the pool can hand out sockets the host already closed
+  // → uncaught "Connection closed" after idle, freeze, or pooler timeout.
+  // Netlify SSR often runs on AWS Lambda; `NETLIFY` may be unset at invoke time.
+  const serverlessRuntime =
+    process.env.VERCEL === "1" ||
+    process.env.NETLIFY === "true" ||
+    process.env.DATABASE_SERVERLESS === "1" ||
+    Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) ||
+    Boolean(process.env.AWS_EXECUTION_ENV);
+
+  const defaultPoolMax = serverlessRuntime ? 1 : 10;
   const max = Math.min(
     100,
     Math.max(1, parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)),
@@ -44,6 +53,13 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     120,
     Math.max(1, parsePositiveInt(process.env.DATABASE_CONNECT_TIMEOUT, 10)),
   );
+
+  const maxLifetimeSeconds = serverlessRuntime
+    ? Math.min(
+        3600,
+        Math.max(60, parsePositiveInt(process.env.DATABASE_MAX_LIFETIME_SECONDS, 300)),
+      )
+    : undefined;
 
   // Supabase (direct + pooler) commonly documents Node/serverless clients with
   // `rejectUnauthorized: false` to avoid TLS chain issues. Stricter verify: set
@@ -60,6 +76,9 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     prepare: !disablePrepare,
     max,
     idle_timeout: 20,
+    ...(maxLifetimeSeconds != null
+      ? { max_lifetime: maxLifetimeSeconds }
+      : {}),
     connect_timeout: connectTimeout,
     ssl,
   };

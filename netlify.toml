@@ -1,0 +1,10 @@
+# https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Native N-API addon: keep installable on Netlify’s Linux build + function runtime.
+[functions]
+  external_node_modules = ["@node-rs/argon2"]
