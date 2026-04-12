@@ -205,6 +205,7 @@ function QuickAction({
   return (
     <Link
       href={href}
+      prefetch={false}
       className="group relative overflow-hidden rounded-2xl border border-(--border) bg-(--glass-simple-bg) p-3 shadow-(--shadow-card) transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-white/6 hover:shadow-(--shadow-lift)"
     >
       <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl transition-opacity duration-500 group-hover:opacity-90" />

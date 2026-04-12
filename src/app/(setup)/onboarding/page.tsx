@@ -18,12 +18,14 @@ export default async function OnboardingPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
           href="/settings"
+          prefetch={false}
           className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 transition hover:bg-white/8"
         >
           Go to Settings
         </Link>
         <Link
           href="/transactions/new"
+          prefetch={false}
           className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 transition hover:bg-white/8"
         >
           Add your first transaction
@@ -31,7 +33,11 @@ export default async function OnboardingPage() {
       </div>
 
       <div className="pt-2">
-        <Link href="/dashboard" className="text-sm text-indigo-200 hover:text-indigo-100">
+        <Link
+          href="/dashboard"
+          prefetch={false}
+          className="text-sm text-indigo-200 hover:text-indigo-100"
+        >
           Skip for now →
         </Link>
       </div>

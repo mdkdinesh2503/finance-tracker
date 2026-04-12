@@ -36,6 +36,7 @@ export function MainNav() {
         <div className="flex min-w-0 flex-1 justify-start">
           <Link
             href="/dashboard"
+            prefetch={false}
             className="text-base font-semibold tracking-tight text-ink"
           >
             <span className="text-gradient-brand">Expense</span>{" "}
@@ -49,6 +50,7 @@ export function MainNav() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                   active
                     ? "text-primary"

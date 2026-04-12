@@ -12,20 +12,19 @@ import { NewTransactionForm } from "@/components/feature-specific/transactions/n
 import { redirect } from "next/navigation";
 import { getLoansByContact } from "@/lib/services/queries/transactions";
 
+export const revalidate = 60;
+
 export default async function NewTransactionPage() {
   const userId = await getSessionUserId();
   if (!userId) {
     redirect("/login");
   }
-  const [categories, locations, contacts, suggestions, loans, sums] =
-    await Promise.all([
-      listSelectableCategories(db, userId),
-      listLocations(db, userId),
-      listContacts(db, userId),
-      getSuggestions(db, userId),
-      getLoansByContact(userId),
-      sumByTypeForUser(db, userId),
-    ]);
+  const categories = await listSelectableCategories(db, userId);
+  const locations = await listLocations(db, userId);
+  const contacts = await listContacts(db, userId);
+  const suggestions = await getSuggestions(db, userId);
+  const loans = await getLoansByContact(userId);
+  const sums = await sumByTypeForUser(db, userId);
 
   const num = (v: string) => {
     const n = Number(v);

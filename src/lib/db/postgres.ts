@@ -43,9 +43,9 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) ||
     Boolean(process.env.AWS_EXECUTION_ENV);
 
-  // Serverless: default >1 so one request can run parallel DB work (e.g. settings Promise.all);
-  // override with DATABASE_POOL_MAX if your pooler budget is tighter.
-  const defaultPoolMax = serverlessRuntime ? 5 : 10;
+  // Serverless + Supabase pooler: keep max small (2–3) to avoid starving the pool when
+  // Next.js prefetches many routes. Override with DATABASE_POOL_MAX if needed.
+  const defaultPoolMax = serverlessRuntime ? 2 : 10;
   const max = Math.min(
     100,
     Math.max(1, parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)),

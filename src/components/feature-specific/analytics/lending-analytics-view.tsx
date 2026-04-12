@@ -100,12 +100,17 @@ export function LendingAnalyticsView({ data }: Props) {
             </h1>
             <p className="max-w-2xl text-sm leading-snug text-ink-muted">
               Balances net partial repayments into totals per contact.{" "}
-              <Link href="/analytics" className="text-primary underline-offset-2 hover:underline">
+              <Link
+                href="/analytics"
+                prefetch={false}
+                className="text-primary underline-offset-2 hover:underline"
+              >
                 Analytics
               </Link>{" "}
               for expenses &amp; income ·{" "}
               <Link
                 href="/analytics/income"
+                prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Income

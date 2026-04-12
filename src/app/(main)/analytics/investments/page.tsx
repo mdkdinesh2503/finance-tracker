@@ -5,6 +5,8 @@ import { getSessionUserId } from "@/lib/auth/session";
 import { db } from "@/lib/db/server";
 import { investmentAnalyticsSnapshot } from "@/lib/services/investment-analytics";
 
+export const revalidate = 60;
+
 export default async function InvestmentAnalyticsPage() {
   const userId = await getSessionUserId();
   if (!userId) {

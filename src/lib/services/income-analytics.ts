@@ -158,73 +158,70 @@ export async function incomeAnalyticsSnapshot(
     thisRange.to,
   );
 
-  const [byParentThisMonth, byLeafThisMonth, thisTotals, lastTotals] =
-    await Promise.all([
-      db
-        .select({
-          parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
-          total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-        })
-        .from(transactions)
-        .leftJoin(
-          parentCat,
-          and(
-            eq(transactions.parentCategoryId, parentCat.id),
-            eq(parentCat.userId, userId),
-          ),
-        )
-        .where(thisMonthCond)
-        .groupBy(transactions.parentCategoryId, parentCat.name)
-        .then((rows) =>
-          rows
-            .map((r) => ({
-              parentName: r.parentName ?? "Uncategorized",
-              total: num(r.total),
-            }))
-            .sort((a, b) => b.total - a.total),
-        ),
+  const byParentThisMonth = await db
+    .select({
+      parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
+      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
+    })
+    .from(transactions)
+    .leftJoin(
+      parentCat,
+      and(
+        eq(transactions.parentCategoryId, parentCat.id),
+        eq(parentCat.userId, userId),
+      ),
+    )
+    .where(thisMonthCond)
+    .groupBy(transactions.parentCategoryId, parentCat.name)
+    .then((rows) =>
+      rows
+        .map((r) => ({
+          parentName: r.parentName ?? "Uncategorized",
+          total: num(r.total),
+        }))
+        .sort((a, b) => b.total - a.total),
+    );
 
-      db
-        .select({
-          parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
-          leafName: sql<string>`coalesce(${leafCat.name}, 'Uncategorized')`,
-          total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-        })
-        .from(transactions)
-        .leftJoin(
-          leafCat,
-          and(
-            eq(transactions.categoryId, leafCat.id),
-            eq(leafCat.userId, userId),
-          ),
-        )
-        .leftJoin(
-          parentCat,
-          and(
-            eq(transactions.parentCategoryId, parentCat.id),
-            eq(parentCat.userId, userId),
-          ),
-        )
-        .where(thisMonthCond)
-        .groupBy(
-          transactions.parentCategoryId,
-          parentCat.name,
-          transactions.categoryId,
-          leafCat.name,
-        )
-        .then((rows) =>
-          rows
-            .map((r) => ({
-              parentName: r.parentName ?? "Uncategorized",
-              leafName: r.leafName ?? "Uncategorized",
-              total: num(r.total),
-            }))
-            .sort((a, b) => b.total - a.total),
-        ),
+  const byLeafThisMonth = await db
+    .select({
+      parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
+      leafName: sql<string>`coalesce(${leafCat.name}, 'Uncategorized')`,
+      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
+    })
+    .from(transactions)
+    .leftJoin(
+      leafCat,
+      and(
+        eq(transactions.categoryId, leafCat.id),
+        eq(leafCat.userId, userId),
+      ),
+    )
+    .leftJoin(
+      parentCat,
+      and(
+        eq(transactions.parentCategoryId, parentCat.id),
+        eq(parentCat.userId, userId),
+      ),
+    )
+    .where(thisMonthCond)
+    .groupBy(
+      transactions.parentCategoryId,
+      parentCat.name,
+      transactions.categoryId,
+      leafCat.name,
+    )
+    .then((rows) =>
+      rows
+        .map((r) => ({
+          parentName: r.parentName ?? "Uncategorized",
+          leafName: r.leafName ?? "Uncategorized",
+          total: num(r.total),
+        }))
+        .sort((a, b) => b.total - a.total),
+    );
 
-      monthIncomeTotals(db, userId, thisRange.from, thisRange.to),
-      monthIncomeTotals(db, userId, lastRange.from, lastRange.to),
-    ]);
+  const thisTotals = await monthIncomeTotals(db, userId, thisRange.from, thisRange.to);
+  const lastTotals = await monthIncomeTotals(db, userId, lastRange.from, lastRange.to);
 
   const salaryParent = alias(categories, "salary_parent");
   const lookbackStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);

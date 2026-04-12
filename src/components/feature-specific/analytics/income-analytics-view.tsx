@@ -121,12 +121,17 @@ export function IncomeAnalyticsView({ data }: Props) {
             <p className="max-w-2xl text-sm leading-snug text-ink-muted">
               This month vs last, <strong className="text-ink">Salary &amp; Wages</strong> trend, and
               a naive salary hint from closed months only. Broader trends live on{" "}
-              <Link href="/analytics" className="text-primary underline-offset-2 hover:underline">
+              <Link
+                href="/analytics"
+                prefetch={false}
+                className="text-primary underline-offset-2 hover:underline"
+              >
                 Analytics
               </Link>
               {" · "}
               <Link
                 href="/analytics/investments"
+                prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Invest

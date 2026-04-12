@@ -4,6 +4,8 @@ import { getSessionUserId } from "@/lib/auth/session";
 import { TransactionsView } from "@/components/feature-specific/transactions/transactions-view";
 import { redirect } from "next/navigation";
 
+export const revalidate = 60;
+
 export default async function TransactionsPage() {
   const userId = await getSessionUserId();
   if (!userId) {

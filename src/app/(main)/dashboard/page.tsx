@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { DashboardSkeleton } from "@/components/feature-specific/dashboard/dashboard-skeleton";
 import { DashboardInner } from "@/components/feature-specific/dashboard/dashboard-inner";
 
+export const revalidate = 60;
+
 export default function DashboardPage() {
   return (
     <Suspense

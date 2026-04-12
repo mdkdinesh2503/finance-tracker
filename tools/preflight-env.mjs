@@ -38,6 +38,7 @@ if (missing.length > 0) {
       "Create `.env.local` (recommended) with:",
       "  DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE",
       "  JWT_SECRET=your-long-random-secret",
+      "  DATABASE_POOL_MAX=2   # optional; use 2–3 with Supabase pooler",
       "",
       "Then re-run: bun run db:migrate",
     ].join("\n"),

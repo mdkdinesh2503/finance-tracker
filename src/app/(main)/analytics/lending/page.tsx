@@ -5,6 +5,8 @@ import { getSessionUserId } from "@/lib/auth/session";
 import { db } from "@/lib/db/server";
 import { lendingAnalyticsSnapshot } from "@/lib/services/lending-analytics";
 
+export const revalidate = 60;
+
 export default async function LendingAnalyticsPage() {
   const userId = await getSessionUserId();
   if (!userId) {

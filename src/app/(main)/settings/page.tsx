@@ -15,6 +15,8 @@ import { redirect } from "next/navigation";
 import { getRulesForUser } from "@/lib/services/transactions";
 import Link from "next/link";
 
+export const revalidate = 60;
+
 const SETTINGS_TABS = [
   { id: "categories", label: "Categories" },
   { id: "quick-entry", label: "Quick entry" },
@@ -39,13 +41,11 @@ export default async function SettingsPage({
   if (!userId) {
     redirect("/login");
   }
-  const [accounts, locs, categoryTree, contacts, rules] = await Promise.all([
-    listContactsWithLoanUsage(db, userId),
-    listLocationsWithUsage(db, userId),
-    listCategoriesWithUsageTree(db, userId),
-    listContacts(db, userId),
-    getRulesForUser(userId),
-  ]);
+  const accounts = await listContactsWithLoanUsage(db, userId);
+  const locs = await listLocationsWithUsage(db, userId);
+  const categoryTree = await listCategoriesWithUsageTree(db, userId);
+  const contacts = await listContacts(db, userId);
+  const rules = await getRulesForUser(userId);
 
   return (
     <div className="relative mx-auto w-full max-w-7xl pb-24">
@@ -96,6 +96,7 @@ export default async function SettingsPage({
                     <Link
                       key={t.id}
                       href={`/settings?tab=${t.id}`}
+                      prefetch={false}
                       aria-current={active ? "page" : undefined}
                       className={`group relative flex h-12 items-center justify-center rounded-2xl px-3 transition duration-200 ${
                         active

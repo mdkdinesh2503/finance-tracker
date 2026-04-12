@@ -274,6 +274,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
               recorded, not live quotes;{" "}
               <Link
                 href="/analytics/income"
+                prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Income
@@ -281,6 +282,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
               {" · "}
               <Link
                 href="/analytics"
+                prefetch={false}
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Analytics
