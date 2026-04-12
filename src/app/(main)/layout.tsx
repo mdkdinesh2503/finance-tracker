@@ -3,6 +3,9 @@ import { PageFade } from "@/components/common/page-fade";
 import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
+/** Netlify/Vercel: allow slow cold DB / pooler wake before platform aborts the SSR request. */
+export const maxDuration = 60;
+
 export default async function MainLayout({
   children,
 }: {
