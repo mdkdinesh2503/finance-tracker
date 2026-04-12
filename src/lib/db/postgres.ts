@@ -32,9 +32,12 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     lower.includes("pooler") ||
     lower.includes("pgbouncer=true");
 
+  // Vercel serverless: one request per instance usually; a large pool wastes
+  // Supabase/neon connection slots and can queue behind the provider limit.
+  const defaultPoolMax = process.env.VERCEL === "1" ? 1 : 10;
   const max = Math.min(
     100,
-    Math.max(1, parsePositiveInt(process.env.DATABASE_POOL_MAX, 10)),
+    Math.max(1, parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)),
   );
 
   const connectTimeout = Math.min(
