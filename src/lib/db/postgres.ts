@@ -43,7 +43,9 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
     Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) ||
     Boolean(process.env.AWS_EXECUTION_ENV);
 
-  const defaultPoolMax = serverlessRuntime ? 1 : 10;
+  // Serverless: default >1 so one request can run parallel DB work (e.g. settings Promise.all);
+  // override with DATABASE_POOL_MAX if your pooler budget is tighter.
+  const defaultPoolMax = serverlessRuntime ? 5 : 10;
   const max = Math.min(
     100,
     Math.max(1, parsePositiveInt(process.env.DATABASE_POOL_MAX, defaultPoolMax)),

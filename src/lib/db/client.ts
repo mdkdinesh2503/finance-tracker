@@ -27,7 +27,9 @@ export const db = drizzle(sql, { schema });
 
 /** Cheap round-trip on the shared pool (dashboard diagnostics; hangs → connectivity / pooler). */
 export async function pingPostgres(): Promise<void> {
+  console.log("REQ START", Date.now());
   await sql`select 1`;
+  console.log("REQ END", Date.now());
 }
 
 /** Call from CLI scripts only; closes the shared pool so the process can exit cleanly. */

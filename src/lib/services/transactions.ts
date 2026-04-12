@@ -339,19 +339,22 @@ export async function loadDashboard(
   const thisStartStr = formatLocalYMD(thisStart);
   const thisEndStr = formatLocalYMD(thisEnd);
 
-  const [allSums, thisMonth, monthlyExpenseTrend, recentActivity] =
-    await Promise.all([
-      sumByTypeForUser(db, userId),
-      dashboardMonthStats(db, userId, thisStartStr, thisEndStr),
-      expenseMonthlyTrendLastN(db, userId, DASHBOARD_TREND_MONTHS, now),
-      recentActivityForDashboard(
-        db,
-        userId,
-        DASHBOARD_RECENT_LIMIT,
-        thisStartStr,
-        thisEndStr
-      ),
-    ]);
+  // Sequential: safe when DATABASE_POOL_MAX=1 (parallel + tiny pool can queue badly under load).
+  const allSums = await sumByTypeForUser(db, userId);
+  const thisMonth = await dashboardMonthStats(db, userId, thisStartStr, thisEndStr);
+  const monthlyExpenseTrend = await expenseMonthlyTrendLastN(
+    db,
+    userId,
+    DASHBOARD_TREND_MONTHS,
+    now,
+  );
+  const recentActivity = await recentActivityForDashboard(
+    db,
+    userId,
+    DASHBOARD_RECENT_LIMIT,
+    thisStartStr,
+    thisEndStr,
+  );
 
   const cumulativeBalance = balanceFromSums(allSums);
   const cumulativePendingLiability = pendingLiabilityFromSums(allSums);

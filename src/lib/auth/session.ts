@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "./cookies";
 import { verifySession } from "./jwt";
@@ -8,7 +9,11 @@ import { eq } from "drizzle-orm";
 
 export type AuthedUser = { id: string; email: string };
 
-export async function getSessionUser(): Promise<AuthedUser | null> {
+/**
+ * One JWT verify + user row load per request, even when layout and nested RSCs
+ * each call `getSessionUser` / `getSessionUserId` (avoids duplicate DB hits).
+ */
+export const getSessionUser = cache(async (): Promise<AuthedUser | null> => {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -23,7 +28,7 @@ export async function getSessionUser(): Promise<AuthedUser | null> {
     .limit(1);
 
   return row[0] ?? null;
-}
+});
 
 /** User id from JWT + DB session, or null (use instead of any external auth SDK). */
 export async function getSessionUserId(): Promise<string | null> {
