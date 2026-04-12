@@ -37,6 +37,7 @@ import type {
   SuggestionDTO,
   TransactionRowDTO,
 } from "@/lib/types/transactions";
+import { pingPostgres } from "@/lib/db/client";
 import { db as serverDb } from "@/lib/db/server";
 import { postgresSqlState } from "@/lib/db/postgres";
 import { parseAmountString } from "@/lib/services/ledger";
@@ -328,6 +329,10 @@ export async function loadDashboard(
   userId: string,
   now = new Date()
 ): Promise<DashboardPayload> {
+  console.log("START dashboard fetch");
+  await pingPostgres();
+  console.log("dashboard db ping ok");
+
   const thisStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
@@ -351,6 +356,8 @@ export async function loadDashboard(
   const cumulativeBalance = balanceFromSums(allSums);
   const cumulativePendingLiability = pendingLiabilityFromSums(allSums);
   const cumulativePendingReceivable = pendingReceivableFromSums(allSums);
+
+  console.log("END dashboard fetch");
 
   return {
     thisMonth,

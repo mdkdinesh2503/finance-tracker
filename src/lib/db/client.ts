@@ -25,6 +25,11 @@ if (process.env.NODE_ENV !== "production") globalForDb.__postgres = sql;
 
 export const db = drizzle(sql, { schema });
 
+/** Cheap round-trip on the shared pool (dashboard diagnostics; hangs → connectivity / pooler). */
+export async function pingPostgres(): Promise<void> {
+  await sql`select 1`;
+}
+
 /** Call from CLI scripts only; closes the shared pool so the process can exit cleanly. */
 export async function closeDatabaseConnection(): Promise<void> {
   await sql.end({ timeout: 5 });
