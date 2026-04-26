@@ -5,8 +5,14 @@
 # DATABASE_URL / pooler / NODE_OPTIONS=--dns-result-order=ipv4first, and raise the
 # function timeout in Netlify UI (Site configuration → Functions) if your plan allows.
 [build]
-  command = "npm run build"
+  # Ensure optional deps are installed (Tailwind v4 uses lightningcss native binary on Linux)
+  command = "npm ci --include=optional && npm run build"
   publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--include=optional"
+  npm_config_optional = "true"
 
 # Native N-API addon: keep installable on Netlify’s Linux build + function runtime.
 [functions]
