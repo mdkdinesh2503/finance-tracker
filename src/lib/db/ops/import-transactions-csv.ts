@@ -2,9 +2,9 @@ import "dotenv/config";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { closeDatabaseConnection, db } from "../client";
-import { seedUserId } from "./ensure-user-categories";
-import type { TransactionType } from "../schema";
+import { closeDatabaseConnection, db } from "../core/client";
+import { seedUserId } from "../core/seed-user";
+import { TRANSACTION_TYPES, type TransactionType } from "../schema";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
   OTHER_INCOME_PARENT_NAME,
@@ -12,16 +12,7 @@ import {
   giftRecipientRequiredForSubcategory,
 } from "@/lib/constants/category-rules";
 
-const TX_TYPES = new Set<string>([
-  "EXPENSE",
-  "INCOME",
-  "BORROW",
-  "REPAYMENT",
-  "LEND",
-  "RECEIVE",
-  "INVESTMENT",
-  "ADJUSTMENT",
-]);
+const TX_TYPES = new Set<string>(TRANSACTION_TYPES);
 
 function parseCsvRow(line: string): string[] {
   const out: string[] = [];

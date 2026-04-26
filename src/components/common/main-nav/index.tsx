@@ -97,7 +97,7 @@ export function MainNav() {
               </span>
             </div>
             <div
-              className="invisible absolute left-0 top-full z-50 min-w-[11.5rem] pt-1 opacity-0 transition-all duration-150 group-hover/income:visible group-hover/income:opacity-100"
+              className="invisible absolute left-0 top-full z-50 min-w-46 pt-1 opacity-0 transition-all duration-150 group-hover/income:visible group-hover/income:opacity-100"
               role="menu"
               aria-label="Income views"
             >
@@ -148,4 +148,3 @@ export function MainNav() {
     </header>
   );
 }
-

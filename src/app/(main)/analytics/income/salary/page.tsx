@@ -1,7 +1,7 @@
-import { IncomeAnalyticsView } from "@/components/feature-specific/analytics/income-analytics-view";
+import { IncomeAnalyticsView } from "@/components/feature-specific/analytics/views/income-analytics-view";
 import { getSessionUserId } from "@/lib/auth/session";
-import { db } from "@/lib/db/server";
-import { incomeAnalyticsSnapshot } from "@/lib/services/income-analytics";
+import { db } from "@/lib/db/core/server";
+import { incomeAnalyticsSnapshot } from "@/lib/services/analytics/income-analytics";
 import { redirect } from "next/navigation";
 
 export const revalidate = 60;

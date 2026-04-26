@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import {
   deleteCompanyIfUnused,
   deleteLocationIfUnused,

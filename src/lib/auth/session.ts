@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "./cookies";
 import { verifySession } from "./jwt";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 
 export type AuthedUser = { id: string; email: string };
 

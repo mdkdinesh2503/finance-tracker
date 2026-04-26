@@ -7,9 +7,9 @@ import {
   listSelectableCategories,
   sumByTypeForUser,
 } from "@/lib/services/transactions";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import { getSessionUserId } from "@/lib/auth/session";
-import { NewTransactionForm } from "@/components/feature-specific/transactions/new-transaction-form";
+import { NewTransactionForm } from "@/components/feature-specific/transactions/forms/new-transaction-form";
 import { redirect } from "next/navigation";
 import { getLoansByContact } from "@/lib/services/queries";
 

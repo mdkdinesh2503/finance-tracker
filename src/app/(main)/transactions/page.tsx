@@ -1,7 +1,7 @@
 import { listLocations } from "@/lib/services/transactions";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import { getSessionUserId } from "@/lib/auth/session";
-import { TransactionsView } from "@/components/feature-specific/transactions/transactions-view";
+import { TransactionsView } from "@/components/feature-specific/transactions/views/transactions-view";
 import { redirect } from "next/navigation";
 
 export const revalidate = 60;

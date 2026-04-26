@@ -293,7 +293,6 @@ export function TimePickerField({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
-        aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         onClick={() => !disabled && setOpen((o) => !o)}
         className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-surface px-3 py-2.5 text-left text-sm font-medium text-ink outline-none transition ${ring} ${

@@ -1,6 +1,6 @@
 import { MainNav } from "@/components/common/main-nav";
 import { PageFade } from "@/components/common/page-fade";
-import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
+import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/core/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
 /** Netlify/Vercel: allow slow cold DB / pooler wake before platform aborts the SSR request. */

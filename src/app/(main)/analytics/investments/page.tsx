@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { InvestmentAnalyticsView } from "@/components/feature-specific/analytics/investment-analytics-view";
+import { InvestmentAnalyticsView } from "@/components/feature-specific/analytics/views/investment-analytics-view";
 import { getSessionUserId } from "@/lib/auth/session";
-import { db } from "@/lib/db/server";
-import { investmentAnalyticsSnapshot } from "@/lib/services/investment-analytics";
+import { db } from "@/lib/db/core/server";
+import { investmentAnalyticsSnapshot } from "@/lib/services/analytics/investment-analytics";
 
 export const revalidate = 60;
 

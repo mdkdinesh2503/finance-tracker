@@ -257,7 +257,6 @@ export function DatePickerField({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
-        aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         onClick={() => !disabled && setOpen((o) => !o)}
         data-state={open ? "open" : "closed"}

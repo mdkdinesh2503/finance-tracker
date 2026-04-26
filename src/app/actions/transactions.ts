@@ -17,7 +17,7 @@ import {
 } from "@/lib/services/transactions";
 import { toTransactionsCsv } from "@/lib/utilities/csv";
 import { requireUser } from "@/lib/auth/session";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import type { TransactionType } from "@/lib/db/schema";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
@@ -304,6 +304,12 @@ async function resolveTransactionTagFields(opts: {
   `;
   if (!cat) return { error: "Invalid category" };
   const catRow = cat as { name: string; parent_id: string | null };
+
+  const needsRechargeContact =
+    txType === "EXPENSE" && catRow.name.trim() === "Mobile Recharge";
+  if (needsRechargeContact && !contactId?.trim()) {
+    return { error: "Contact is required for Mobile Recharge." };
+  }
 
   let parentName: string | null = null;
   if (catRow.parent_id) {

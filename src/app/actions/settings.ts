@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import type { TransactionType } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { deleteContactIfUnused } from "@/lib/services/transactions";

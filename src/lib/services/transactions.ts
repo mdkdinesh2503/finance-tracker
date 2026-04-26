@@ -1,11 +1,11 @@
 import type postgres from "postgres";
 
-import { pingPostgres, type Db } from "@/lib/db/client";
-import { db as serverDb } from "@/lib/db/server";
+import { pingPostgres, type Db } from "@/lib/db/core/client";
+import { db as serverDb } from "@/lib/db/core/server";
 import type { TransactionType } from "@/lib/db/schema";
 import type { CategoryRow, ContactRow, CompanyRow, LocationRow } from "@/lib/db/schema";
-import { sqlAnd, sqlOr } from "@/lib/db/sql-fragments";
-import { postgresSqlState } from "@/lib/db/postgres";
+import { sqlAnd, sqlOr } from "@/lib/db/sql/fragments";
+import { postgresSqlState } from "@/lib/db/core/postgres";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
@@ -27,7 +27,7 @@ import type {
 } from "@/lib/types/transactions";
 import { parseAmountString } from "@/lib/services/ledger";
 
-type PgSql = postgres.PendingQuery<any>;
+type PgSql = postgres.PendingQuery<readonly postgres.MaybeRow[]>;
 
 const DASHBOARD_TREND_MONTHS = 10;
 const DASHBOARD_RECENT_LIMIT = 12;
@@ -569,6 +569,8 @@ export async function createTransactionForUser(
     parentCategoryName === GIFTS_OCCASIONS_PARENT_NAME &&
     type === "EXPENSE" &&
     giftRecipientRequiredForSubcategory(cat.name);
+  const needsRechargeContact =
+    type === "EXPENSE" && cat.name === "Mobile Recharge";
 
   let companyIdStored: string | null = null;
   if (needsSalaryCompany) {
@@ -592,6 +594,13 @@ export async function createTransactionForUser(
 
   const rawContact = input.contactId?.trim() || null;
   let contactIdStored: string | null = null;
+
+  if (needsGiftRecipient && !rawContact) {
+    return { ok: false, error: "Select who this gift is for (contact)." };
+  }
+  if (needsRechargeContact && !rawContact) {
+    return { ok: false, error: "Contact is required for Mobile Recharge." };
+  }
 
   if (loanTypes) {
     if (!rawContact) {

@@ -23,4 +23,3 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
     </div>
   );
 }
-

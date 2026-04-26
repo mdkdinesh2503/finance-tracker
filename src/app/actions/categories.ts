@@ -7,7 +7,7 @@ import {
   deleteCategoryIfUnused,
   updateCategory,
 } from "@/lib/services/transactions";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import type { TransactionType } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/auth/session";
 

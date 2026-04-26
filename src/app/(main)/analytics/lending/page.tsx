@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { LendingAnalyticsView } from "@/components/feature-specific/analytics/lending-analytics-view";
+import { LendingAnalyticsView } from "@/components/feature-specific/analytics/views/lending-analytics-view";
 import { getSessionUserId } from "@/lib/auth/session";
-import { db } from "@/lib/db/server";
-import { lendingAnalyticsSnapshot } from "@/lib/services/lending-analytics";
+import { db } from "@/lib/db/core/server";
+import { lendingAnalyticsSnapshot } from "@/lib/services/analytics/lending-analytics";
 
 export const revalidate = 60;
 

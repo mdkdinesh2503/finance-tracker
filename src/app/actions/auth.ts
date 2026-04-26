@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
+import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/core/server";
 import { err, ok, type Result } from "@/lib/types/result";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession } from "@/lib/auth/jwt";
 import { clearSessionCookie, setSessionCookie } from "@/lib/auth/cookies";
-import { isUndefinedTableError, postgresSqlState } from "@/lib/db/postgres";
+import { isUndefinedTableError, postgresSqlState } from "@/lib/db/core/postgres";
 import { revalidatePath } from "next/cache";
 
 /** postgres.js often nests the real message under `cause`. */

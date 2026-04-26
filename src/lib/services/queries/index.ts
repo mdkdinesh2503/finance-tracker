@@ -1,4 +1,4 @@
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 
 export type LoansByContactRow = {
   contactId: string;

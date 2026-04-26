@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 import postgres from "postgres";
 
-import { postgresOptionsFromUrl } from "../postgres";
-import { runSqlMigrations } from "../run-migrations";
+import { postgresOptionsFromUrl } from "../core/postgres";
+import { runSqlMigrations } from "../migrations/run";
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_DB_RESET !== "1") {
@@ -40,7 +40,6 @@ async function main() {
       END LOOP;
     END $$;
   `);
-  await sql.unsafe(`DROP SCHEMA IF EXISTS drizzle CASCADE;`);
 
   await runSqlMigrations(sql);
   await sql.end({ timeout: 5 });

@@ -162,7 +162,9 @@ function useHoverAutoScroll(
   const reducedMotion = usePrefersReducedMotion();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollByPixelsRef = useRef(scrollByPixels);
-  scrollByPixelsRef.current = scrollByPixels;
+  useEffect(() => {
+    scrollByPixelsRef.current = scrollByPixels;
+  }, [scrollByPixels]);
 
   const stop = useCallback(() => {
     if (intervalRef.current) {

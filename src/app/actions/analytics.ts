@@ -4,7 +4,7 @@ import {
   categoryVsLastMonthSnapshot,
   monthlyTrend,
 } from "@/lib/services/transactions";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import { getSessionUserId } from "@/lib/auth/session";
 
 export async function fetchCategoryVsLastMonthAction() {

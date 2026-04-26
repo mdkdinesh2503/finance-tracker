@@ -1,5 +1,5 @@
-import { AuthPageHeader } from "@/components/feature-specific/auth/auth-page-header";
-import { SignupForm } from "@/components/feature-specific/auth/signup-form";
+import { AuthPageHeader } from "@/components/feature-specific/auth/components/auth-page-header";
+import { SignupForm } from "@/components/feature-specific/auth/forms/signup-form";
 
 export default function SignupPage() {
   return (

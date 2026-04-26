@@ -5,14 +5,14 @@ import {
   listCompaniesWithUsage,
   listLocationsWithUsage,
 } from "@/lib/services/transactions";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import { getSessionUserId } from "@/lib/auth/session";
 import { PageHeader } from "@/components/common/page-header";
-import { BorrowAccountsForm } from "@/components/feature-specific/settings/borrow-accounts-form";
-import { QuickEntryRulesForm } from "@/components/feature-specific/settings/quick-entry-rules-form";
-import { CategoriesSettingsForm } from "@/components/feature-specific/settings/categories-settings-form";
-import { LocationsLookupForm } from "@/components/feature-specific/settings/locations-lookup-form";
-import { CompaniesLookupForm } from "@/components/feature-specific/settings/companies-lookup-form";
+import { BorrowAccountsForm } from "@/components/feature-specific/settings/forms/borrow-accounts-form";
+import { QuickEntryRulesForm } from "@/components/feature-specific/settings/forms/quick-entry-rules-form";
+import { CategoriesSettingsForm } from "@/components/feature-specific/settings/forms/categories-settings-form";
+import { LocationsLookupForm } from "@/components/feature-specific/settings/forms/locations-lookup-form";
+import { CompaniesLookupForm } from "@/components/feature-specific/settings/forms/companies-lookup-form";
 import { redirect } from "next/navigation";
 import { getRulesForUser } from "@/lib/services/transactions";
 import Link from "next/link";

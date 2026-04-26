@@ -71,7 +71,7 @@ export function DayPickerCustomDropdown(props: DropdownProps) {
     if (!open) return;
     const idx = options.findIndex((o) => o.value === value);
     setHighlight(idx >= 0 ? idx : 0);
-  }, [open, value, options.length]);
+  }, [open, value, options]);
 
   const GAP = 4;
 

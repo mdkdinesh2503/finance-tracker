@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { AuthPageHeader } from "@/components/feature-specific/auth/auth-page-header";
-import { LoginForm } from "@/components/feature-specific/auth/login-form";
+import { AuthPageHeader } from "@/components/feature-specific/auth/components/auth-page-header";
+import { LoginForm } from "@/components/feature-specific/auth/forms/login-form";
 
 export default function LoginPage() {
   return (

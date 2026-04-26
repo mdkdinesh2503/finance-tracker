@@ -15,7 +15,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-09-2024,12:00:00,EXPENSE,10860,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 15-09-2024,12:00:00,EXPENSE,5000,Gifts & Occasions,Festival Gifts,Home,,,Muruga Amount
 20-09-2024,12:00:00,EXPENSE,1500,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
-21-09-2024,12:00:00,EXPENSE,580,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung M30 (VI)
+21-09-2024,12:00:00,EXPENSE,580,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung M30 (VI)
 30-09-2024,12:00:00,EXPENSE,500,Miscellaneous,Cash Withdrawal,Hyderabad,,,Hand Amount Spend
 30-09-2024,12:00:00,EXPENSE,300,Shopping & Lifestyle,Household Items,Hyderabad,,,"Umberla, etc"
 12-09-2024,12:00:00,EXPENSE,5000,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
@@ -27,7 +27,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-10-2024,12:00:00,EXPENSE,860,Shopping & Lifestyle,Personal Purchases,Hyderabad,,,Flask
 25-10-2024,12:00:00,EXPENSE,1250,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
 21-10-2024,12:00:00,EXPENSE,8560,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
-31-10-2024,12:00:00,EXPENSE,580,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung M30 (VI)
+31-10-2024,12:00:00,EXPENSE,580,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung M30 (VI)
 06-10-2024,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-10-2024,12:00:00,EXPENSE,2250,Shopping & Lifestyle,Clothing,Home,,,Diwali Shopping
 01-11-2024,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
@@ -84,7 +84,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-05-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
 31-05-2025,12:00:00,EXPENSE,12072,Food & Dining,Eating Out,Hyderabad,,,Food & Snacks
 31-05-2025,12:00:00,EXPENSE,343,Gifts & Occasions,Personal Gifts,Hyderabad,Nandhini,,Nandhini Marriage
-31-05-2025,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung M30 (VI)
+31-05-2025,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung M30 (VI)
 01-06-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 01-06-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 30-06-2025,12:00:00,EXPENSE,1200,Shopping & Lifestyle,Repairs & Accessories,Hyderabad,,,Phone Temper Glass
@@ -112,7 +112,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-08-2025,12:00:00,REPAYMENT,4114,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
 06-08-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 31-08-2025,12:00:00,INVESTMENT,1000,Cash Savings,Chit Fund,Home,,,Family Chit
-31-08-2025,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung S24 (VI)
+31-08-2025,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung S24 (VI)
 31-08-2025,12:00:00,EXPENSE,1150,Shopping & Lifestyle,Clothing,Home,,,Dress Purchase
 31-08-2025,12:00:00,BORROW,2000,Personal Borrowing,Borrow from Friend,Hyderabad,Likhith,,Lack of Money
 31-08-2025,12:00:00,BORROW,2050,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Lack of Money
@@ -153,7 +153,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 30-11-2025,12:00:00,EXPENSE,1490,Transport,Trips & Vacations,Hyderabad,,,Ananthagiri Hills (Aretedge)
 30-11-2025,12:00:00,EXPENSE,1230,Food & Dining,Treats & Parties,Bangalore,,,Fun Treat
 30-11-2025,12:00:00,EXPENSE,1650,Shopping & Lifestyle,Personal Purchases,Bangalore,,,Shoe
-30-11-2025,12:00:00,EXPENSE,350,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung S24 (Airtel)
+30-11-2025,12:00:00,EXPENSE,350,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung S24 (Airtel)
 01-12-2025,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 01-12-2025,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-12-2025,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
@@ -214,7 +214,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-03-2026,12:00:00,EXPENSE,3307,Food & Dining,Eating Out,Hyderabad,,,Food
 31-03-2026,12:00:00,EXPENSE,200,Subscriptions & Entertainment,OTT Subscriptions,Hyderabad,,,Netflix
 31-03-2026,12:00:00,EXPENSE,880,Shopping & Lifestyle,Household Items,Hyderabad,,,Dmart
-31-03-2026,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,,,Samsung S24 (Airtel)
+31-03-2026,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung S24 (Airtel)
 31-03-2026,12:00:00,EXPENSE,350,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Phone Temper Glass
 31-03-2026,12:00:00,EXPENSE,450,Subscriptions & Entertainment,Movies & Outings,Home,,,Youth Movie
 31-03-2026,12:00:00,BORROW,6000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Birthday Celebration)

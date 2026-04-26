@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db/server";
+import { db } from "@/lib/db/core/server";
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
 import { verifySession } from "@/lib/auth/jwt";
 

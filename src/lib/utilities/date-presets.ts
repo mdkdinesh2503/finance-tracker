@@ -1,10 +1,10 @@
 import type postgres from "postgres";
 
-import type { Sql } from "@/lib/db/sql-fragments";
-import { sqlAnd } from "@/lib/db/sql-fragments";
+import type { Sql } from "@/lib/db/sql/fragments";
+import { sqlAnd } from "@/lib/db/sql/fragments";
 import type { DatePreset } from "@/lib/types/filters";
 
-type PgFrag = postgres.PendingQuery<any>;
+type PgFrag = postgres.PendingQuery<readonly postgres.MaybeRow[]>;
 
 /** Qualified `transactions` alias `t` (must match `from transactions t` in queries). */
 function tCol(sql: Sql, name: string) {

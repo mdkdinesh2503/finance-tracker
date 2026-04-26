@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { DashboardSkeleton } from "@/components/feature-specific/dashboard/dashboard-skeleton";
-import { DashboardInner } from "@/components/feature-specific/dashboard/dashboard-inner";
+import { DashboardSkeleton } from "@/components/common/skeleton/dashboard-skeleton";
+import { DashboardInner } from "@/components/feature-specific/dashboard/views/dashboard-inner";
 
 export const revalidate = 60;
 
