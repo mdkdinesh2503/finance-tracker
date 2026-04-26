@@ -1,9 +1,8 @@
 import dotenv from "dotenv";
 import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 
 import { postgresOptionsFromUrl } from "../src/lib/db/postgres";
+import { runSqlMigrations } from "../src/lib/db/run-migrations";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
@@ -26,22 +25,22 @@ if (!url || !jwtSecret) {
   );
   process.exit(1);
 }
+
 const sql = postgres(url, {
   ...postgresOptionsFromUrl(url),
   max: 1,
   prepare: false,
 });
-const db = drizzle(sql);
 
 try {
-  await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+  await runSqlMigrations(sql);
   console.log("Migrations finished.");
 } catch (err) {
   console.error(err);
   console.error(
     [
       "",
-      "Baseline migration is idempotent (skip-if-exists). If you still see errors, try a clean slate:",
+      "Baseline migration is idempotent (IF NOT EXISTS). If you still see errors, try a clean slate:",
       "  bun run db:reset",
     ].join("\n"),
   );

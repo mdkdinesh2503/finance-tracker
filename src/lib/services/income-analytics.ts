@@ -1,9 +1,4 @@
-import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-
-import { categories, companies, transactions } from "@/lib/db/schema";
-import type * as schemaTypes from "@/lib/db/schema";
+import type { Db } from "@/lib/db/client";
 import type {
   EmployerSalaryInsight,
   IncomeAnalyticsScope,
@@ -13,8 +8,6 @@ import type {
   SalaryEmployerMonthlyCell,
 } from "@/lib/types/income-analytics";
 import { formatLocalYMD, localCalendarMonthRange } from "@/lib/utilities/date-presets";
-
-type Db = PostgresJsDatabase<typeof schemaTypes>;
 
 const SALARY_WAGES_PARENT = "Salary & Wages";
 const OTHER_INCOME_PARENT = "Other Income";
@@ -108,19 +101,6 @@ function computeSalaryRaiseInsight(
   };
 }
 
-function incomeInRange(
-  userId: string,
-  from: string,
-  to: string,
-): ReturnType<typeof and> {
-  return and(
-    eq(transactions.userId, userId),
-    eq(transactions.type, "INCOME"),
-    gte(transactions.transactionDate, from),
-    lte(transactions.transactionDate, to),
-  );
-}
-
 async function monthIncomeTotals(
   db: Db,
   userId: string,
@@ -131,33 +111,28 @@ async function monthIncomeTotals(
   salaryWagesTotal: number;
   otherIncomeTotal: number;
 }> {
-  const parentCat = alias(categories, "inc_par_tot");
-  const base = incomeInRange(userId, from, to);
-
-  const rows = await db
-    .select({
-      parentName: sql<string>`coalesce(${parentCat.name}, '')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId),
-      ),
-    )
-    .where(base)
-    .groupBy(transactions.parentCategoryId, parentCat.name);
+  const rows = await db`
+    select
+      coalesce(p.name, '') as parent_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories p
+      on p.id = t.parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${from}
+      and t.transaction_date <= ${to}
+    group by t.parent_category_id, p.name
+  `;
 
   let totalIncome = 0;
   let salaryWagesTotal = 0;
   let otherIncomeTotal = 0;
-  for (const r of rows) {
+  for (const r of rows as unknown as { parent_name: string; total: string }[]) {
     const t = num(r.total);
     totalIncome += t;
-    if (r.parentName === SALARY_WAGES_PARENT) salaryWagesTotal += t;
-    else if (r.parentName === OTHER_INCOME_PARENT) otherIncomeTotal += t;
+    if (r.parent_name === SALARY_WAGES_PARENT) salaryWagesTotal += t;
+    else if (r.parent_name === OTHER_INCOME_PARENT) otherIncomeTotal += t;
   }
   return { totalIncome, salaryWagesTotal, otherIncomeTotal };
 }
@@ -217,119 +192,88 @@ function computeSalaryProjection(
 }
 
 async function loadLifetimeIncomeAnalytics(db: Db, userId: string) {
-  const base = and(eq(transactions.userId, userId), eq(transactions.type, "INCOME"));
-  const lp = alias(categories, "life_par");
-  const byParentRows = await db
-    .select({
-      parentName: sql<string>`coalesce(${lp.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      lp,
-      and(eq(transactions.parentCategoryId, lp.id), eq(lp.userId, userId)),
-    )
-    .where(base)
-    .groupBy(transactions.parentCategoryId, lp.name);
+  const byParentRows = await db`
+    select
+      coalesce(lp.name, 'Uncategorized') as parent_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories lp
+      on lp.id = t.parent_category_id and lp.user_id = ${userId}
+    where t.user_id = ${userId} and t.type = 'INCOME'
+    group by t.parent_category_id, lp.name
+  `;
 
   let totalIncome = 0;
   let salaryWagesTotal = 0;
   let otherIncomeTotal = 0;
-  const lifetimeByParent = byParentRows
+  const lifetimeByParent = (
+    byParentRows as unknown as { parent_name: string; total: string }[]
+  )
     .map((r) => {
       const t = num(r.total);
       totalIncome += t;
-      const name = r.parentName ?? "Uncategorized";
+      const name = r.parent_name ?? "Uncategorized";
       if (name === SALARY_WAGES_PARENT) salaryWagesTotal += t;
       else if (name === OTHER_INCOME_PARENT) otherIncomeTotal += t;
       return { parentName: name, total: t };
     })
     .sort((a, b) => b.total - a.total);
 
-  const leafCat = alias(categories, "life_leaf");
-  const parCat = alias(categories, "life_leaf_par");
-  const lifetimeByLeaf = await db
-    .select({
-      parentName: sql<string>`coalesce(${parCat.name}, 'Uncategorized')`,
-      leafName: sql<string>`coalesce(${leafCat.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      leafCat,
-      and(eq(transactions.categoryId, leafCat.id), eq(leafCat.userId, userId)),
-    )
-    .leftJoin(
-      parCat,
-      and(eq(transactions.parentCategoryId, parCat.id), eq(parCat.userId, userId)),
-    )
-    .where(base)
-    .groupBy(
-      transactions.parentCategoryId,
-      parCat.name,
-      transactions.categoryId,
-      leafCat.name,
-    )
-    .then((rows) =>
-      rows
-        .map((r) => ({
-          parentName: r.parentName ?? "Uncategorized",
-          leafName: r.leafName ?? "Uncategorized",
-          total: num(r.total),
-        }))
-        .sort((a, b) => b.total - a.total),
-    );
+  const leafRows = await db`
+    select
+      coalesce(par.name, 'Uncategorized') as parent_name,
+      coalesce(leaf.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories leaf on leaf.id = t.category_id and leaf.user_id = ${userId}
+    left join categories par on par.id = t.parent_category_id and par.user_id = ${userId}
+    where t.user_id = ${userId} and t.type = 'INCOME'
+    group by t.parent_category_id, par.name, t.category_id, leaf.name
+  `;
 
-  const famLeaf = alias(categories, "fam_sup_leaf");
-  const famPar = alias(categories, "fam_sup_par");
-  const [famRow] = await db
-    .select({
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      famLeaf,
-      and(eq(transactions.categoryId, famLeaf.id), eq(famLeaf.userId, userId)),
-    )
-    .innerJoin(
-      famPar,
-      and(eq(famLeaf.parentId, famPar.id), eq(famPar.userId, userId)),
-    )
-    .where(
-      and(
-        base,
-        eq(famPar.name, OTHER_INCOME_PARENT),
-        eq(famLeaf.name, FAMILY_SUPPORT_LEAF),
-      ),
-    );
+  const lifetimeByLeaf = (
+    leafRows as unknown as { parent_name: string; leaf_name: string; total: string }[]
+  )
+    .map((r) => ({
+      parentName: r.parent_name ?? "Uncategorized",
+      leafName: r.leaf_name ?? "Uncategorized",
+      total: num(r.total),
+    }))
+    .sort((a, b) => b.total - a.total);
 
-  const salPar = alias(categories, "sal_emp_par");
-  const co = alias(companies, "sal_emp_co");
-  const employerRows = await db
-    .select({
-      companyName: sql<string>`coalesce(${co.name}, 'Unspecified')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      salPar,
-      and(
-        eq(transactions.parentCategoryId, salPar.id),
-        eq(salPar.userId, userId),
-        eq(salPar.name, SALARY_WAGES_PARENT),
-      ),
-    )
-    .leftJoin(co, and(eq(transactions.companyId, co.id), eq(co.userId, userId)))
-    .where(base)
-    .groupBy(transactions.companyId, co.name)
-    .then((rows) =>
-      rows
-        .map((r) => ({
-          companyName: r.companyName ?? "Unspecified",
-          total: num(r.total),
-        }))
-        .sort((a, b) => b.total - a.total),
-    );
+  const [famRow] = await db`
+    select coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join categories fam_leaf on fam_leaf.id = t.category_id and fam_leaf.user_id = ${userId}
+    inner join categories fam_par on fam_leaf.parent_id = fam_par.id and fam_par.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and fam_par.name = ${OTHER_INCOME_PARENT}
+      and fam_leaf.name = ${FAMILY_SUPPORT_LEAF}
+  `;
+
+  const employerRaw = await db`
+    select
+      coalesce(co.name, 'Unspecified') as company_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join categories sal_par
+      on sal_par.id = t.parent_category_id
+      and sal_par.user_id = ${userId}
+      and sal_par.name = ${SALARY_WAGES_PARENT}
+    left join companies co on co.id = t.company_id and co.user_id = ${userId}
+    where t.user_id = ${userId} and t.type = 'INCOME'
+    group by t.company_id, co.name
+  `;
+
+  const employerRows = (
+    employerRaw as unknown as { company_name: string; total: string }[]
+  )
+    .map((r) => ({
+      companyName: r.company_name ?? "Unspecified",
+      total: num(r.total),
+    }))
+    .sort((a, b) => b.total - a.total);
 
   return {
     totalIncome,
@@ -337,7 +281,9 @@ async function loadLifetimeIncomeAnalytics(db: Db, userId: string) {
     otherIncomeTotal,
     lifetimeByParent,
     lifetimeByLeaf,
-    lifetimeFamilySupportTotal: num(famRow?.total),
+    lifetimeFamilySupportTotal: num(
+      (famRow as { total: string } | undefined)?.total,
+    ),
     lifetimeSalaryByEmployer: employerRows,
   };
 }
@@ -346,37 +292,29 @@ async function fetchSalaryEmployerMonthlyCells(
   db: Db,
   userId: string,
 ): Promise<SalaryEmployerMonthlyCell[]> {
-  const salPar = alias(categories, "sal_co_mo_par");
-  const co = alias(companies, "sal_co_mo_co");
-  const rows = await db
-    .select({
-      ym: sql<string>`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      companyName: sql<string>`coalesce(${co.name}, 'Unspecified')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      salPar,
-      and(
-        eq(transactions.parentCategoryId, salPar.id),
-        eq(salPar.userId, userId),
-        eq(salPar.name, SALARY_WAGES_PARENT),
-      ),
-    )
-    .leftJoin(co, and(eq(transactions.companyId, co.id), eq(co.userId, userId)))
-    .where(and(eq(transactions.userId, userId), eq(transactions.type, "INCOME")))
-    .groupBy(
-      sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      transactions.companyId,
-      co.name,
-    )
-    .orderBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`);
+  const rows = await db`
+    select
+      to_char(t.transaction_date, 'YYYY-MM') as ym,
+      coalesce(co.name, 'Unspecified') as company_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join categories sal_par
+      on sal_par.id = t.parent_category_id
+      and sal_par.user_id = ${userId}
+      and sal_par.name = ${SALARY_WAGES_PARENT}
+    left join companies co on co.id = t.company_id and co.user_id = ${userId}
+    where t.user_id = ${userId} and t.type = 'INCOME'
+    group by to_char(t.transaction_date, 'YYYY-MM'), t.company_id, co.name
+    order by 1
+  `;
 
-  return rows.map((r) => ({
-    ym: r.ym,
-    companyName: r.companyName ?? "Unspecified",
-    total: num(r.total),
-  }));
+  return (rows as unknown as { ym: string; company_name: string; total: string }[]).map(
+    (r) => ({
+      ym: r.ym,
+      companyName: r.company_name ?? "Unspecified",
+      total: num(r.total),
+    }),
+  );
 }
 
 function buildEmployerSalaryInsights(
@@ -454,173 +392,127 @@ export async function incomeAnalyticsSnapshot(
   const thisRange = localCalendarMonthRange(now);
   const lastRange = previousCalendarMonthRange(now);
 
-  const parentCat = alias(categories, "inc_parent");
-  const leafCat = alias(categories, "inc_leaf");
+  const byParentRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories p on p.id = t.parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${thisRange.from}
+      and t.transaction_date <= ${thisRange.to}
+    group by t.parent_category_id, p.name
+  `;
 
-  const thisMonthCond = incomeInRange(
-    userId,
-    thisRange.from,
-    thisRange.to,
-  );
+  const byParentThisMonth = (
+    byParentRaw as unknown as { parent_name: string; total: string }[]
+  )
+    .map((r) => ({
+      parentName: r.parent_name ?? "Uncategorized",
+      total: num(r.total),
+    }))
+    .sort((a, b) => b.total - a.total);
 
-  const byParentThisMonth = await db
-    .select({
-      parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId),
-      ),
-    )
-    .where(thisMonthCond)
-    .groupBy(transactions.parentCategoryId, parentCat.name)
-    .then((rows) =>
-      rows
-        .map((r) => ({
-          parentName: r.parentName ?? "Uncategorized",
-          total: num(r.total),
-        }))
-        .sort((a, b) => b.total - a.total),
-    );
+  const byLeafRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(l.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories l on l.id = t.category_id and l.user_id = ${userId}
+    left join categories p on p.id = t.parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${thisRange.from}
+      and t.transaction_date <= ${thisRange.to}
+    group by t.parent_category_id, p.name, t.category_id, l.name
+  `;
 
-  const byLeafThisMonth = await db
-    .select({
-      parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
-      leafName: sql<string>`coalesce(${leafCat.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      leafCat,
-      and(
-        eq(transactions.categoryId, leafCat.id),
-        eq(leafCat.userId, userId),
-      ),
-    )
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId),
-      ),
-    )
-    .where(thisMonthCond)
-    .groupBy(
-      transactions.parentCategoryId,
-      parentCat.name,
-      transactions.categoryId,
-      leafCat.name,
-    )
-    .then((rows) =>
-      rows
-        .map((r) => ({
-          parentName: r.parentName ?? "Uncategorized",
-          leafName: r.leafName ?? "Uncategorized",
-          total: num(r.total),
-        }))
-        .sort((a, b) => b.total - a.total),
-    );
+  const byLeafThisMonth = (
+    byLeafRaw as unknown as { parent_name: string; leaf_name: string; total: string }[]
+  )
+    .map((r) => ({
+      parentName: r.parent_name ?? "Uncategorized",
+      leafName: r.leaf_name ?? "Uncategorized",
+      total: num(r.total),
+    }))
+    .sort((a, b) => b.total - a.total);
 
   const thisTotals = await monthIncomeTotals(db, userId, thisRange.from, thisRange.to);
   const lastTotals = await monthIncomeTotals(db, userId, lastRange.from, lastRange.to);
 
-  const salaryParent = alias(categories, "salary_parent");
   const lookbackStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   const lookbackFrom = formatLocalYMD(lookbackStart);
 
-  const salaryRows = await db
-    .select({
-      ym: sql<string>`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      salaryParent,
-      and(
-        eq(transactions.parentCategoryId, salaryParent.id),
-        eq(salaryParent.userId, userId),
-        eq(salaryParent.name, SALARY_WAGES_PARENT),
-      ),
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "INCOME"),
-        gte(transactions.transactionDate, lookbackFrom),
-        lte(transactions.transactionDate, thisRange.to),
-      ),
-    )
-    .groupBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`)
-    .orderBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`);
+  const salaryRows = await db`
+    select
+      to_char(t.transaction_date, 'YYYY-MM') as ym,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join categories sp
+      on sp.id = t.parent_category_id
+      and sp.user_id = ${userId}
+      and sp.name = ${SALARY_WAGES_PARENT}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${lookbackFrom}
+      and t.transaction_date <= ${thisRange.to}
+    group by to_char(t.transaction_date, 'YYYY-MM')
+    order by 1
+  `;
 
-  const salaryWagesMonthly = salaryRows.map((r) => ({
-    ym: r.ym,
-    total: num(r.total),
-  }));
+  const salaryWagesMonthly = (salaryRows as unknown as { ym: string; total: string }[]).map(
+    (r) => ({
+      ym: r.ym,
+      total: num(r.total),
+    }),
+  );
 
-  const otherMoPar = alias(categories, "other_mo_par");
-  const otherIncomeRows = await db
-    .select({
-      ym: sql<string>`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      otherMoPar,
-      and(
-        eq(transactions.parentCategoryId, otherMoPar.id),
-        eq(otherMoPar.userId, userId),
-        eq(otherMoPar.name, OTHER_INCOME_PARENT),
-      ),
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "INCOME"),
-        gte(transactions.transactionDate, lookbackFrom),
-        lte(transactions.transactionDate, thisRange.to),
-      ),
-    )
-    .groupBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`)
-    .orderBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`);
+  const otherIncomeRows = await db`
+    select
+      to_char(t.transaction_date, 'YYYY-MM') as ym,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join categories op
+      on op.id = t.parent_category_id
+      and op.user_id = ${userId}
+      and op.name = ${OTHER_INCOME_PARENT}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${lookbackFrom}
+      and t.transaction_date <= ${thisRange.to}
+    group by to_char(t.transaction_date, 'YYYY-MM')
+    order by 1
+  `;
 
-  const otherIncomeMonthly = otherIncomeRows.map((r) => ({
+  const otherIncomeMonthly = (otherIncomeRows as unknown as { ym: string; total: string }[]
+  ).map((r) => ({
     ym: r.ym,
     total: num(r.total),
   }));
 
   const projection = computeSalaryProjection(salaryWagesMonthly, now);
 
-  const salaryTxLines = await db
-    .select({
-      transactionDate: transactions.transactionDate,
-      amount: transactions.amount,
-    })
-    .from(transactions)
-    .innerJoin(
-      salaryParent,
-      and(
-        eq(transactions.parentCategoryId, salaryParent.id),
-        eq(salaryParent.userId, userId),
-        eq(salaryParent.name, SALARY_WAGES_PARENT),
-      ),
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "INCOME"),
-        gte(transactions.transactionDate, lookbackFrom),
-        lte(transactions.transactionDate, thisRange.to),
-      ),
-    );
+  const salaryTxLines = await db`
+    select t.transaction_date::text as transaction_date, t.amount::text as amount
+    from transactions t
+    inner join categories sp2
+      on sp2.id = t.parent_category_id
+      and sp2.user_id = ${userId}
+      and sp2.name = ${SALARY_WAGES_PARENT}
+    where t.user_id = ${userId}
+      and t.type = 'INCOME'
+      and t.transaction_date >= ${lookbackFrom}
+      and t.transaction_date <= ${thisRange.to}
+  `;
 
   const spendMap = new Map<string, number>();
-  for (const line of salaryTxLines) {
-    const ym = spendMonthYmForSalaryCredit(String(line.transactionDate));
+  for (const line of salaryTxLines as unknown as {
+    transaction_date: string;
+    amount: string;
+  }[]) {
+    const ym = spendMonthYmForSalaryCredit(String(line.transaction_date));
     spendMap.set(ym, (spendMap.get(ym) ?? 0) + num(String(line.amount)));
   }
   const salaryWagesSpendAlignedMonthly = [...spendMap.entries()]

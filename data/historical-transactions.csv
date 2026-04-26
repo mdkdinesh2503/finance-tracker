@@ -221,17 +221,24 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 25-03-2026,12:00:00,EXPENSE,520,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Sweets
 25-03-2026,12:00:00,EXPENSE,5500,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Treat
 31-03-2026,12:00:00,EXPENSE,288,Health & Wellness,Personal Care,Hyderabad,,,Body wash (Guava Tini DeTan)
-01-04-2026,12:00:00,INCOME,23600,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
+01-04-2026,12:00:00,INCOME,29800,Salary & Wages,Primary Salary,Hyderabad,,Aretedge,Gaming Company
 01-04-2026,12:00:00,INVESTMENT,3600,Cash Savings,Partial Fund (PF),Hyderabad,,,Partial Fund (PF)
 06-04-2026,12:00:00,EXPENSE,11000,Essential Housing & Utilities,Rent,Hyderabad,,,PG Rent
 05-04-2026,12:00:00,INVESTMENT,2000,Cash Savings,Chit Fund,Home,,,Family Chit
 06-04-2026,12:00:00,INVESTMENT,1000,Financial & Obligations,Recurring Deposit (RD),Hyderabad,,,Recurring Deposit (RD)
 03-04-2026,12:00:00,EXPENSE,500,Essential Housing & Utilities,Electricity Bill,Hyderabad,,,PG Current Bill
 06-04-2026,12:00:00,EXPENSE,995,Health & Wellness,Laundry & Cleaning,Hyderabad,,,Dhobi Time
-10-04-2026,12:00:00,EXPENSE,1536,Food & Dining,Eating Out,Hyderabad,,,Food
-10-04-2026,12:00:00,EXPENSE,315,Food & Dining,Snacks,Hyderabad,,,Snacks
+10-04-2026,12:00:00,EXPENSE,2430,Food & Dining,Eating Out,Hyderabad,,,Food
+10-04-2026,12:00:00,EXPENSE,725,Food & Dining,Snacks,Hyderabad,,,Snacks
 01-04-2026,12:00:00,EXPENSE,380,Food & Dining,Treats & Parties,Hyderabad,,,Fun Treat
 02-04-2026,12:00:00,EXPENSE,308,Gifts & Occasions,Birthday Gifts,Hyderabad,Jainam,,Birthday Shares
 03-04-2026,12:00:00,EXPENSE,1460,Subscriptions & Entertainment,Software Subscriptions,Hyderabad,,,Cursor IDE Pro
 09-04-2026,12:00:00,EXPENSE,530,Shopping & Lifestyle,Household Items,Hyderabad,,,Laundry Bag Shopping
 12-04-2026,12:00:00,EXPENSE,210,Health & Wellness,Personal Care,Hyderabad,,,Hair cut
+14-04-2026,12:00:00,BORROW,500,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Money (Outside Meals)
+16-04-2026,12:00:00,REPAYMENT,500,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
+14-04-2026,12:00:00,BORROW,2500,Personal Borrowing,Borrow from Family,Hyderabad,Naren Mamz,,Money (Travel)
+29-04-2026,12:00:00,EXPENSE,2100,Transport,Travel Outstation,General,,,Hyd - Nkl (Buss)
+29-04-2026,12:00:00,EXPENSE,2855,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss)
+21-04-2026,12:00:00,EXPENSE,150,Transport,Fuel,Hyderabad,,,Likhith Bike
+21-04-2026,12:00:00,EXPENSE,120,Shopping & Lifestyle,Household Items,Hyderabad,,,Vim Liquid

@@ -1,28 +1,11 @@
-import {
-  and,
-  count,
-  desc,
-  eq,
-  gte,
-  isNotNull,
-  isNull,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { alias } from "drizzle-orm/pg-core";
-import type { DatePreset } from "@/lib/types/filters";
-import {
-  accounts,
-  categories,
-  companies,
-  contacts,
-  locations,
-  rules,
-  transactions,
-} from "@/lib/db/schema";
+import type postgres from "postgres";
+
+import { pingPostgres, type Db } from "@/lib/db/client";
+import { db as serverDb } from "@/lib/db/server";
+import type { TransactionType } from "@/lib/db/schema";
+import type { CategoryRow, ContactRow, CompanyRow, LocationRow } from "@/lib/db/schema";
+import { sqlAnd, sqlOr } from "@/lib/db/sql-fragments";
+import { postgresSqlState } from "@/lib/db/postgres";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
@@ -33,8 +16,7 @@ import {
   localCalendarMonthRange,
   resolveTransactionDateCondition,
 } from "@/lib/utilities/date-presets";
-import type * as schemaTypes from "@/lib/db/schema";
-import type { TransactionType } from "@/lib/db/schema";
+import type { DatePreset } from "@/lib/types/filters";
 import type {
   CreateTransactionInput,
   DashboardMonthSlice,
@@ -43,15 +25,12 @@ import type {
   SuggestionDTO,
   TransactionRowDTO,
 } from "@/lib/types/transactions";
-import { pingPostgres } from "@/lib/db/client";
-import { db as serverDb } from "@/lib/db/server";
-import { postgresSqlState } from "@/lib/db/postgres";
 import { parseAmountString } from "@/lib/services/ledger";
+
+type PgSql = postgres.PendingQuery<any>;
 
 const DASHBOARD_TREND_MONTHS = 10;
 const DASHBOARD_RECENT_LIMIT = 12;
-
-type Db = PostgresJsDatabase<typeof schemaTypes>;
 
 export type TransactionListFilters = {
   fromDate?: string | null;
@@ -65,45 +44,44 @@ function escapeIlikePattern(s: string): string {
 }
 
 function categoryNameSearchCondition(
+  db: Db,
   q: string | undefined,
-  userId: string
-): SQL | undefined {
+  userId: string,
+): PgSql | undefined {
   const raw = q?.trim();
   if (!raw || raw.length > 120) return undefined;
   const pattern = `%${escapeIlikePattern(raw)}%`;
-  return or(
-    sql`exists (
-      select 1 from ${categories}
-      where ${categories.id} = ${transactions.categoryId}
-      and ${categories.userId} = ${userId}
-      and ${categories.name} ilike ${pattern} escape '\'
+  return sqlOr(db, [
+    db`exists (
+      select 1 from categories c
+      where c.id = t.category_id
+      and c.user_id = ${userId}
+      and c.name ilike ${pattern} escape '\'
     )`,
-    sql`exists (
-      select 1 from ${categories}
-      where ${categories.id} = ${transactions.parentCategoryId}
-      and ${categories.userId} = ${userId}
-      and ${categories.name} ilike ${pattern} escape '\'
-    )`
-  )!;
+    db`exists (
+      select 1 from categories c
+      where c.id = t.parent_category_id
+      and c.user_id = ${userId}
+      and c.name ilike ${pattern} escape '\'
+    )`,
+  ]);
 }
 
 function scopedTransactionsWhere(
+  db: Db,
   userId: string,
   preset: DatePreset,
   extra: TransactionListFilters | undefined,
-  now: Date
-): SQL | undefined {
+  now: Date,
+): PgSql {
   const fromDate = extra?.fromDate ?? null;
   const toDate = extra?.toDate ?? null;
-  const parts: (SQL | undefined)[] = [
-    eq(transactions.userId, userId),
-    resolveTransactionDateCondition(preset, fromDate, toDate, now),
-    extra?.locationId
-      ? eq(transactions.locationId, extra.locationId)
-      : undefined,
-    categoryNameSearchCondition(extra?.categoryContains, userId),
-  ];
-  return and(...(parts.filter(Boolean) as SQL[]));
+  return sqlAnd(db, [
+    db`t.user_id = ${userId}`,
+    resolveTransactionDateCondition(db, preset, fromDate, toDate, now),
+    extra?.locationId ? db`t.location_id = ${extra.locationId}` : undefined,
+    categoryNameSearchCondition(db, extra?.categoryContains, userId),
+  ]);
 }
 
 function num(v: string | null | undefined): number {
@@ -112,49 +90,61 @@ function num(v: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-async function loanBalanceForContact(
-  db: Db,
-  userId: string,
-  contactId: string
-): Promise<{ youOwe: number; theyOweYou: number }> {
-  const rows = await db
-    .select({
-      borrow: sql<string>`coalesce(sum(case when ${transactions.type} = 'BORROW' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      repay: sql<string>`coalesce(sum(case when ${transactions.type} = 'REPAYMENT' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      lend: sql<string>`coalesce(sum(case when ${transactions.type} = 'LEND' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-      receive: sql<string>`coalesce(sum(case when ${transactions.type} = 'RECEIVE' then ${transactions.amount}::numeric else 0 end)::text,'0')`,
-    })
-    .from(transactions)
-    .where(
-      and(eq(transactions.userId, userId), eq(transactions.contactId, contactId))
-    );
+function mapCategoryRow(r: Record<string, unknown>): CategoryRow {
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    name: String(r.name),
+    parentId: r.parent_id != null ? String(r.parent_id) : null,
+    type: r.type as TransactionType,
+    isSelectable: Boolean(r.is_selectable),
+    sortOrder: Number(r.sort_order ?? 0),
+  };
+}
 
-  const r = rows[0];
-  const youOwe = Math.max(0, num(r?.borrow) - num(r?.repay));
-  const theyOweYou = Math.max(0, num(r?.lend) - num(r?.receive));
-  return { youOwe, theyOweYou };
+function mapContactRow(r: Record<string, unknown>): ContactRow {
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    name: String(r.name),
+  };
+}
+
+function mapLocationRow(r: Record<string, unknown>): LocationRow {
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    name: String(r.name),
+  };
+}
+
+function mapCompanyRow(r: Record<string, unknown>): CompanyRow {
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    name: String(r.name),
+  };
 }
 
 export async function sumByTypeForUser(
   db: Db,
   userId: string,
-  extra?: SQL
+  extra?: PgSql,
 ): Promise<Record<string, number>> {
-  const base = extra
-    ? and(eq(transactions.userId, userId), extra)
-    : eq(transactions.userId, userId);
-  const rows = await db
-    .select({
-      type: transactions.type,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .where(base)
-    .groupBy(transactions.type);
+  const whereClause = extra
+    ? sqlAnd(db, [db`user_id = ${userId}`, extra])
+    : db`user_id = ${userId}`;
+
+  const rows = await db`
+    select type, coalesce(sum(amount)::text, '0') as total
+    from transactions
+    where ${whereClause}
+    group by type
+  `;
 
   const out: Record<string, number> = {};
   for (const r of rows) {
-    out[r.type] = num(r.total);
+    out[String(r.type)] = num(r.total as string);
   }
   return out;
 }
@@ -195,12 +185,12 @@ export async function dashboardMonthStats(
   db: Db,
   userId: string,
   start: string,
-  end: string
+  end: string,
 ): Promise<DashboardMonthSlice> {
-  const range = and(
-    gte(transactions.transactionDate, start),
-    lte(transactions.transactionDate, end)
-  );
+  const range = sqlAnd(db, [
+    db`transaction_date >= ${start}`,
+    db`transaction_date <= ${end}`,
+  ]);
   const sums = await sumByTypeForUser(db, userId, range);
   return monthSliceFromSums(sums);
 }
@@ -209,9 +199,7 @@ function lastNCalendarMonthKeys(n: number, now: Date): string[] {
   const keys: string[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    keys.push(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-    );
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
   return keys;
 }
@@ -220,33 +208,29 @@ export async function expenseMonthlyTrendLastN(
   db: Db,
   userId: string,
   n: number,
-  now: Date
+  now: Date,
 ): Promise<{ month: string; expense: number }[]> {
   const keys = lastNCalendarMonthKeys(n, now);
   const startStr = `${keys[0]}-01`;
-  const [ey, em] = keys[keys.length - 1].split("-").map(Number);
-  const endD = new Date(ey, em, 0);
+  const [ey, em] = keys[keys.length - 1]!.split("-").map(Number);
+  const endD = new Date(ey!, em!, 0);
   const endStr = formatLocalYMD(endD);
 
-  const rows = await db
-    .select({
-      ym: sql<string>`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "EXPENSE"),
-        gte(transactions.transactionDate, startStr),
-        lte(transactions.transactionDate, endStr)
-      )
-    )
-    .groupBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`);
+  const rows = await db`
+    select
+      to_char(transaction_date, 'YYYY-MM') as ym,
+      coalesce(sum(amount)::text, '0') as total
+    from transactions
+    where user_id = ${userId}
+      and type = 'EXPENSE'
+      and transaction_date >= ${startStr}
+      and transaction_date <= ${endStr}
+    group by to_char(transaction_date, 'YYYY-MM')
+  `;
 
   const byYm = new Map<string, number>();
   for (const r of rows) {
-    byYm.set(r.ym, num(r.total));
+    byYm.set(String(r.ym), num(r.total as string));
   }
 
   return keys.map((month) => ({
@@ -261,71 +245,47 @@ export async function recentActivityForDashboard(
   limit: number,
   /** Inclusive local calendar range `YYYY-MM-DD` (e.g. current month). */
   fromDateStr: string,
-  toDateStr: string
+  toDateStr: string,
 ): Promise<DashboardRecentRow[]> {
-  const parentCat = alias(categories, "parent_cat");
-
-  const rows = await db
-    .select({
-      id: transactions.id,
-      type: transactions.type,
-      amount: transactions.amount,
-      note: transactions.note,
-      transactionDate: transactions.transactionDate,
-      transactionTime: transactions.transactionTime,
-      categoryName: categories.name,
-      parentCategoryName: parentCat.name,
-      locationName: locations.name,
-    })
-    .from(transactions)
-    .leftJoin(
-      categories,
-      and(
-        eq(transactions.categoryId, categories.id),
-        eq(categories.userId, userId)
-      )
-    )
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId)
-      )
-    )
-    .leftJoin(
-      locations,
-      and(
-        eq(transactions.locationId, locations.id),
-        eq(locations.userId, userId)
-      )
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        gte(transactions.transactionDate, fromDateStr),
-        lte(transactions.transactionDate, toDateStr)
-      )
-    )
-    .orderBy(
-      desc(transactions.transactionDate),
-      desc(transactions.transactionTime)
-    )
-    .limit(limit);
+  const rows = await db`
+    select
+      t.id,
+      t.type,
+      t.amount,
+      t.note,
+      t.transaction_date,
+      t.transaction_time,
+      cat.name as category_name,
+      pc.name as parent_category_name,
+      loc.name as location_name
+    from transactions t
+    left join categories cat
+      on cat.id = t.category_id and cat.user_id = ${userId}
+    left join categories pc
+      on pc.id = t.parent_category_id and pc.user_id = ${userId}
+    left join locations loc
+      on loc.id = t.location_id and loc.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.transaction_date >= ${fromDateStr}
+      and t.transaction_date <= ${toDateStr}
+    order by t.transaction_date desc, t.transaction_time desc
+    limit ${limit}
+  `;
 
   return rows.map((r) => {
+    const categoryName = r.category_name != null ? String(r.category_name) : null;
+    const parentCategoryName = r.parent_category_name != null ? String(r.parent_category_name) : null;
+    const noteStr = r.note != null ? String(r.note) : null;
     const title =
-      r.note?.trim() ||
-      r.categoryName ||
-      r.parentCategoryName ||
-      r.type;
+      noteStr?.trim() || categoryName || parentCategoryName || String(r.type);
     return {
-      id: r.id,
-      type: r.type,
+      id: String(r.id),
+      type: r.type as TransactionType,
       amount: num(String(r.amount)),
       title,
-      transactionDate: String(r.transactionDate),
-      transactionTime: String(r.transactionTime),
-      locationName: r.locationName,
+      transactionDate: String(r.transaction_date),
+      transactionTime: String(r.transaction_time),
+      locationName: r.location_name != null ? String(r.location_name) : null,
     };
   });
 }
@@ -333,7 +293,7 @@ export async function recentActivityForDashboard(
 export async function loadDashboard(
   db: Db,
   userId: string,
-  now = new Date()
+  now = new Date(),
 ): Promise<DashboardPayload> {
   await pingPostgres();
 
@@ -343,7 +303,6 @@ export async function loadDashboard(
   const thisStartStr = formatLocalYMD(thisStart);
   const thisEndStr = formatLocalYMD(thisEnd);
 
-  // Sequential: safe when DATABASE_POOL_MAX=1 (parallel + tiny pool can queue badly under load).
   const allSums = await sumByTypeForUser(db, userId);
   const thisMonth = await dashboardMonthStats(db, userId, thisStartStr, thisEndStr);
   const monthlyExpenseTrend = await expenseMonthlyTrendLastN(
@@ -375,57 +334,42 @@ export async function loadDashboard(
 }
 
 export async function lifetimeExpense(db: Db, userId: string): Promise<number> {
-  const [row] = await db
-    .select({
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "EXPENSE")
-      )
-    );
-  return num(row?.total);
+  const [row] = await db`
+    select coalesce(sum(amount)::text, '0') as total
+    from transactions
+    where user_id = ${userId} and type = 'EXPENSE'
+  `;
+  return num(row?.total as string | undefined);
 }
 
 export async function locationExpenseForRange(
   db: Db,
   userId: string,
   start: string,
-  end: string
+  end: string,
 ): Promise<{ locationId: string; name: string; total: number }[]> {
-  const rows = await db
-    .select({
-      locationId: transactions.locationId,
-      name: locations.name,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      locations,
-      and(
-        eq(transactions.locationId, locations.id),
-        eq(locations.userId, userId)
-      )
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "EXPENSE"),
-        gte(transactions.transactionDate, start),
-        lte(transactions.transactionDate, end),
-        sql`${transactions.locationId} is not null`
-      )
-    )
-    .groupBy(transactions.locationId, locations.name);
+  const rows = await db`
+    select
+      t.location_id,
+      loc.name as location_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join locations loc
+      on loc.id = t.location_id and loc.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.transaction_date >= ${start}
+      and t.transaction_date <= ${end}
+      and t.location_id is not null
+    group by t.location_id, loc.name
+  `;
 
   return rows
-    .filter((r) => r.locationId)
+    .filter((r) => r.location_id != null)
     .map((r) => ({
-      locationId: r.locationId!,
-      name: r.name ?? "Unknown",
-      total: num(r.total),
+      locationId: String(r.location_id),
+      name: r.location_name != null ? String(r.location_name) : "Unknown",
+      total: num(r.total as string),
     }));
 }
 
@@ -439,9 +383,10 @@ export async function listTransactionsFiltered(
     categoryContains: string;
     locationId: string | null;
   },
-  now = new Date()
+  now = new Date(),
 ): Promise<TransactionRowDTO[]> {
   const whereClause = scopedTransactionsWhere(
+    db,
     userId,
     filters.datePreset,
     {
@@ -450,105 +395,70 @@ export async function listTransactionsFiltered(
       categoryContains: filters.categoryContains,
       locationId: filters.locationId,
     },
-    now
+    now,
   );
 
-  const parentCat = alias(categories, "parent_cat");
-  const contactAlias = alias(contacts, "contact");
-  const companyAlias = alias(companies, "company");
-
-  const rows = await db
-    .select({
-      id: transactions.id,
-      type: transactions.type,
-      amount: transactions.amount,
-      categoryId: transactions.categoryId,
-      parentCategoryId: transactions.parentCategoryId,
-      locationId: transactions.locationId,
-      contactId: transactions.contactId,
-      companyId: transactions.companyId,
-      note: transactions.note,
-      transactionDate: transactions.transactionDate,
-      transactionTime: transactions.transactionTime,
-      categoryName: categories.name,
-      parentCategoryName: parentCat.name,
-      locationName: locations.name,
-      contactName: contactAlias.name,
-      companyName: companyAlias.name,
-    })
-    .from(transactions)
-    .leftJoin(
-      categories,
-      and(
-        eq(transactions.categoryId, categories.id),
-        eq(categories.userId, userId)
-      )
-    )
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId)
-      )
-    )
-    .leftJoin(
-      locations,
-      and(
-        eq(transactions.locationId, locations.id),
-        eq(locations.userId, userId)
-      )
-    )
-    .leftJoin(
-      contactAlias,
-      and(
-        eq(transactions.contactId, contactAlias.id),
-        eq(contactAlias.userId, userId)
-      )
-    )
-    .leftJoin(
-      companyAlias,
-      and(
-        eq(transactions.companyId, companyAlias.id),
-        eq(companyAlias.userId, userId)
-      )
-    )
-    .where(whereClause)
-    .orderBy(desc(transactions.transactionDate), desc(transactions.transactionTime));
+  const rows = await db`
+    select
+      t.id,
+      t.type,
+      t.amount,
+      t.category_id,
+      t.parent_category_id,
+      t.location_id,
+      t.contact_id,
+      t.company_id,
+      t.note,
+      t.transaction_date,
+      t.transaction_time,
+      cat.name as category_name,
+      pc.name as parent_category_name,
+      loc.name as location_name,
+      ct.name as contact_name,
+      co.name as company_name
+    from transactions t
+    left join categories cat
+      on cat.id = t.category_id and cat.user_id = ${userId}
+    left join categories pc
+      on pc.id = t.parent_category_id and pc.user_id = ${userId}
+    left join locations loc
+      on loc.id = t.location_id and loc.user_id = ${userId}
+    left join contacts ct
+      on ct.id = t.contact_id and ct.user_id = ${userId}
+    left join companies co
+      on co.id = t.company_id and co.user_id = ${userId}
+    where ${whereClause}
+    order by t.transaction_date desc, t.transaction_time desc
+  `;
 
   return rows.map((r) => ({
-    id: r.id,
-    type: r.type,
+    id: String(r.id),
+    type: r.type as TransactionType,
     amount: String(r.amount),
-    categoryId: r.categoryId,
-    parentCategoryId: r.parentCategoryId,
-    locationId: r.locationId,
-    contactId: r.contactId,
-    companyId: r.companyId,
-    note: r.note,
-    transactionDate: String(r.transactionDate),
-    transactionTime: String(r.transactionTime),
-    categoryName: r.categoryName,
-    parentCategoryName: r.parentCategoryName,
-    locationName: r.locationName,
-    contactName: r.contactName,
-    companyName: r.companyName,
+    categoryId: r.category_id != null ? String(r.category_id) : null,
+    parentCategoryId: r.parent_category_id != null ? String(r.parent_category_id) : null,
+    locationId: r.location_id != null ? String(r.location_id) : null,
+    contactId: r.contact_id != null ? String(r.contact_id) : null,
+    companyId: r.company_id != null ? String(r.company_id) : null,
+    note: r.note != null ? String(r.note) : null,
+    transactionDate: String(r.transaction_date),
+    transactionTime: String(r.transaction_time),
+    categoryName: r.category_name != null ? String(r.category_name) : null,
+    parentCategoryName: r.parent_category_name != null ? String(r.parent_category_name) : null,
+    locationName: r.location_name != null ? String(r.location_name) : null,
+    contactName: r.contact_name != null ? String(r.contact_name) : null,
+    companyName: r.company_name != null ? String(r.company_name) : null,
   }));
 }
 
-export async function getSuggestions(
-  db: Db,
-  userId: string
-): Promise<SuggestionDTO> {
-  const recent = await db
-    .select({
-      categoryId: transactions.categoryId,
-      amount: transactions.amount,
-      locationId: transactions.locationId,
-    })
-    .from(transactions)
-    .where(eq(transactions.userId, userId))
-    .orderBy(desc(transactions.createdAt))
-    .limit(10);
+export async function getSuggestions(db: Db, userId: string): Promise<SuggestionDTO> {
+  const recent = await db`
+    select category_id, amount, location_id
+    from transactions
+    where user_id = ${userId}
+    order by created_at desc
+    limit 10
+  `;
 
   if (recent.length === 0) {
     return { categoryId: null, amount: null, locationId: null };
@@ -559,11 +469,13 @@ export async function getSuggestions(
   let amountSum = 0;
   let n = 0;
   for (const t of recent) {
-    if (t.categoryId) {
-      catCounts.set(t.categoryId, (catCounts.get(t.categoryId) ?? 0) + 1);
+    if (t.category_id != null) {
+      const id = String(t.category_id);
+      catCounts.set(id, (catCounts.get(id) ?? 0) + 1);
     }
-    if (t.locationId) {
-      locCounts.set(t.locationId, (locCounts.get(t.locationId) ?? 0) + 1);
+    if (t.location_id != null) {
+      const id = String(t.location_id);
+      locCounts.set(id, (locCounts.get(id) ?? 0) + 1);
     }
     amountSum += num(String(t.amount));
     n += 1;
@@ -595,29 +507,28 @@ export async function getSuggestions(
 export async function createTransactionForUser(
   db: Db,
   userId: string,
-  input: CreateTransactionInput
+  input: CreateTransactionInput,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const [cat] = await db
-    .select()
-    .from(categories)
-    .where(
-      and(eq(categories.id, input.categoryId), eq(categories.userId, userId))
-    )
-    .limit(1);
+  const [catRow] = await db`
+    select *
+    from categories
+    where id = ${input.categoryId} and user_id = ${userId}
+    limit 1
+  `;
 
-  if (!cat) {
+  if (!catRow) {
     return { ok: false, error: "Category not found" };
   }
 
+  const cat = mapCategoryRow(catRow);
+
   if (input.locationId) {
-    const [loc] = await db
-      .select()
-      .from(locations)
-      .where(
-        and(eq(locations.id, input.locationId), eq(locations.userId, userId))
-      )
-      .limit(1);
-    if (!loc) {
+    const [locRow] = await db`
+      select id from locations
+      where id = ${input.locationId} and user_id = ${userId}
+      limit 1
+    `;
+    if (!locRow) {
       return { ok: false, error: "Location not found" };
     }
   }
@@ -643,15 +554,14 @@ export async function createTransactionForUser(
     type === "RECEIVE";
 
   const [parentCatRow] = cat.parentId
-    ? await db
-        .select({ name: categories.name })
-        .from(categories)
-        .where(
-          and(eq(categories.id, cat.parentId), eq(categories.userId, userId)),
-        )
-        .limit(1)
+    ? await db`
+        select name from categories
+        where id = ${cat.parentId} and user_id = ${userId}
+        limit 1
+      `
     : [undefined];
-  const parentCategoryName = parentCatRow?.name ?? null;
+  const parentCategoryName =
+    parentCatRow?.name != null ? String(parentCatRow.name) : null;
 
   const needsSalaryCompany =
     parentCategoryName === SALARY_WAGES_PARENT_NAME && type === "INCOME";
@@ -669,11 +579,11 @@ export async function createTransactionForUser(
         error: "Employer (company) is required for Salary & Wages.",
       };
     }
-    const [co] = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .where(and(eq(companies.id, coId), eq(companies.userId, userId)))
-      .limit(1);
+    const [co] = await db`
+      select id from companies
+      where id = ${coId} and user_id = ${userId}
+      limit 1
+    `;
     if (!co) {
       return { ok: false, error: "Invalid company" };
     }
@@ -687,18 +597,16 @@ export async function createTransactionForUser(
     if (!rawContact) {
       return { ok: false, error: "Contact is required for loan transactions" };
     }
-    const [con] = await db
-      .select()
-      .from(contacts)
-      .where(and(eq(contacts.id, rawContact), eq(contacts.userId, userId)))
-      .limit(1);
-    if (!con) {
+    const [conRow] = await db`
+      select id from contacts
+      where id = ${rawContact} and user_id = ${userId}
+      limit 1
+    `;
+    if (!conRow) {
       return { ok: false, error: "Invalid contact" };
     }
     contactIdStored = rawContact;
 
-    // Use ledger-wide outstanding borrow / receivable so repayments work when earlier borrows
-    // had no contact or a different split than this row (per-contact is for display only).
     const sumsForLoans = await sumByTypeForUser(db, userId);
     if (type === "REPAYMENT") {
       const globalYouOwe = pendingLiabilityFromSums(sumsForLoans);
@@ -731,12 +639,12 @@ export async function createTransactionForUser(
       }
     }
   } else if (rawContact) {
-    const [con] = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.id, rawContact), eq(contacts.userId, userId)))
-      .limit(1);
-    if (!con) {
+    const [conRow] = await db`
+      select id from contacts
+      where id = ${rawContact} and user_id = ${userId}
+      limit 1
+    `;
+    if (!conRow) {
       return { ok: false, error: "Invalid contact" };
     }
     contactIdStored = rawContact;
@@ -767,13 +675,12 @@ export async function createTransactionForUser(
     }
   }
 
-  const accountRows = await db
-    .select({ id: accounts.id, name: accounts.name })
-    .from(accounts)
-    .where(eq(accounts.userId, userId));
+  const accountRows = await db`
+    select id, name from accounts where user_id = ${userId}
+  `;
 
   const accountId =
-    accountRows.find((a) => a.name === "Cash")?.id ?? accountRows[0]?.id ?? null;
+    accountRows.find((a) => String(a.name) === "Cash")?.id ?? accountRows[0]?.id ?? null;
 
   if (!accountId) {
     return {
@@ -788,24 +695,24 @@ export async function createTransactionForUser(
 
   let inserted: { id: string } | undefined;
   try {
-    const rows = await db
-      .insert(transactions)
-      .values({
-        userId,
+    const rows = await db`
+      insert into transactions ${db({
+        user_id: userId,
         type,
         amount: amountStored,
-        categoryId: input.categoryId,
-        parentCategoryId,
-        locationId: locationIdStored,
-        contactId: contactIdStored,
-        companyId: companyIdStored,
-        accountId,
+        category_id: input.categoryId,
+        parent_category_id: parentCategoryId,
+        location_id: locationIdStored,
+        contact_id: contactIdStored,
+        company_id: companyIdStored,
+        account_id: String(accountId),
         note: input.note?.trim() || null,
-        transactionDate: input.transactionDate,
-        transactionTime: input.transactionTime,
-      })
-      .returning({ id: transactions.id });
-    inserted = rows[0];
+        transaction_date: input.transactionDate,
+        transaction_time: input.transactionTime,
+      })}
+      returning id
+    `;
+    inserted = rows[0] as { id: string } | undefined;
   } catch (e) {
     const code = postgresSqlState(e);
     if (code === "42501") {
@@ -828,7 +735,7 @@ export async function createTransactionForUser(
     return { ok: false, error: "Insert failed" };
   }
 
-  return { ok: true, id: inserted.id };
+  return { ok: true, id: String(inserted.id) };
 }
 
 export async function monthlyTrend(
@@ -836,34 +743,33 @@ export async function monthlyTrend(
   userId: string,
   preset: DatePreset,
   filters?: TransactionListFilters,
-  now = new Date()
+  now = new Date(),
 ): Promise<{ key: string; income: number; expense: number; investment: number }[]> {
-  const base = scopedTransactionsWhere(userId, preset, filters, now);
+  const base = scopedTransactionsWhere(db, userId, preset, filters, now);
 
-  const rows = await db
-    .select({
-      ym: sql<string>`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      type: transactions.type,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .where(base)
-    .groupBy(
-      sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`,
-      transactions.type
-    )
-    .orderBy(sql`to_char(${transactions.transactionDate}, 'YYYY-MM')`);
+  const rows = await db`
+    select
+      to_char(t.transaction_date, 'YYYY-MM') as ym,
+      t.type,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    where ${base}
+    group by to_char(t.transaction_date, 'YYYY-MM'), t.type
+    order by to_char(t.transaction_date, 'YYYY-MM')
+  `;
 
   const byMonth = new Map<string, { income: number; expense: number; investment: number }>();
   for (const r of rows) {
-    if (!byMonth.has(r.ym)) {
-      byMonth.set(r.ym, { income: 0, expense: 0, investment: 0 });
+    const ym = String(r.ym);
+    if (!byMonth.has(ym)) {
+      byMonth.set(ym, { income: 0, expense: 0, investment: 0 });
     }
-    const b = byMonth.get(r.ym)!;
-    const t = num(r.total);
-    if (r.type === "INCOME") b.income += t;
-    if (r.type === "EXPENSE") b.expense += t;
-    if (r.type === "INVESTMENT") b.investment += t;
+    const b = byMonth.get(ym)!;
+    const tval = num(r.total as string);
+    const typ = r.type as string;
+    if (typ === "INCOME") b.income += tval;
+    if (typ === "EXPENSE") b.expense += tval;
+    if (typ === "INVESTMENT") b.investment += tval;
   }
 
   return [...byMonth.entries()]
@@ -876,32 +782,25 @@ export async function categoryParentExpenseBreakdown(
   userId: string,
   preset: DatePreset,
   filters?: TransactionListFilters,
-  now = new Date()
+  now = new Date(),
 ): Promise<{ name: string; total: number }[]> {
-  const scope = scopedTransactionsWhere(userId, preset, filters, now);
-  const base = and(scope, eq(transactions.type, "EXPENSE"));
+  const scope = scopedTransactionsWhere(db, userId, preset, filters, now);
+  const base = sqlAnd(db, [scope, db`t.type = 'EXPENSE'`]);
 
-  const parentCat = alias(categories, "exp_parent");
-
-  const rows = await db
-    .select({
-      parentName: sql<string>`coalesce(${parentCat.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      parentCat,
-      and(
-        eq(transactions.parentCategoryId, parentCat.id),
-        eq(parentCat.userId, userId)
-      )
-    )
-    .where(base)
-    .groupBy(transactions.parentCategoryId, parentCat.name);
+  const rows = await db`
+    select
+      coalesce(exp_parent.name, 'Uncategorized') as parent_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories exp_parent
+      on exp_parent.id = t.parent_category_id and exp_parent.user_id = ${userId}
+    where ${base}
+    group by t.parent_category_id, exp_parent.name
+  `;
 
   return rows.map((r) => ({
-    name: r.parentName ?? "Uncategorized",
-    total: num(r.total),
+    name: r.parent_name != null ? String(r.parent_name) : "Uncategorized",
+    total: num(r.total as string),
   }));
 }
 
@@ -910,32 +809,30 @@ export async function locationExpenseBreakdown(
   userId: string,
   preset: DatePreset,
   filters?: TransactionListFilters,
-  now = new Date()
+  now = new Date(),
 ): Promise<{ name: string; total: number }[]> {
-  const scope = scopedTransactionsWhere(userId, preset, filters, now);
-  const base = and(
+  const scope = scopedTransactionsWhere(db, userId, preset, filters, now);
+  const base = sqlAnd(db, [
     scope,
-    eq(transactions.type, "EXPENSE"),
-    sql`${transactions.locationId} is not null`
-  );
+    db`t.type = 'EXPENSE'`,
+    db`t.location_id is not null`,
+  ]);
 
-  const rows = await db
-    .select({
-      name: locations.name,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .innerJoin(
-      locations,
-      and(
-        eq(transactions.locationId, locations.id),
-        eq(locations.userId, userId)
-      )
-    )
-    .where(base)
-    .groupBy(locations.name);
+  const rows = await db`
+    select
+      loc.name as location_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    inner join locations loc
+      on loc.id = t.location_id and loc.user_id = ${userId}
+    where ${base}
+    group by loc.name
+  `;
 
-  return rows.map((r) => ({ name: r.name, total: num(r.total) }));
+  return rows.map((r) => ({
+    name: String(r.location_name),
+    total: num(r.total as string),
+  }));
 }
 
 export type CategoryVsLastMonthRow = {
@@ -966,38 +863,29 @@ async function leafCategoryExpenseInRange(
   db: Db,
   userId: string,
   fromYMD: string,
-  toYMD: string
+  toYMD: string,
 ): Promise<Map<string, LeafExpenseBucket>> {
-  const rows = await db
-    .select({
-      categoryId: transactions.categoryId,
-      leafName: sql<string>`coalesce(${categories.name}, 'Uncategorized')`,
-      total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-    })
-    .from(transactions)
-    .leftJoin(
-      categories,
-      and(
-        eq(transactions.categoryId, categories.id),
-        eq(categories.userId, userId)
-      )
-    )
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "EXPENSE"),
-        gte(transactions.transactionDate, fromYMD),
-        lte(transactions.transactionDate, toYMD)
-      )
-    )
-    .groupBy(transactions.categoryId, categories.name);
+  const rows = await db`
+    select
+      t.category_id,
+      coalesce(cat.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories cat
+      on cat.id = t.category_id and cat.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.transaction_date >= ${fromYMD}
+      and t.transaction_date <= ${toYMD}
+    group by t.category_id, cat.name
+  `;
 
   const map = new Map<string, LeafExpenseBucket>();
   for (const r of rows) {
-    const id = r.categoryId ?? "__uncategorized__";
+    const id = r.category_id != null ? String(r.category_id) : "__uncategorized__";
     map.set(id, {
-      label: r.leafName ?? "Uncategorized",
-      total: num(r.total),
+      label: r.leaf_name != null ? String(r.leaf_name) : "Uncategorized",
+      total: num(r.total as string),
     });
   }
   return map;
@@ -1007,7 +895,7 @@ async function leafCategoryExpenseInRange(
 export async function categoryVsLastMonthSnapshot(
   db: Db,
   userId: string,
-  now = new Date()
+  now = new Date(),
 ): Promise<CategoryVsLastMonthPayload> {
   const thisRange = localCalendarMonthRange(now);
   const prevAnchor = new Date(now);
@@ -1026,9 +914,7 @@ export async function categoryVsLastMonthSnapshot(
     const l = lastMap.get(id)?.total ?? 0;
     if (t === 0 && l === 0) continue;
     const label =
-      thisMap.get(id)?.label ??
-      lastMap.get(id)?.label ??
-      "Uncategorized";
+      thisMap.get(id)?.label ?? lastMap.get(id)?.label ?? "Uncategorized";
     rows.push({
       categoryId: id,
       category: label,
@@ -1039,7 +925,7 @@ export async function categoryVsLastMonthSnapshot(
   }
   rows.sort(
     (a, b) =>
-      Math.max(b.thisMonth, b.lastMonth) - Math.max(a.thisMonth, a.lastMonth)
+      Math.max(b.thisMonth, b.lastMonth) - Math.max(a.thisMonth, a.lastMonth),
   );
 
   let thisMonthTotal = 0;
@@ -1062,12 +948,13 @@ export async function categoryVsLastMonthSnapshot(
   };
 }
 
-export async function listContacts(db: Db, userId: string) {
-  return db
-    .select()
-    .from(contacts)
-    .where(eq(contacts.userId, userId))
-    .orderBy(contacts.name);
+export async function listContacts(db: Db, userId: string): Promise<ContactRow[]> {
+  const rows = await db`
+    select id, user_id, name from contacts
+    where user_id = ${userId}
+    order by name
+  `;
+  return rows.map(mapContactRow);
 }
 
 export type ContactWithUsage = {
@@ -1079,44 +966,37 @@ export type ContactWithUsage = {
 
 export async function listContactsWithUsage(
   db: Db,
-  userId: string
+  userId: string,
 ): Promise<ContactWithUsage[]> {
-  const txRows = await db
-    .select({
-      id: contacts.id,
-      name: contacts.name,
-      txCount: sql<number>`count(${transactions.id})::int`,
-    })
-    .from(contacts)
-    .leftJoin(
-      transactions,
-      and(eq(transactions.contactId, contacts.id), eq(transactions.userId, userId)),
-    )
-    .where(eq(contacts.userId, userId))
-    .groupBy(contacts.id, contacts.name);
+  const txRows = await db`
+    select c.id, c.name, count(t.id)::int as tx_count
+    from contacts c
+    left join transactions t
+      on t.contact_id = c.id and t.user_id = ${userId}
+    where c.user_id = ${userId}
+    group by c.id, c.name
+  `;
 
-  const ruleRows = await db
-    .select({
-      contactId: rules.contactId,
-      n: count(),
-    })
-    .from(rules)
-    .where(and(eq(rules.userId, userId), isNotNull(rules.contactId)))
-    .groupBy(rules.contactId);
+  const ruleRows = await db`
+    select contact_id, count(*)::int as n
+    from rules
+    where user_id = ${userId} and contact_id is not null
+    group by contact_id
+  `;
 
   const ruleByContact = new Map<string, number>();
   for (const r of ruleRows) {
-    if (r.contactId != null) {
-      ruleByContact.set(r.contactId, Number(r.n));
+    if (r.contact_id != null) {
+      ruleByContact.set(String(r.contact_id), Number(r.n));
     }
   }
 
   return txRows
     .map((r) => ({
-      id: r.id,
-      name: r.name,
-      txCount: Number(r.txCount),
-      ruleCount: ruleByContact.get(r.id) ?? 0,
+      id: String(r.id),
+      name: String(r.name),
+      txCount: Number(r.tx_count),
+      ruleCount: ruleByContact.get(String(r.id)) ?? 0,
     }))
     .sort((a, b) => {
       const aUsed = a.txCount > 0 || a.ruleCount > 0;
@@ -1129,31 +1009,31 @@ export async function listContactsWithUsage(
 export async function createContact(
   db: Db,
   userId: string,
-  name: string
+  name: string,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, error: "Name required" };
-  const [row] = await db
-    .insert(contacts)
-    .values({ userId, name: trimmed })
-    .returning({ id: contacts.id });
+  const [row] = await db`
+    insert into contacts ${db({ user_id: userId, name: trimmed })}
+    returning id
+  `;
   if (!row) return { ok: false, error: "Failed" };
-  return { ok: true, id: row.id };
+  return { ok: true, id: String(row.id) };
 }
 
 export async function updateContactForUser(
   db: Db,
   userId: string,
   contactId: string,
-  name: string
+  name: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) return { ok: false, error: "Name required" };
-  const updated = await db
-    .update(contacts)
-    .set({ name: trimmed })
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
-    .returning({ id: contacts.id });
+  const updated = await db`
+    update contacts set name = ${trimmed}
+    where id = ${contactId} and user_id = ${userId}
+    returning id
+  `;
   if (updated.length === 0) return { ok: false, error: "Contact not found" };
   return { ok: true };
 }
@@ -1161,14 +1041,13 @@ export async function updateContactForUser(
 export async function deleteContactIfUnused(
   db: Db,
   userId: string,
-  contactId: string
+  contactId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const [txN] = await db
-    .select({ n: count() })
-    .from(transactions)
-    .where(
-      and(eq(transactions.userId, userId), eq(transactions.contactId, contactId)),
-    );
+  const [txN] = await db`
+    select count(*)::int as n
+    from transactions
+    where user_id = ${userId} and contact_id = ${contactId}
+  `;
   if (Number(txN?.n ?? 0) > 0) {
     return {
       ok: false,
@@ -1176,10 +1055,11 @@ export async function deleteContactIfUnused(
         "This person is linked to transactions. Remove or change those entries before deleting.",
     };
   }
-  const [ruleN] = await db
-    .select({ n: count() })
-    .from(rules)
-    .where(and(eq(rules.userId, userId), eq(rules.contactId, contactId)));
+  const [ruleN] = await db`
+    select count(*)::int as n
+    from rules
+    where user_id = ${userId} and contact_id = ${contactId}
+  `;
   if (Number(ruleN?.n ?? 0) > 0) {
     return {
       ok: false,
@@ -1187,10 +1067,11 @@ export async function deleteContactIfUnused(
         "This person is linked to quick entry rules. Remove or change those rules before deleting.",
     };
   }
-  const removed = await db
-    .delete(contacts)
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
-    .returning({ id: contacts.id });
+  const removed = await db`
+    delete from contacts
+    where id = ${contactId} and user_id = ${userId}
+    returning id
+  `;
   if (removed.length === 0) return { ok: false, error: "Contact not found" };
   return { ok: true };
 }
@@ -1203,27 +1084,22 @@ export type LocationWithUsage = {
 
 export async function listLocationsWithUsage(
   db: Db,
-  userId: string
+  userId: string,
 ): Promise<LocationWithUsage[]> {
-  const rows = await db
-    .select({
-      id: locations.id,
-      name: locations.name,
-      txCount: sql<number>`count(${transactions.id})::int`,
-    })
-    .from(locations)
-    .leftJoin(
-      transactions,
-      and(eq(transactions.locationId, locations.id), eq(transactions.userId, userId))
-    )
-    .where(eq(locations.userId, userId))
-    .groupBy(locations.id, locations.name)
-    .orderBy(locations.name);
+  const rows = await db`
+    select l.id, l.name, count(t.id)::int as tx_count
+    from locations l
+    left join transactions t
+      on t.location_id = l.id and t.user_id = ${userId}
+    where l.user_id = ${userId}
+    group by l.id, l.name
+    order by l.name
+  `;
 
   return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    txCount: Number(r.txCount),
+    id: String(r.id),
+    name: String(r.name),
+    txCount: Number(r.tx_count),
   }));
 }
 
@@ -1231,25 +1107,25 @@ export async function updateLocationForUser(
   db: Db,
   userId: string,
   locationId: string,
-  name: string
+  name: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
-  const dup = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(and(eq(locations.userId, userId), eq(locations.name, trimmed)))
-    .limit(1);
-  if (dup.length > 0 && dup[0].id !== locationId) {
+  const dup = await db`
+    select id from locations
+    where user_id = ${userId} and name = ${trimmed}
+    limit 1
+  `;
+  if (dup.length > 0 && String(dup[0]!.id) !== locationId) {
     return { ok: false, error: "A location with that name already exists" };
   }
-  const updated = await db
-    .update(locations)
-    .set({ name: trimmed })
-    .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-    .returning({ id: locations.id });
+  const updated = await db`
+    update locations set name = ${trimmed}
+    where id = ${locationId} and user_id = ${userId}
+    returning id
+  `;
   if (updated.length === 0) {
     return { ok: false, error: "Location not found" };
   }
@@ -1259,12 +1135,13 @@ export async function updateLocationForUser(
 export async function deleteLocationIfUnused(
   db: Db,
   userId: string,
-  locationId: string
+  locationId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(transactions)
-    .where(and(eq(transactions.locationId, locationId), eq(transactions.userId, userId)));
+  const [row] = await db`
+    select count(*)::int as n
+    from transactions
+    where location_id = ${locationId} and user_id = ${userId}
+  `;
   const n = Number(row?.n ?? 0);
   if (n > 0) {
     return {
@@ -1273,10 +1150,11 @@ export async function deleteLocationIfUnused(
         "This location is used on transactions. Change or remove those rows before deleting.",
     };
   }
-  const removed = await db
-    .delete(locations)
-    .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-    .returning({ id: locations.id });
+  const removed = await db`
+    delete from locations
+    where id = ${locationId} and user_id = ${userId}
+    returning id
+  `;
   if (removed.length === 0) {
     return { ok: false, error: "Location not found" };
   }
@@ -1293,28 +1171,20 @@ export async function listCompaniesWithUsage(
   db: Db,
   userId: string,
 ): Promise<CompanyWithUsage[]> {
-  const rows = await db
-    .select({
-      id: companies.id,
-      name: companies.name,
-      txCount: sql<number>`count(${transactions.id})::int`,
-    })
-    .from(companies)
-    .leftJoin(
-      transactions,
-      and(
-        eq(transactions.companyId, companies.id),
-        eq(transactions.userId, userId),
-      ),
-    )
-    .where(eq(companies.userId, userId))
-    .groupBy(companies.id, companies.name)
-    .orderBy(companies.name);
+  const rows = await db`
+    select c.id, c.name, count(t.id)::int as tx_count
+    from companies c
+    left join transactions t
+      on t.company_id = c.id and t.user_id = ${userId}
+    where c.user_id = ${userId}
+    group by c.id, c.name
+    order by c.name
+  `;
 
   return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    txCount: Number(r.txCount),
+    id: String(r.id),
+    name: String(r.name),
+    txCount: Number(r.tx_count),
   }));
 }
 
@@ -1328,19 +1198,19 @@ export async function updateCompanyForUser(
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
-  const dup = await db
-    .select({ id: companies.id })
-    .from(companies)
-    .where(and(eq(companies.userId, userId), eq(companies.name, trimmed)))
-    .limit(1);
-  if (dup.length > 0 && dup[0].id !== companyId) {
+  const dup = await db`
+    select id from companies
+    where user_id = ${userId} and name = ${trimmed}
+    limit 1
+  `;
+  if (dup.length > 0 && String(dup[0]!.id) !== companyId) {
     return { ok: false, error: "A company with that name already exists" };
   }
-  const updated = await db
-    .update(companies)
-    .set({ name: trimmed })
-    .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
-    .returning({ id: companies.id });
+  const updated = await db`
+    update companies set name = ${trimmed}
+    where id = ${companyId} and user_id = ${userId}
+    returning id
+  `;
   if (updated.length === 0) {
     return { ok: false, error: "Company not found" };
   }
@@ -1352,12 +1222,11 @@ export async function deleteCompanyIfUnused(
   userId: string,
   companyId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(transactions)
-    .where(
-      and(eq(transactions.companyId, companyId), eq(transactions.userId, userId)),
-    );
+  const [row] = await db`
+    select count(*)::int as n
+    from transactions
+    where company_id = ${companyId} and user_id = ${userId}
+  `;
   const n = Number(row?.n ?? 0);
   if (n > 0) {
     return {
@@ -1366,10 +1235,11 @@ export async function deleteCompanyIfUnused(
         "This company is used on transactions. Change or remove those rows before deleting.",
     };
   }
-  const removed = await db
-    .delete(companies)
-    .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
-    .returning({ id: companies.id });
+  const removed = await db`
+    delete from companies
+    where id = ${companyId} and user_id = ${userId}
+    returning id
+  `;
   if (removed.length === 0) {
     return { ok: false, error: "Company not found" };
   }
@@ -1395,45 +1265,42 @@ export type CategoryParentWithSubs = {
 
 export async function listCategoriesWithUsageTree(
   db: Db,
-  userId: string
+  userId: string,
 ): Promise<CategoryParentWithSubs[]> {
-  const all = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.userId, userId))
-    .orderBy(categories.sortOrder);
+  const allRows = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where user_id = ${userId}
+    order by sort_order
+  `;
+  const all = allRows.map(mapCategoryRow);
 
-  const leafAgg = await db
-    .select({
-      cid: transactions.categoryId,
-      n: sql<number>`count(*)::int`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.userId, userId), isNotNull(transactions.categoryId)))
-    .groupBy(transactions.categoryId);
+  const leafAgg = await db`
+    select category_id as cid, count(*)::int as n
+    from transactions
+    where user_id = ${userId} and category_id is not null
+    group by category_id
+  `;
 
-  const parentAgg = await db
-    .select({
-      pid: transactions.parentCategoryId,
-      n: sql<number>`count(*)::int`,
-    })
-    .from(transactions)
-    .where(
-      and(eq(transactions.userId, userId), isNotNull(transactions.parentCategoryId))
-    )
-    .groupBy(transactions.parentCategoryId);
+  const parentAgg = await db`
+    select parent_category_id as pid, count(*)::int as n
+    from transactions
+    where user_id = ${userId} and parent_category_id is not null
+    group by parent_category_id
+  `;
 
   const leafMap = new Map<string, number>();
   for (const r of leafAgg) {
-    if (r.cid) leafMap.set(r.cid, Number(r.n));
+    if (r.cid != null) leafMap.set(String(r.cid), Number(r.n));
   }
   const parentMap = new Map<string, number>();
   for (const r of parentAgg) {
-    if (r.pid) parentMap.set(r.pid, Number(r.n));
+    if (r.pid != null) parentMap.set(String(r.pid), Number(r.n));
   }
 
   const roots = all.filter((c) => c.parentId === null && !c.isSelectable);
-  const childrenOf = (pid: string) => all.filter((c) => c.parentId === pid && c.isSelectable);
+  const childrenOf = (pid: string) =>
+    all.filter((c) => c.parentId === pid && c.isSelectable);
 
   return roots.map((p) => ({
     id: p.id,
@@ -1455,24 +1322,20 @@ export async function createCategoryParent(
   db: Db,
   userId: string,
   name: string,
-  type: TransactionType
+  type: TransactionType,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
 
-  const dup = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(
-      and(
-        eq(categories.userId, userId),
-        isNull(categories.parentId),
-        eq(categories.name, trimmed)
-      )
-    )
-    .limit(1);
+  const dup = await db`
+    select id from categories
+    where user_id = ${userId}
+      and parent_id is null
+      and name = ${trimmed}
+    limit 1
+  `;
   if (dup.length > 0) {
     return {
       ok: false,
@@ -1480,69 +1343,61 @@ export async function createCategoryParent(
     };
   }
 
-  const [agg] = await db
-    .select({
-      maxSo: sql<number>`coalesce(max(${categories.sortOrder}), 0)::int`,
-    })
-    .from(categories)
-    .where(and(eq(categories.userId, userId), isNull(categories.parentId)));
+  const [agg] = await db`
+    select coalesce(max(sort_order), 0)::int as max_so
+    from categories
+    where user_id = ${userId} and parent_id is null
+  `;
 
-  const sortOrder = (Number(agg?.maxSo) || 0) + 10;
+  const sortOrder = (Number(agg?.max_so) || 0) + 10;
 
-  const [row] = await db
-    .insert(categories)
-    .values({
-      userId,
+  const [row] = await db`
+    insert into categories ${db({
+      user_id: userId,
       name: trimmed,
-      parentId: null,
+      parent_id: null,
       type,
-      isSelectable: false,
-      sortOrder,
-    })
-    .returning({ id: categories.id });
+      is_selectable: false,
+      sort_order: sortOrder,
+    })}
+    returning id
+  `;
 
   if (!row) return { ok: false, error: "Failed to create" };
-  return { ok: true, id: row.id };
+  return { ok: true, id: String(row.id) };
 }
 
 export async function createCategorySub(
   db: Db,
   userId: string,
   parentId: string,
-  name: string
+  name: string,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
 
-  const [parent] = await db
-    .select()
-    .from(categories)
-    .where(
-      and(
-        eq(categories.id, parentId),
-        eq(categories.userId, userId),
-        isNull(categories.parentId)
-      )
-    )
-    .limit(1);
+  const [parentRow] = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where id = ${parentId} and user_id = ${userId} and parent_id is null
+    limit 1
+  `;
+
+  const parent = parentRow ? mapCategoryRow(parentRow) : undefined;
 
   if (!parent || parent.isSelectable) {
     return { ok: false, error: "Invalid parent group" };
   }
 
-  const dup = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(
-      and(
-        eq(categories.userId, userId),
-        eq(categories.parentId, parentId),
-        eq(categories.name, trimmed)
-      )
-    )
-    .limit(1);
+  const dup = await db`
+    select id from categories
+    where user_id = ${userId}
+      and parent_id = ${parentId}
+      and name = ${trimmed}
+    limit 1
+  `;
   if (dup.length > 0) {
     return {
       ok: false,
@@ -1550,71 +1405,71 @@ export async function createCategorySub(
     };
   }
 
-  const [agg] = await db
-    .select({
-      maxSo: sql<number>`coalesce(max(${categories.sortOrder}), 0)::int`,
-    })
-    .from(categories)
-    .where(and(eq(categories.userId, userId), eq(categories.parentId, parentId)));
+  const [agg] = await db`
+    select coalesce(max(sort_order), 0)::int as max_so
+    from categories
+    where user_id = ${userId} and parent_id = ${parentId}
+  `;
 
-  const sortOrder = (Number(agg?.maxSo) || 0) + 1;
+  const sortOrder = (Number(agg?.max_so) || 0) + 1;
 
-  const [row] = await db
-    .insert(categories)
-    .values({
-      userId,
+  const [row] = await db`
+    insert into categories ${db({
+      user_id: userId,
       name: trimmed,
-      parentId,
+      parent_id: parentId,
       type: parent.type,
-      isSelectable: true,
-      sortOrder,
-    })
-    .returning({ id: categories.id });
+      is_selectable: true,
+      sort_order: sortOrder,
+    })}
+    returning id
+  `;
 
   if (!row) return { ok: false, error: "Failed" };
-  return { ok: true, id: row.id };
+  return { ok: true, id: String(row.id) };
 }
 
 export async function updateCategoryName(
   db: Db,
   userId: string,
   categoryId: string,
-  name: string
+  name: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = name.trim();
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
 
-  const [row] = await db
-    .select()
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .limit(1);
+  const [row] = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where id = ${categoryId} and user_id = ${userId}
+    limit 1
+  `;
   if (!row) {
     return { ok: false, error: "Category not found" };
   }
 
-  const parentScope = row.parentId;
-  const dupWhere =
+  const mapped = mapCategoryRow(row);
+  const parentScope = mapped.parentId;
+  const dup =
     parentScope === null
-      ? and(
-          eq(categories.userId, userId),
-          isNull(categories.parentId),
-          eq(categories.name, trimmed)
-        )
-      : and(
-          eq(categories.userId, userId),
-          eq(categories.parentId, parentScope),
-          eq(categories.name, trimmed)
-        );
+      ? await db`
+          select id from categories
+          where user_id = ${userId}
+            and parent_id is null
+            and name = ${trimmed}
+          limit 1
+        `
+      : await db`
+          select id from categories
+          where user_id = ${userId}
+            and parent_id = ${parentScope}
+            and name = ${trimmed}
+          limit 1
+        `;
 
-  const dup = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(dupWhere)
-    .limit(1);
-  if (dup.length > 0 && dup[0].id !== categoryId) {
+  if (dup.length > 0 && String(dup[0]!.id) !== categoryId) {
     return {
       ok: false,
       error:
@@ -1624,11 +1479,11 @@ export async function updateCategoryName(
     };
   }
 
-  const updated = await db
-    .update(categories)
-    .set({ name: trimmed })
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .returning({ id: categories.id });
+  const updated = await db`
+    update categories set name = ${trimmed}
+    where id = ${categoryId} and user_id = ${userId}
+    returning id
+  `;
   if (updated.length === 0) {
     return { ok: false, error: "Category not found" };
   }
@@ -1639,42 +1494,43 @@ export async function updateCategory(
   db: Db,
   userId: string,
   categoryId: string,
-  input: { name: string; type?: TransactionType }
+  input: { name: string; type?: TransactionType },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = input.name.trim();
   if (!trimmed) {
     return { ok: false, error: "Name required" };
   }
 
-  const [row] = await db
-    .select()
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .limit(1);
+  const [row] = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where id = ${categoryId} and user_id = ${userId}
+    limit 1
+  `;
   if (!row) {
     return { ok: false, error: "Category not found" };
   }
 
-  const parentScope = row.parentId;
-  const dupWhere =
+  const mapped = mapCategoryRow(row);
+  const parentScope = mapped.parentId;
+  const dup =
     parentScope === null
-      ? and(
-          eq(categories.userId, userId),
-          isNull(categories.parentId),
-          eq(categories.name, trimmed)
-        )
-      : and(
-          eq(categories.userId, userId),
-          eq(categories.parentId, parentScope),
-          eq(categories.name, trimmed)
-        );
+      ? await db`
+          select id from categories
+          where user_id = ${userId}
+            and parent_id is null
+            and name = ${trimmed}
+          limit 1
+        `
+      : await db`
+          select id from categories
+          where user_id = ${userId}
+            and parent_id = ${parentScope}
+            and name = ${trimmed}
+          limit 1
+        `;
 
-  const dup = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(dupWhere)
-    .limit(1);
-  if (dup.length > 0 && dup[0].id !== categoryId) {
+  if (dup.length > 0 && String(dup[0]!.id) !== categoryId) {
     return {
       ok: false,
       error:
@@ -1684,28 +1540,25 @@ export async function updateCategory(
     };
   }
 
-  const isParentGroup = row.parentId === null && !row.isSelectable;
-  const requestedType = isParentGroup ? (input.type ?? row.type) : row.type;
+  const isParentGroup = mapped.parentId === null && !mapped.isSelectable;
+  const requestedType = isParentGroup ? (input.type ?? mapped.type) : mapped.type;
 
-  if (isParentGroup && requestedType !== row.type) {
-    const [usage] = await db
-      .select({ n: count() })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.userId, userId),
-          or(
-            eq(transactions.parentCategoryId, categoryId),
-            sql`exists (
-              select 1
-              from ${categories} c
-              where c.user_id = ${userId}
+  if (isParentGroup && requestedType !== mapped.type) {
+    const [usage] = await db`
+      select count(*)::int as n
+      from transactions
+      where user_id = ${userId}
+        and (
+          parent_category_id = ${categoryId}
+          or exists (
+            select 1
+            from categories c
+            where c.user_id = ${userId}
               and c.parent_id = ${categoryId}
-              and c.id = ${transactions.categoryId}
-            )`
+              and c.id = transactions.category_id
           )
         )
-      );
+    `;
     if (Number(usage?.n ?? 0) > 0) {
       return {
         ok: false,
@@ -1717,21 +1570,22 @@ export async function updateCategory(
 
   const nextType = requestedType;
 
-  const updated = await db
-    .update(categories)
-    .set({ name: trimmed, type: nextType })
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .returning({ id: categories.id });
+  const updated = await db`
+    update categories
+    set name = ${trimmed}, type = ${nextType}
+    where id = ${categoryId} and user_id = ${userId}
+    returning id
+  `;
   if (updated.length === 0) {
     return { ok: false, error: "Category not found" };
   }
 
-  // Keep children consistent with the parent's type.
-  if (isParentGroup && nextType !== row.type) {
-    await db
-      .update(categories)
-      .set({ type: nextType })
-      .where(and(eq(categories.userId, userId), eq(categories.parentId, categoryId)));
+  if (isParentGroup && nextType !== mapped.type) {
+    await db`
+      update categories
+      set type = ${nextType}
+      where user_id = ${userId} and parent_id = ${categoryId}
+    `;
   }
 
   return { ok: true };
@@ -1740,35 +1594,38 @@ export async function updateCategory(
 export async function deleteCategoryIfUnused(
   db: Db,
   userId: string,
-  categoryId: string
+  categoryId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const [row] = await db
-    .select()
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .limit(1);
+  const [row] = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where id = ${categoryId} and user_id = ${userId}
+    limit 1
+  `;
   if (!row) {
     return { ok: false, error: "Category not found" };
   }
 
-  const isParentGroup = row.parentId === null && !row.isSelectable;
+  const mapped = mapCategoryRow(row);
+  const isParentGroup = mapped.parentId === null && !mapped.isSelectable;
 
   if (isParentGroup) {
-    const [kid] = await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.parentId, categoryId), eq(categories.userId, userId)))
-      .limit(1);
+    const [kid] = await db`
+      select id from categories
+      where parent_id = ${categoryId} and user_id = ${userId}
+      limit 1
+    `;
     if (kid) {
       return {
         ok: false,
         error: "Remove subcategories before deleting this group.",
       };
     }
-    const [pc] = await db
-      .select({ n: count() })
-      .from(transactions)
-      .where(and(eq(transactions.parentCategoryId, categoryId), eq(transactions.userId, userId)));
+    const [pc] = await db`
+      select count(*)::int as n
+      from transactions
+      where parent_category_id = ${categoryId} and user_id = ${userId}
+    `;
     if (Number(pc?.n ?? 0) > 0) {
       return {
         ok: false,
@@ -1777,10 +1634,11 @@ export async function deleteCategoryIfUnused(
       };
     }
   } else {
-    const [tc] = await db
-      .select({ n: count() })
-      .from(transactions)
-      .where(and(eq(transactions.categoryId, categoryId), eq(transactions.userId, userId)));
+    const [tc] = await db`
+      select count(*)::int as n
+      from transactions
+      where category_id = ${categoryId} and user_id = ${userId}
+    `;
     if (Number(tc?.n ?? 0) > 0) {
       return {
         ok: false,
@@ -1790,39 +1648,43 @@ export async function deleteCategoryIfUnused(
     }
   }
 
-  const removed = await db
-    .delete(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .returning({ id: categories.id });
+  const removed = await db`
+    delete from categories
+    where id = ${categoryId} and user_id = ${userId}
+    returning id
+  `;
   if (removed.length === 0) {
     return { ok: false, error: "Category not found" };
   }
   return { ok: true };
 }
 
-export async function listLocations(db: Db, userId: string) {
-  return db
-    .select()
-    .from(locations)
-    .where(eq(locations.userId, userId))
-    .orderBy(locations.name);
+export async function listLocations(db: Db, userId: string): Promise<LocationRow[]> {
+  const rows = await db`
+    select id, user_id, name from locations
+    where user_id = ${userId}
+    order by name
+  `;
+  return rows.map(mapLocationRow);
 }
 
-export async function listCompanies(db: Db, userId: string) {
-  return db
-    .select()
-    .from(companies)
-    .where(eq(companies.userId, userId))
-    .orderBy(companies.name);
+export async function listCompanies(db: Db, userId: string): Promise<CompanyRow[]> {
+  const rows = await db`
+    select id, user_id, name from companies
+    where user_id = ${userId}
+    order by name
+  `;
+  return rows.map(mapCompanyRow);
 }
 
-export async function listSelectableCategories(db: Db, userId: string) {
-  const all = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.userId, userId))
-    .orderBy(categories.sortOrder);
-  return all;
+export async function listSelectableCategories(db: Db, userId: string): Promise<CategoryRow[]> {
+  const rows = await db`
+    select id, user_id, name, parent_id, type, is_selectable, sort_order
+    from categories
+    where user_id = ${userId}
+    order by sort_order
+  `;
+  return rows.map(mapCategoryRow);
 }
 
 export type RuleRowDTO = {
@@ -1835,18 +1697,18 @@ export type RuleRowDTO = {
 };
 
 export async function getRulesForUser(userId: string): Promise<RuleRowDTO[]> {
-  return serverDb
-    .select({
-      id: rules.id,
-      keyword: rules.keyword,
-      note: rules.note,
-      categoryId: rules.categoryId,
-      locationId: rules.locationId,
-      contactId: rules.contactId,
-    })
-    .from(rules)
-    .where(eq(rules.userId, userId))
-    .orderBy(rules.keyword);
+  const rows = await serverDb`
+    select id, keyword, note, category_id, location_id, contact_id
+    from rules
+    where user_id = ${userId}
+    order by keyword
+  `;
+  return rows.map((r) => ({
+    id: String(r.id),
+    keyword: String(r.keyword),
+    note: r.note != null ? String(r.note) : null,
+    categoryId: r.category_id != null ? String(r.category_id) : null,
+    locationId: r.location_id != null ? String(r.location_id) : null,
+    contactId: r.contact_id != null ? String(r.contact_id) : null,
+  }));
 }
-
-

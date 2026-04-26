@@ -4,8 +4,6 @@ import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "./cookies";
 import { verifySession } from "./jwt";
 import { db } from "@/lib/db/server";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 
 export type AuthedUser = { id: string; email: string };
 
@@ -21,13 +19,13 @@ export const getSessionUser = cache(async (): Promise<AuthedUser | null> => {
   const payload = await verifySession(token);
   if (!payload) return null;
 
-  const row = await db
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.id, payload.sub))
-    .limit(1);
+  const [row] = await db`
+    select id, email from users where id = ${payload.sub} limit 1
+  `;
 
-  return row[0] ?? null;
+  return row
+    ? { id: (row as { id: string; email: string }).id, email: (row as { id: string; email: string }).email }
+    : null;
 });
 
 /** User id from JWT + DB session, or null (use instead of any external auth SDK). */

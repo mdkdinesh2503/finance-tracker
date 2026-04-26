@@ -1,15 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/server";
-import {
-  accounts,
-  categories,
-  companies,
-  contacts,
-  locations,
-  transactions,
-} from "@/lib/db/schema";
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
 import { verifySession } from "@/lib/auth/jwt";
 
@@ -32,33 +23,29 @@ export async function GET() {
   }
   const userId = session.sub;
 
-  const rows = await db
-    .select({
-      id: transactions.id,
-      type: transactions.type,
-      amount: transactions.amount,
-      transactionDate: transactions.transactionDate,
-      transactionTime: transactions.transactionTime,
-      note: transactions.note,
-      createdAt: transactions.createdAt,
-      accountName: accounts.name,
-      categoryName: categories.name,
-      locationName: locations.name,
-      contactName: contacts.name,
-      companyName: companies.name,
-    })
-    .from(transactions)
-    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-    .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .leftJoin(locations, eq(transactions.locationId, locations.id))
-    .leftJoin(contacts, eq(transactions.contactId, contacts.id))
-    .leftJoin(companies, eq(transactions.companyId, companies.id))
-    .where(eq(transactions.userId, userId))
-    .orderBy(
-      desc(transactions.transactionDate),
-      desc(transactions.transactionTime),
-      desc(transactions.createdAt),
-    );
+  const rows = await db`
+    select
+      t.id,
+      t.type,
+      t.amount::text as amount,
+      t.transaction_date::text as transaction_date,
+      t.transaction_time::text as transaction_time,
+      t.note,
+      t.created_at,
+      a.name as account_name,
+      c.name as category_name,
+      l.name as location_name,
+      ct.name as contact_name,
+      co.name as company_name
+    from transactions t
+    inner join accounts a on a.id = t.account_id
+    left join categories c on c.id = t.category_id
+    left join locations l on l.id = t.location_id
+    left join contacts ct on ct.id = t.contact_id
+    left join companies co on co.id = t.company_id
+    where t.user_id = ${userId}
+    order by t.transaction_date desc, t.transaction_time desc, t.created_at desc
+  `;
 
   const header = [
     "id",
@@ -77,20 +64,33 @@ export async function GET() {
 
   const lines = [
     header.join(","),
-    ...rows.map((r) =>
+    ...(rows as unknown as {
+      id: string;
+      type: string;
+      amount: string;
+      transaction_date: string;
+      transaction_time: string;
+      note: string | null;
+      created_at: Date;
+      account_name: string;
+      category_name: string | null;
+      location_name: string | null;
+      contact_name: string | null;
+      company_name: string | null;
+    }[]).map((r) =>
       [
         csvEscape(r.id),
         csvEscape(r.type),
         csvEscape(String(r.amount)),
-        csvEscape(r.transactionDate),
-        csvEscape(String(r.transactionTime)),
-        csvEscape(r.accountName),
-        csvEscape(r.categoryName ?? ""),
-        csvEscape(r.locationName ?? ""),
-        csvEscape(r.contactName ?? ""),
-        csvEscape(r.companyName ?? ""),
+        csvEscape(r.transaction_date),
+        csvEscape(String(r.transaction_time)),
+        csvEscape(r.account_name),
+        csvEscape(r.category_name ?? ""),
+        csvEscape(r.location_name ?? ""),
+        csvEscape(r.contact_name ?? ""),
+        csvEscape(r.company_name ?? ""),
         csvEscape(r.note ?? ""),
-        csvEscape(r.createdAt.toISOString()),
+        csvEscape(r.created_at.toISOString()),
       ].join(","),
     ),
   ];

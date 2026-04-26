@@ -1,9 +1,8 @@
 import dotenv from "dotenv";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
 
 import { postgresOptionsFromUrl } from "../postgres";
+import { runSqlMigrations } from "../run-migrations";
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_DB_RESET !== "1") {
@@ -23,12 +22,7 @@ async function main() {
     max: 1,
     prepare: false,
   });
-  const db = drizzle(sql);
 
-  // Drop all app objects (safe for personal project reset)
-  // - tables in public
-  // - enums in public
-  // - drizzle migrations schema
   await sql.unsafe(`
     DO $$ DECLARE
       r RECORD;
@@ -48,7 +42,7 @@ async function main() {
   `);
   await sql.unsafe(`DROP SCHEMA IF EXISTS drizzle CASCADE;`);
 
-  await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+  await runSqlMigrations(sql);
   await sql.end({ timeout: 5 });
 }
 
@@ -58,4 +52,3 @@ main()
     console.error(e);
     process.exit(1);
   });
-

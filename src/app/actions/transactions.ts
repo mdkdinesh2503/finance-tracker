@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
 import type { DatePreset } from "@/lib/types/filters";
 import type { CreateTransactionInput } from "@/lib/types/transactions";
 import {
@@ -19,16 +18,7 @@ import {
 import { toTransactionsCsv } from "@/lib/utilities/csv";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/server";
-import {
-  accounts,
-  categories,
-  companies,
-  contacts,
-  locations,
-  rules,
-  transactions,
-  type TransactionType,
-} from "@/lib/db/schema";
+import type { TransactionType } from "@/lib/db/schema";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
@@ -244,56 +234,53 @@ async function assertOwnershipAndCategoryType(opts: {
   const { userId, txType, accountId, categoryId, locationId, contactId, companyId } =
     opts;
 
-  const acc = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId)))
-    .limit(1);
-  if (!acc[0]) return { error: "Invalid account" };
+  const [acc] = await db`
+    select id from accounts
+    where id = ${accountId} and user_id = ${userId}
+    limit 1
+  `;
+  if (!acc) return { error: "Invalid account" };
 
   let parentCategoryId: string | null = null;
   if (categoryId) {
-    const cat = await db
-      .select({
-        id: categories.id,
-        type: categories.type,
-        parentId: categories.parentId,
-      })
-      .from(categories)
-      .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-      .limit(1);
-    if (!cat[0]) return { error: "Invalid category" };
-    if (cat[0].type !== txType) {
+    const [cat] = await db`
+      select id, type, parent_id from categories
+      where id = ${categoryId} and user_id = ${userId}
+      limit 1
+    `;
+    if (!cat) return { error: "Invalid category" };
+    const c = cat as { type: TransactionType; parent_id: string | null };
+    if (c.type !== txType) {
       return { error: "Category type does not match transaction type" };
     }
-    parentCategoryId = cat[0].parentId ?? null;
+    parentCategoryId = c.parent_id;
   }
 
   if (locationId) {
-    const loc = await db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-      .limit(1);
-    if (!loc[0]) return { error: "Invalid location" };
+    const [loc] = await db`
+      select id from locations
+      where id = ${locationId} and user_id = ${userId}
+      limit 1
+    `;
+    if (!loc) return { error: "Invalid location" };
   }
 
   if (contactId) {
-    const con = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
-      .limit(1);
-    if (!con[0]) return { error: "Invalid contact" };
+    const [con] = await db`
+      select id from contacts
+      where id = ${contactId} and user_id = ${userId}
+      limit 1
+    `;
+    if (!con) return { error: "Invalid contact" };
   }
 
   if (companyId) {
-    const co = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .where(and(eq(companies.id, companyId), eq(companies.userId, userId)))
-      .limit(1);
-    if (!co[0]) return { error: "Invalid company" };
+    const [co] = await db`
+      select id from companies
+      where id = ${companyId} and user_id = ${userId}
+      limit 1
+    `;
+    if (!co) return { error: "Invalid company" };
   }
 
   return { parentCategoryId };
@@ -310,30 +297,28 @@ async function resolveTransactionTagFields(opts: {
   if (!categoryId) {
     return { companyIdForInsert: null };
   }
-  const [cat] = await db
-    .select({
-      name: categories.name,
-      parentId: categories.parentId,
-    })
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .limit(1);
+  const [cat] = await db`
+    select name, parent_id from categories
+    where id = ${categoryId} and user_id = ${userId}
+    limit 1
+  `;
   if (!cat) return { error: "Invalid category" };
+  const catRow = cat as { name: string; parent_id: string | null };
 
   let parentName: string | null = null;
-  if (cat.parentId) {
-    const [p] = await db
-      .select({ name: categories.name })
-      .from(categories)
-      .where(and(eq(categories.id, cat.parentId), eq(categories.userId, userId)))
-      .limit(1);
-    parentName = p?.name ?? null;
+  if (catRow.parent_id) {
+    const [p] = await db`
+      select name from categories
+      where id = ${catRow.parent_id} and user_id = ${userId}
+      limit 1
+    `;
+    parentName = (p as { name: string } | undefined)?.name ?? null;
   }
 
   const needsGiftRecipient =
     parentName === GIFTS_OCCASIONS_PARENT_NAME &&
     txType === "EXPENSE" &&
-    giftRecipientRequiredForSubcategory(cat.name);
+    giftRecipientRequiredForSubcategory(catRow.name);
   if (needsGiftRecipient && !contactId?.trim()) {
     return { error: "Select who this gift is for (contact)." };
   }
@@ -345,11 +330,11 @@ async function resolveTransactionTagFields(opts: {
     if (!cid) {
       return { error: "Employer (company) is required for Salary & Wages." };
     }
-    const [co] = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .where(and(eq(companies.id, cid), eq(companies.userId, userId)))
-      .limit(1);
+    const [co] = await db`
+      select id from companies
+      where id = ${cid} and user_id = ${userId}
+      limit 1
+    `;
     if (!co) return { error: "Invalid company" };
     return { companyIdForInsert: cid };
   }
@@ -431,17 +416,15 @@ export async function createTransactionDirectAction(
       v.type === "REPAYMENT" ||
       v.type === "LEND";
     if (isCashOutflow) {
-      const rows = await db
-        .select({
-          type: transactions.type,
-          total: sql<string>`coalesce(sum(${transactions.amount})::text, '0')`,
-        })
-        .from(transactions)
-        .where(and(eq(transactions.userId, user.id), eq(transactions.accountId, v.accountId)))
-        .groupBy(transactions.type);
+      const rows = await db`
+        select type, coalesce(sum(amount)::text, '0') as total
+        from transactions
+        where user_id = ${user.id} and account_id = ${v.accountId}
+        group by type
+      `;
 
       const sums: Record<string, number> = {};
-      for (const r of rows) {
+      for (const r of rows as unknown as { type: string; total: string }[]) {
         const n = Number(r.total);
         sums[r.type] = Number.isFinite(n) ? n : 0;
       }
@@ -454,23 +437,23 @@ export async function createTransactionDirectAction(
     }
   }
 
-  const [row] = await db
-    .insert(transactions)
-    .values({
-      userId: user.id,
+  const [row] = await db`
+    insert into transactions ${db({
+      user_id: user.id,
       type: v.type,
       amount: amountStored,
-      categoryId: v.categoryId ?? null,
-      parentCategoryId: own.parentCategoryId,
-      locationId: v.locationId ?? null,
-      contactId: v.contactId ?? null,
-      companyId: tags.companyIdForInsert,
-      accountId: v.accountId,
+      category_id: v.categoryId ?? null,
+      parent_category_id: own.parentCategoryId,
+      location_id: v.locationId ?? null,
+      contact_id: v.contactId ?? null,
+      company_id: tags.companyIdForInsert,
+      account_id: v.accountId,
       note: v.note ?? null,
-      transactionDate: v.transactionDate,
-      transactionTime: normalizeTime(v.transactionTime),
-    })
-    .returning({ id: transactions.id });
+      transaction_date: v.transactionDate,
+      transaction_time: normalizeTime(v.transactionTime),
+    })}
+    returning id
+  `;
 
   if (!row) return err("Failed to create transaction");
 
@@ -482,7 +465,7 @@ export async function createTransactionDirectAction(
   revalidatePath("/analytics/income/salary");
   revalidatePath("/analytics/income/other");
   revalidatePath("/analytics/investments");
-  return ok({ id: row.id });
+  return ok({ id: (row as { id: string }).id });
 }
 
 export async function deleteTransactionDirectAction(
@@ -492,12 +475,13 @@ export async function deleteTransactionDirectAction(
   const uuid = z.string().uuid().safeParse(id);
   if (!uuid.success) return err("Invalid id");
 
-  const deleted = await db
-    .delete(transactions)
-    .where(and(eq(transactions.id, uuid.data), eq(transactions.userId, user.id)))
-    .returning({ id: transactions.id });
+  const deleted = await db`
+    delete from transactions
+    where id = ${uuid.data} and user_id = ${user.id}
+    returning id
+  `;
 
-  if (!deleted.length) return err("Not found");
+  if (deleted.length === 0) return err("Not found");
 
   revalidatePath("/dashboard");
   revalidatePath("/transactions");
@@ -523,22 +507,32 @@ export async function quickEntryAction(
   const { amountStr } = splitQuickInput(text);
   if (!amountStr) return err("Could not parse amount");
 
-  const [contactRows, ruleRows] = await Promise.all([
-    db
-      .select({ id: contacts.id, name: contacts.name })
-      .from(contacts)
-      .where(eq(contacts.userId, user.id)),
-    db
-      .select({
-        keyword: rules.keyword,
-        note: rules.note,
-        categoryId: rules.categoryId,
-        locationId: rules.locationId,
-        contactId: rules.contactId,
-      })
-      .from(rules)
-      .where(eq(rules.userId, user.id)),
+  const [contactRowsRaw, ruleRowsRaw] = await Promise.all([
+    db`
+      select id, name from contacts where user_id = ${user.id}
+    `,
+    db`
+      select keyword, note, category_id, location_id, contact_id
+      from rules where user_id = ${user.id}
+    `,
   ]);
+
+  const contactRows = (contactRowsRaw as unknown as { id: string; name: string }[]).map(
+    (r) => ({ id: r.id, name: r.name }),
+  );
+  const ruleRows = (ruleRowsRaw as unknown as {
+    keyword: string;
+    note: string | null;
+    category_id: string | null;
+    location_id: string | null;
+    contact_id: string | null;
+  }[]).map((r) => ({
+    keyword: r.keyword,
+    note: r.note,
+    categoryId: r.category_id,
+    locationId: r.location_id,
+    contactId: r.contact_id,
+  }));
 
   const inferred = inferQuickEntry(text, {
     contacts: contactRows,
@@ -578,22 +572,32 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
   const { amountStr } = splitQuickInput(text);
   if (!amountStr) return err("Could not parse amount");
 
-  const [contactRows, ruleRows] = await Promise.all([
-    db
-      .select({ id: contacts.id, name: contacts.name })
-      .from(contacts)
-      .where(eq(contacts.userId, user.id)),
-    db
-      .select({
-        keyword: rules.keyword,
-        note: rules.note,
-        categoryId: rules.categoryId,
-        locationId: rules.locationId,
-        contactId: rules.contactId,
-      })
-      .from(rules)
-      .where(eq(rules.userId, user.id)),
+  const [contactRowsRaw, ruleRowsRaw] = await Promise.all([
+    db`
+      select id, name from contacts where user_id = ${user.id}
+    `,
+    db`
+      select keyword, note, category_id, location_id, contact_id
+      from rules where user_id = ${user.id}
+    `,
   ]);
+
+  const contactRows = (contactRowsRaw as unknown as { id: string; name: string }[]).map(
+    (r) => ({ id: r.id, name: r.name }),
+  );
+  const ruleRows = (ruleRowsRaw as unknown as {
+    keyword: string;
+    note: string | null;
+    category_id: string | null;
+    location_id: string | null;
+    contact_id: string | null;
+  }[]).map((r) => ({
+    keyword: r.keyword,
+    note: r.note,
+    categoryId: r.category_id,
+    locationId: r.location_id,
+    contactId: r.contact_id,
+  }));
 
   const inferred = inferQuickEntry(text, {
     contacts: contactRows,
@@ -604,30 +608,30 @@ export async function quickEntrySuggestAction(input: unknown): Promise<
   // Ensure ids are user-owned (defense-in-depth)
   let categoryId: string | null = inferred.categoryId;
   if (categoryId) {
-    const [row] = await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.id, categoryId), eq(categories.userId, user.id)))
-      .limit(1);
+    const [row] = await db`
+      select id from categories
+      where id = ${categoryId} and user_id = ${user.id}
+      limit 1
+    `;
     if (!row) categoryId = null;
   }
   let contactId: string | null = inferred.contactId;
   if (contactId) {
-    const [row] = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.id, contactId), eq(contacts.userId, user.id)))
-      .limit(1);
+    const [row] = await db`
+      select id from contacts
+      where id = ${contactId} and user_id = ${user.id}
+      limit 1
+    `;
     if (!row) contactId = null;
   }
 
   let locationId: string | null = inferred.locationId;
   if (locationId) {
-    const [row] = await db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(and(eq(locations.id, locationId), eq(locations.userId, user.id)))
-      .limit(1);
+    const [row] = await db`
+      select id from locations
+      where id = ${locationId} and user_id = ${user.id}
+      limit 1
+    `;
     if (!row) locationId = null;
   }
 

@@ -1,13 +1,6 @@
-import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-
-import { categories, contacts, transactions } from "@/lib/db/schema";
-import type * as schemaTypes from "@/lib/db/schema";
+import type { Db } from "@/lib/db/client";
+import type { TransactionType } from "@/lib/db/schema";
 import type { LendingAnalyticsSnapshot } from "@/lib/types/lending-analytics";
-
-type Db = PostgresJsDatabase<typeof schemaTypes>;
-
-const LOAN_TYPES = ["BORROW", "REPAYMENT", "LEND", "RECEIVE"] as const;
 
 function num(v: string | null | undefined): number {
   const n = Number(v ?? "0");
@@ -30,29 +23,28 @@ export async function lendingAnalyticsSnapshot(
   db: Db,
   userId: string,
 ): Promise<LendingAnalyticsSnapshot> {
-  const typeCond = inArray(transactions.type, [...LOAN_TYPES]);
-  const userCond = eq(transactions.userId, userId);
-  const baseLoan = and(userCond, typeCond);
+  const [totRow] = await db`
+    select
+      coalesce(sum(case when type = 'BORROW' then amount::numeric else 0 end)::text, '0') as borrowed,
+      coalesce(sum(case when type = 'REPAYMENT' then amount::numeric else 0 end)::text, '0') as repaid,
+      coalesce(sum(case when type = 'LEND' then amount::numeric else 0 end)::text, '0') as lent,
+      coalesce(sum(case when type = 'RECEIVE' then amount::numeric else 0 end)::text, '0') as received
+    from transactions
+    where user_id = ${userId}
+      and type in ('BORROW', 'REPAYMENT', 'LEND', 'RECEIVE')
+  `;
 
-  const borrowExpr = sql<string>`coalesce(sum(case when ${transactions.type} = 'BORROW' then ${transactions.amount}::numeric else 0 end)::text, '0')`;
-  const repayExpr = sql<string>`coalesce(sum(case when ${transactions.type} = 'REPAYMENT' then ${transactions.amount}::numeric else 0 end)::text, '0')`;
-  const lendExpr = sql<string>`coalesce(sum(case when ${transactions.type} = 'LEND' then ${transactions.amount}::numeric else 0 end)::text, '0')`;
-  const receiveExpr = sql<string>`coalesce(sum(case when ${transactions.type} = 'RECEIVE' then ${transactions.amount}::numeric else 0 end)::text, '0')`;
+  const tr = totRow as {
+    borrowed: string;
+    repaid: string;
+    lent: string;
+    received: string;
+  } | undefined;
 
-  const [totRow] = await db
-    .select({
-      borrowed: borrowExpr,
-      repaid: repayExpr,
-      lent: lendExpr,
-      received: receiveExpr,
-    })
-    .from(transactions)
-    .where(baseLoan);
-
-  const borrowed = num(totRow?.borrowed);
-  const repaid = num(totRow?.repaid);
-  const lent = num(totRow?.lent);
-  const received = num(totRow?.received);
+  const borrowed = num(tr?.borrowed);
+  const repaid = num(tr?.repaid);
+  const lent = num(tr?.lent);
+  const received = num(tr?.received);
   const { youOwe, theyOweYou } = balanceFromParts(
     borrowed,
     repaid,
@@ -60,29 +52,40 @@ export async function lendingAnalyticsSnapshot(
     received,
   );
 
-  const byContactRaw = await db
-    .select({
-      contactId: contacts.id,
-      contactName: contacts.name,
-      borrowed: borrowExpr,
-      repaid: repayExpr,
-      lent: lendExpr,
-      received: receiveExpr,
-    })
-    .from(transactions)
-    .innerJoin(contacts, eq(transactions.contactId, contacts.id))
-    .where(and(baseLoan, isNotNull(transactions.contactId)))
-    .groupBy(contacts.id, contacts.name);
+  const byContactRaw = await db`
+    select
+      c.id as contact_id,
+      c.name as contact_name,
+      coalesce(sum(case when t.type = 'BORROW' then t.amount::numeric else 0 end)::text, '0') as borrowed,
+      coalesce(sum(case when t.type = 'REPAYMENT' then t.amount::numeric else 0 end)::text, '0') as repaid,
+      coalesce(sum(case when t.type = 'LEND' then t.amount::numeric else 0 end)::text, '0') as lend,
+      coalesce(sum(case when t.type = 'RECEIVE' then t.amount::numeric else 0 end)::text, '0') as receive
+    from transactions t
+    inner join contacts c on c.id = t.contact_id
+    where t.user_id = ${userId}
+      and t.contact_id is not null
+      and t.type in ('BORROW', 'REPAYMENT', 'LEND', 'RECEIVE')
+    group by c.id, c.name
+  `;
 
-  const byContact = byContactRaw.map((r) => {
+  const byContact = (
+    byContactRaw as unknown as {
+      contact_id: string;
+      contact_name: string;
+      borrowed: string;
+      repaid: string;
+      lend: string;
+      receive: string;
+    }[]
+  ).map((r) => {
     const b = num(r.borrowed);
     const rp = num(r.repaid);
-    const l = num(r.lent);
-    const rc = num(r.received);
+    const l = num(r.lend);
+    const rc = num(r.receive);
     const bal = balanceFromParts(b, rp, l, rc);
     return {
-      contactId: r.contactId,
-      contactName: r.contactName,
+      contactId: r.contact_id,
+      contactName: r.contact_name,
       borrowed: b,
       repaid: rp,
       lent: l,
@@ -98,42 +101,59 @@ export async function lendingAnalyticsSnapshot(
     return score(b) - score(a);
   });
 
-  const [noRow] = await db
-    .select({
-      borrowed: borrowExpr,
-      repaid: repayExpr,
-      lent: lendExpr,
-      received: receiveExpr,
-    })
-    .from(transactions)
-    .where(and(baseLoan, isNull(transactions.contactId)));
+  const [noRow] = await db`
+    select
+      coalesce(sum(case when type = 'BORROW' then amount::numeric else 0 end)::text, '0') as borrowed,
+      coalesce(sum(case when type = 'REPAYMENT' then amount::numeric else 0 end)::text, '0') as repaid,
+      coalesce(sum(case when type = 'LEND' then amount::numeric else 0 end)::text, '0') as lent,
+      coalesce(sum(case when type = 'RECEIVE' then amount::numeric else 0 end)::text, '0') as received
+    from transactions
+    where user_id = ${userId}
+      and contact_id is null
+      and type in ('BORROW', 'REPAYMENT', 'LEND', 'RECEIVE')
+  `;
 
-  const nb = num(noRow?.borrowed);
-  const nr = num(noRow?.repaid);
-  const nl = num(noRow?.lent);
-  const nrc = num(noRow?.received);
-  const noBal = balanceFromParts(nb, nr, nl, nrc);
+  const nr = noRow as
+    | {
+        borrowed: string;
+        repaid: string;
+        lent: string;
+        received: string;
+      }
+    | undefined;
 
-  const catName = sql<string>`coalesce(${categories.name}, 'Uncategorized')`;
+  const nb = num(nr?.borrowed);
+  const nrp = num(nr?.repaid);
+  const nl = num(nr?.lent);
+  const nrc = num(nr?.received);
+  const noBal = balanceFromParts(nb, nrp, nl, nrc);
 
-  const subRaw = await db
-    .select({
-      txType: transactions.type,
-      categoryName: catName,
-      total: sql<string>`coalesce(sum(${transactions.amount}::numeric)::text, '0')`,
-      txCount: count(),
-    })
-    .from(transactions)
-    .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .where(baseLoan)
-    .groupBy(transactions.type, catName);
+  const subRaw = await db`
+    select
+      t.type as tx_type,
+      coalesce(c.name, 'Uncategorized') as category_name,
+      coalesce(sum(t.amount::numeric)::text, '0') as total,
+      count(*)::int as tx_count
+    from transactions t
+    left join categories c on c.id = t.category_id
+    where t.user_id = ${userId}
+      and t.type in ('BORROW', 'REPAYMENT', 'LEND', 'RECEIVE')
+    group by t.type, coalesce(c.name, 'Uncategorized')
+  `;
 
-  const bySubcategory = subRaw
+  const bySubcategory = (
+    subRaw as unknown as {
+      tx_type: string;
+      category_name: string;
+      total: string;
+      tx_count: number;
+    }[]
+  )
     .map((r) => ({
-      type: r.txType,
-      categoryName: r.categoryName,
+      type: r.tx_type as TransactionType,
+      categoryName: r.category_name,
       total: num(r.total),
-      count: Number(r.txCount),
+      count: Number(r.tx_count),
     }))
     .sort((a, b) => {
       if (a.type !== b.type) return a.type.localeCompare(b.type);
@@ -152,7 +172,7 @@ export async function lendingAnalyticsSnapshot(
     byContact,
     noContact: {
       borrowed: nb,
-      repaid: nr,
+      repaid: nrp,
       lent: nl,
       received: nrc,
       youOwe: noBal.youOwe,

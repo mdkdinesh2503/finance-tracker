@@ -86,7 +86,7 @@ export function postgresOptionsFromUrl(databaseUrl: string) {
   };
 }
 
-/** Walk error.cause chain (Drizzle → postgres.js) for a Postgres SQLSTATE code. */
+/** Walk error.cause chain for a Postgres SQLSTATE code. */
 export function postgresSqlState(error: unknown): string | undefined {
   let current: unknown = error;
   for (let i = 0; i < 6 && current != null; i++) {

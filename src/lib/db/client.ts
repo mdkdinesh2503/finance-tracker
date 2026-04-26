@@ -1,14 +1,12 @@
 import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
 
-import * as schema from "./schema";
 import { postgresOptionsFromUrl } from "./postgres";
 
 const globalForDb = globalThis as unknown as {
   __postgres?: ReturnType<typeof postgres>;
 };
 
-/** Avoid `@/lib/env/server` here so CLI scripts (seed, migrate) can import `db` without `server-only`. */
+/** Avoid `@/lib/env/server` here so CLI scripts can import the pool without `server-only`. */
 function requireDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
   if (!value) throw new Error("DATABASE_URL is required");
@@ -17,13 +15,16 @@ function requireDatabaseUrl(): string {
 
 const databaseUrl = requireDatabaseUrl();
 
-const sql =
+export const sql =
   globalForDb.__postgres ??
   postgres(databaseUrl, postgresOptionsFromUrl(databaseUrl));
 
 if (process.env.NODE_ENV !== "production") globalForDb.__postgres = sql;
 
-export const db = drizzle(sql, { schema });
+/** Alias for `sql` — same tagged-template Postgres client (no ORM). */
+export const db = sql;
+
+export type Db = typeof sql;
 
 /** Cheap round-trip on the shared pool (dashboard diagnostics; hangs → connectivity / pooler). */
 export async function pingPostgres(): Promise<void> {
@@ -34,4 +35,3 @@ export async function pingPostgres(): Promise<void> {
 export async function closeDatabaseConnection(): Promise<void> {
   await sql.end({ timeout: 5 });
 }
-

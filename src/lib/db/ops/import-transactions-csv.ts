@@ -1,20 +1,10 @@
 import "dotenv/config";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { and, eq } from "drizzle-orm";
 
 import { closeDatabaseConnection, db } from "../client";
 import { seedUserId } from "./ensure-user-categories";
-import {
-  accounts,
-  categories,
-  companies,
-  contacts,
-  locations,
-  transactions,
-  users,
-  type TransactionType,
-} from "../schema";
+import type { TransactionType } from "../schema";
 import {
   GIFTS_OCCASIONS_PARENT_NAME,
   OTHER_INCOME_PARENT_NAME,
@@ -250,11 +240,9 @@ async function main() {
     process.exit(1);
   }
 
-  const [userRow] = await db
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [userRow] = await db`
+    select id, email from users where id = ${userId} limit 1
+  `;
   if (!userRow) {
     console.error(
       `No user with id ${userId} (SEED_ADMIN_USER_ID). Run db:seed with SEED_ADMIN_EMAIL or create that user.`,
@@ -263,18 +251,19 @@ async function main() {
   }
 
   const emailCheck = process.env.DATA_IMPORT_EMAIL?.trim().toLowerCase();
-  if (emailCheck && userRow.email.trim().toLowerCase() !== emailCheck) {
+  const uEmail = (userRow as { id: string; email: string }).email;
+  if (emailCheck && uEmail.trim().toLowerCase() !== emailCheck) {
     console.error(
-      `User ${userId} has email ${userRow.email}, but DATA_IMPORT_EMAIL is ${emailCheck}.`,
+      `User ${userId} has email ${uEmail}, but DATA_IMPORT_EMAIL is ${emailCheck}.`,
     );
     process.exit(1);
   }
 
-  const [accRow] = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.name, accountName)))
-    .limit(1);
+  const [accRow] = await db`
+    select id from accounts
+    where user_id = ${userId} and name = ${accountName}
+    limit 1
+  `;
   if (!accRow) {
     console.error(
       `No account named "${accountName}" for this user. Create it or set DATA_IMPORT_ACCOUNT_NAME.`,
@@ -282,38 +271,49 @@ async function main() {
     process.exit(1);
   }
 
-  const catRows = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      type: categories.type,
-      parentId: categories.parentId,
-    })
-    .from(categories)
-    .where(eq(categories.userId, userId));
+  const catRowsRaw = await db`
+    select id, name, type, parent_id from categories where user_id = ${userId}
+  `;
+  const catRows: CatRow[] = (catRowsRaw as unknown as {
+    id: string;
+    name: string;
+    type: string;
+    parent_id: string | null;
+  }[]).map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    parentId: r.parent_id,
+  }));
 
-  const locRows = await db
-    .select({ id: locations.id, name: locations.name })
-    .from(locations)
-    .where(eq(locations.userId, userId));
+  const locRows = await db`
+    select id, name from locations where user_id = ${userId}
+  `;
   const locByName = new Map(
-    locRows.map((l) => [l.name.trim().toLowerCase(), l.id] as const),
+    (locRows as unknown as { id: string; name: string }[]).map((l) => [
+      l.name.trim().toLowerCase(),
+      l.id,
+    ] as const),
   );
 
-  const contactRows = await db
-    .select({ id: contacts.id, name: contacts.name })
-    .from(contacts)
-    .where(eq(contacts.userId, userId));
+  const contactRows = await db`
+    select id, name from contacts where user_id = ${userId}
+  `;
   const contactByName = new Map(
-    contactRows.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
+    (contactRows as unknown as { id: string; name: string }[]).map((c) => [
+      c.name.trim().toLowerCase(),
+      c.id,
+    ] as const),
   );
 
-  const companyRows = await db
-    .select({ id: companies.id, name: companies.name })
-    .from(companies)
-    .where(eq(companies.userId, userId));
+  const companyRows = await db`
+    select id, name from companies where user_id = ${userId}
+  `;
   const companyByName = new Map(
-    companyRows.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
+    (companyRows as unknown as { id: string; name: string }[]).map((c) => [
+      c.name.trim().toLowerCase(),
+      c.id,
+    ] as const),
   );
 
   let inserted = 0;
@@ -500,20 +500,22 @@ async function main() {
       continue;
     }
 
-    await db.insert(transactions).values({
-      userId,
-      type: txType as TransactionType,
-      amount: amt.toFixed(2),
-      categoryId: cat.id,
-      parentCategoryId: cat.parentId,
-      locationId,
-      contactId,
-      companyId,
-      accountId: accRow.id,
-      note: noteTrim,
-      transactionDate: datePg,
-      transactionTime: timeNorm,
-    });
+    await db`
+      insert into transactions ${db({
+        user_id: userId,
+        type: txType as TransactionType,
+        amount: amt.toFixed(2),
+        category_id: cat.id,
+        parent_category_id: cat.parentId,
+        location_id: locationId,
+        contact_id: contactId,
+        company_id: companyId,
+        account_id: (accRow as { id: string }).id,
+        note: noteTrim,
+        transaction_date: datePg,
+        transaction_time: timeNorm,
+      })}
+    `;
     inserted++;
   }
 

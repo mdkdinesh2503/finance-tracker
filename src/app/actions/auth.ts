@@ -2,8 +2,6 @@
 
 import { z } from "zod";
 import { db, ensureDefaultReferenceDataForUser } from "@/lib/db/server";
-import { users, accounts, locations, rules, categories } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
 import { err, ok, type Result } from "@/lib/types/result";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signSession } from "@/lib/auth/jwt";
@@ -11,7 +9,7 @@ import { clearSessionCookie, setSessionCookie } from "@/lib/auth/cookies";
 import { isUndefinedTableError, postgresSqlState } from "@/lib/db/postgres";
 import { revalidatePath } from "next/cache";
 
-/** Drizzle/postgres.js often nest the real message under `cause`. */
+/** postgres.js often nests the real message under `cause`. */
 function collectErrorText(e: unknown): string {
   const parts: string[] = [];
   const seen = new Set<unknown>();
@@ -136,69 +134,64 @@ export async function signupAction(input: unknown): Promise<Result<AuthOk>> {
   const { email, password } = parsed.data;
 
   try {
-    const exists = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    if (exists.length > 0) return err("Email already registered");
+    const [existing] = await db`
+      select id from users where email = ${email} limit 1
+    `;
+    if (existing) return err("Email already registered");
 
     const passwordHash = await hashPassword(password);
 
-    const created = await db
-      .insert(users)
-      .values({ email, passwordHash })
-      .returning({ id: users.id, email: users.email });
+    const [created] = await db`
+      insert into users ${db({ email, password_hash: passwordHash })}
+      returning id, email
+    `;
 
-    const user = created[0];
+    const user = created as { id: string; email: string } | undefined;
     if (!user) return err("Failed to create user");
 
-    // Default account + locations + starter rules
-    await db.insert(accounts).values({ userId: user.id, name: "Cash" });
-    await db.insert(locations).values([
-      { userId: user.id, name: "Hyderabad" },
-      { userId: user.id, name: "Home" },
-    ]);
+    await db`
+      insert into accounts ${db({ user_id: user.id, name: "Cash" })}
+    `;
+    await db`
+      insert into locations ${db({ user_id: user.id, name: "Hyderabad" })}
+    `;
+    await db`
+      insert into locations ${db({ user_id: user.id, name: "Home" })}
+    `;
 
     await ensureDefaultReferenceDataForUser(db, user.id);
 
-    const salaryCat = await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(
-        and(
-          eq(categories.userId, user.id),
-          eq(categories.name, "Salary"),
-          eq(categories.type, "INCOME"),
-        ),
-      )
-      .limit(1);
-    const rentCat = await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(
-        and(
-          eq(categories.userId, user.id),
-          eq(categories.name, "Rent"),
-          eq(categories.type, "EXPENSE"),
-        ),
-      )
-      .limit(1);
+    const [salaryRow] = await db`
+      select id from categories
+      where user_id = ${user.id} and name = 'Salary' and type = 'INCOME'
+      limit 1
+    `;
+    const [rentRow] = await db`
+      select id from categories
+      where user_id = ${user.id} and name = 'Rent' and type = 'EXPENSE'
+      limit 1
+    `;
 
-    await db.insert(rules).values([
-      {
-        userId: user.id,
+    await db`
+      insert into rules ${db({
+        user_id: user.id,
         keyword: "salary",
-        categoryId: salaryCat[0]?.id ?? null,
-        contactId: null,
-      },
-      {
-        userId: user.id,
+        category_id: (salaryRow as { id: string } | undefined)?.id ?? null,
+        location_id: null as string | null,
+        contact_id: null as string | null,
+        note: null as string | null,
+      })}
+    `;
+    await db`
+      insert into rules ${db({
+        user_id: user.id,
         keyword: "rent",
-        categoryId: rentCat[0]?.id ?? null,
-        contactId: null,
-      },
-    ]);
+        category_id: (rentRow as { id: string } | undefined)?.id ?? null,
+        location_id: null as string | null,
+        contact_id: null as string | null,
+        note: null as string | null,
+      })}
+    `;
 
     const session = await signSession({ sub: user.id, email: user.email });
     await setSessionCookie(session.token, session.expiresAt);
@@ -231,26 +224,22 @@ export async function loginAction(input: unknown): Promise<Result<AuthOk>> {
   const { email, password } = parsed.data;
 
   try {
-    const row = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        passwordHash: users.passwordHash,
-      })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    const user = row[0];
-    if (!user) return err("Invalid email or password");
+    const [user] = await db`
+      select id, email, password_hash from users where email = ${email} limit 1
+    `;
+    const userRow = user as
+      | { id: string; email: string; password_hash: string }
+      | undefined;
+    if (!userRow) return err("Invalid email or password");
 
-    const valid = await verifyPassword(password, user.passwordHash);
+    const valid = await verifyPassword(password, userRow.password_hash);
     if (!valid) return err("Invalid email or password");
 
-    const session = await signSession({ sub: user.id, email: user.email });
+    const session = await signSession({ sub: userRow.id, email: userRow.email });
     await setSessionCookie(session.token, session.expiresAt);
 
     revalidatePath("/dashboard");
-    return ok({ userId: user.id, email: user.email });
+    return ok({ userId: userRow.id, email: userRow.email });
   } catch (e) {
     if (isUndefinedTableError(e)) {
       console.error(e);

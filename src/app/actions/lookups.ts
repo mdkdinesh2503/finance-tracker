@@ -1,9 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/server";
-import { companies, locations } from "@/lib/db/schema";
 import {
   deleteCompanyIfUnused,
   deleteLocationIfUnused,
@@ -22,29 +20,29 @@ export async function addLocationLookupAction(name: string) {
   if (!trimmed) {
     return { ok: false as const, error: "Name required" };
   }
-  const existing = await db
-    .select()
-    .from(locations)
-    .where(and(eq(locations.userId, userId), eq(locations.name, trimmed)))
-    .limit(1);
-  if (existing.length > 0) {
+  const [existing] = await db`
+    select id from locations
+    where user_id = ${userId} and name = ${trimmed}
+    limit 1
+  `;
+  if (existing) {
     return {
       ok: true as const,
       alreadyExists: true as const,
-      id: existing[0].id,
+      id: (existing as { id: string }).id,
     };
   }
-  const [row] = await db
-    .insert(locations)
-    .values({ userId, name: trimmed })
-    .returning({ id: locations.id });
+  const [row] = await db`
+    insert into locations ${db({ user_id: userId, name: trimmed })}
+    returning id
+  `;
   revalidatePath("/settings");
   revalidatePath("/transactions");
   revalidatePath("/transactions/new");
   return {
     ok: true as const,
     alreadyExists: false as const,
-    id: row?.id ?? "",
+    id: row ? (row as { id: string }).id : "",
   };
 }
 
@@ -96,22 +94,22 @@ export async function addCompanyLookupAction(name: string) {
   if (!trimmed) {
     return { ok: false as const, error: "Name required" };
   }
-  const existing = await db
-    .select()
-    .from(companies)
-    .where(and(eq(companies.userId, userId), eq(companies.name, trimmed)))
-    .limit(1);
-  if (existing.length > 0) {
+  const [existing] = await db`
+    select id from companies
+    where user_id = ${userId} and name = ${trimmed}
+    limit 1
+  `;
+  if (existing) {
     return {
       ok: true as const,
       alreadyExists: true as const,
-      id: existing[0].id,
+      id: (existing as { id: string }).id,
     };
   }
-  const [row] = await db
-    .insert(companies)
-    .values({ userId, name: trimmed })
-    .returning({ id: companies.id });
+  const [row] = await db`
+    insert into companies ${db({ user_id: userId, name: trimmed })}
+    returning id
+  `;
   revalidatePath("/settings");
   revalidatePath("/transactions");
   revalidatePath("/transactions/new");
@@ -122,7 +120,7 @@ export async function addCompanyLookupAction(name: string) {
   return {
     ok: true as const,
     alreadyExists: false as const,
-    id: row?.id ?? "",
+    id: row ? (row as { id: string }).id : "",
   };
 }
 

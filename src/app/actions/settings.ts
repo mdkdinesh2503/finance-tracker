@@ -1,29 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/server";
-import {
-  accounts,
-  categories,
-  contacts,
-  locations,
-  rules,
-  type TransactionType,
-} from "@/lib/db/schema";
+import type { TransactionType } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { deleteContactIfUnused } from "@/lib/services/transactions";
 import { err, ok, type Result } from "@/lib/types/result";
 
 async function assertCategory(id: string): Promise<string | null> {
   const user = await requireUser();
-  const row = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.userId, user.id)))
-    .limit(1);
-  return row[0] ? null : "Invalid category";
+  const [row] = await db`
+    select id from categories where id = ${id} and user_id = ${user.id} limit 1
+  `;
+  return row ? null : "Invalid category";
 }
 
 const RULE_TYPES_REQUIRING_CONTACT = new Set<TransactionType>([
@@ -38,13 +28,14 @@ async function assertRuleContactRequired(
   categoryId: string,
   contactId: string | null | undefined,
 ): Promise<string | null> {
-  const [row] = await db
-    .select({ type: categories.type })
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
-    .limit(1);
+  const [row] = await db`
+    select type from categories
+    where id = ${categoryId} and user_id = ${userId}
+    limit 1
+  `;
   if (!row) return "Invalid category";
-  if (RULE_TYPES_REQUIRING_CONTACT.has(row.type) && !contactId) {
+  const t = (row as { type: TransactionType }).type;
+  if (RULE_TYPES_REQUIRING_CONTACT.has(t) && !contactId) {
     return "Contact is required for Borrow, Lend, Receive, and Repayment categories";
   }
   return null;
@@ -52,12 +43,10 @@ async function assertRuleContactRequired(
 
 async function assertLocation(id: string): Promise<string | null> {
   const user = await requireUser();
-  const row = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(and(eq(locations.id, id), eq(locations.userId, user.id)))
-    .limit(1);
-  return row[0] ? null : "Invalid location";
+  const [row] = await db`
+    select id from locations where id = ${id} and user_id = ${user.id} limit 1
+  `;
+  return row ? null : "Invalid location";
 }
 
 export async function createAccountAction(
@@ -68,14 +57,14 @@ export async function createAccountAction(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return err("Invalid name");
 
-  const [row] = await db
-    .insert(accounts)
-    .values({ userId: user.id, name: parsed.data.name })
-    .returning({ id: accounts.id });
+  const [row] = await db`
+    insert into accounts ${db({ user_id: user.id, name: parsed.data.name })}
+    returning id
+  `;
   if (!row) return err("Failed");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
-  return ok({ id: row.id });
+  return ok({ id: (row as { id: string }).id });
 }
 
 export async function createLocationAction(
@@ -86,14 +75,14 @@ export async function createLocationAction(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return err("Invalid name");
 
-  const [row] = await db
-    .insert(locations)
-    .values({ userId: user.id, name: parsed.data.name })
-    .returning({ id: locations.id });
+  const [row] = await db`
+    insert into locations ${db({ user_id: user.id, name: parsed.data.name })}
+    returning id
+  `;
   if (!row) return err("Failed");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
-  return ok({ id: row.id });
+  return ok({ id: (row as { id: string }).id });
 }
 
 export async function createContactAction(
@@ -104,14 +93,14 @@ export async function createContactAction(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return err("Invalid name");
 
-  const [row] = await db
-    .insert(contacts)
-    .values({ userId: user.id, name: parsed.data.name })
-    .returning({ id: contacts.id });
+  const [row] = await db`
+    insert into contacts ${db({ user_id: user.id, name: parsed.data.name })}
+    returning id
+  `;
   if (!row) return err("Failed");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
-  return ok({ id: row.id });
+  return ok({ id: (row as { id: string }).id });
 }
 
 const ruleSchema = z.object({
@@ -141,35 +130,30 @@ export async function createRuleAction(input: unknown): Promise<Result<{ id: str
   if (locErr) return err(locErr);
 
   if (parsed.data.contactId) {
-    const con = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(
-        and(
-          eq(contacts.id, parsed.data.contactId),
-          eq(contacts.userId, user.id),
-        ),
-      )
-      .limit(1);
-    if (!con[0]) return err("Invalid contact");
+    const [con] = await db`
+      select id from contacts
+      where id = ${parsed.data.contactId} and user_id = ${user.id}
+      limit 1
+    `;
+    if (!con) return err("Invalid contact");
   }
 
-  const [row] = await db
-    .insert(rules)
-    .values({
-      userId: user.id,
+  const [row] = await db`
+    insert into rules ${db({
+      user_id: user.id,
       keyword: parsed.data.keyword,
       note: parsed.data.note ?? null,
-      categoryId: parsed.data.categoryId,
-      locationId: parsed.data.locationId,
-      contactId: parsed.data.contactId ?? null,
-    })
-    .returning({ id: rules.id });
+      category_id: parsed.data.categoryId,
+      location_id: parsed.data.locationId,
+      contact_id: parsed.data.contactId ?? null,
+    })}
+    returning id
+  `;
 
   if (!row) return err("Failed");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
-  return ok({ id: row.id });
+  return ok({ id: (row as { id: string }).id });
 }
 
 export async function deleteRuleAction(id: string): Promise<Result<null>> {
@@ -177,11 +161,12 @@ export async function deleteRuleAction(id: string): Promise<Result<null>> {
   const uuid = z.string().uuid().safeParse(id);
   if (!uuid.success) return err("Invalid id");
 
-  const del = await db
-    .delete(rules)
-    .where(and(eq(rules.id, uuid.data), eq(rules.userId, user.id)))
-    .returning({ id: rules.id });
-  if (!del.length) return err("Not found");
+  const del = await db`
+    delete from rules
+    where id = ${uuid.data} and user_id = ${user.id}
+    returning id
+  `;
+  if (del.length === 0) return err("Not found");
   revalidatePath("/settings");
   return ok(null);
 }
@@ -208,35 +193,29 @@ export async function updateRuleAction(
   if (locErr) return err(locErr);
 
   if (parsed.data.contactId) {
-    const con = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(
-        and(
-          eq(contacts.id, parsed.data.contactId),
-          eq(contacts.userId, user.id),
-        ),
-      )
-      .limit(1);
-    if (!con[0]) return err("Invalid contact");
+    const [con] = await db`
+      select id from contacts
+      where id = ${parsed.data.contactId} and user_id = ${user.id}
+      limit 1
+    `;
+    if (!con) return err("Invalid contact");
   }
 
-  const updated = await db
-    .update(rules)
-    .set({
-      keyword: parsed.data.keyword,
-      note: parsed.data.note ?? null,
-      categoryId: parsed.data.categoryId,
-      locationId: parsed.data.locationId,
-      contactId: parsed.data.contactId ?? null,
-    })
-    .where(and(eq(rules.id, parsed.data.id), eq(rules.userId, user.id)))
-    .returning({ id: rules.id });
+  const updated = await db`
+    update rules set
+      keyword = ${parsed.data.keyword},
+      note = ${parsed.data.note ?? null},
+      category_id = ${parsed.data.categoryId},
+      location_id = ${parsed.data.locationId},
+      contact_id = ${parsed.data.contactId ?? null}
+    where id = ${parsed.data.id} and user_id = ${user.id}
+    returning id
+  `;
 
-  if (!updated.length) return err("Not found");
+  if (updated.length === 0) return err("Not found");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
-  return ok({ id: updated[0]!.id });
+  return ok({ id: (updated[0] as { id: string }).id });
 }
 
 export async function deleteLocationAction(id: string): Promise<Result<null>> {
@@ -244,13 +223,12 @@ export async function deleteLocationAction(id: string): Promise<Result<null>> {
   const uuid = z.string().uuid().safeParse(id);
   if (!uuid.success) return err("Invalid id");
 
-  const del = await db
-    .delete(locations)
-    .where(
-      and(eq(locations.id, uuid.data), eq(locations.userId, user.id)),
-    )
-    .returning({ id: locations.id });
-  if (!del.length) return err("Not found");
+  const del = await db`
+    delete from locations
+    where id = ${uuid.data} and user_id = ${user.id}
+    returning id
+  `;
+  if (del.length === 0) return err("Not found");
   revalidatePath("/settings");
   revalidatePath("/transactions/new");
   return ok(null);

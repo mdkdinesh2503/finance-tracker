@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { hash } from "@node-rs/argon2";
-import { and, eq } from "drizzle-orm";
 
 import { closeDatabaseConnection, db } from "../client";
 import {
@@ -9,14 +8,6 @@ import {
   insertCategorySeedTreeForUserTx,
   seedUserId,
 } from "./ensure-user-categories";
-import {
-  accounts,
-  categories,
-  companies,
-  contacts,
-  locations,
-  users,
-} from "../schema";
 
 async function hashPassword(password: string): Promise<string> {
   return hash(password, {
@@ -28,23 +19,21 @@ async function hashPassword(password: string): Promise<string> {
 
 async function seedSystemCategories(): Promise<void> {
   const templateUserId = seedUserId();
-  const templateExists = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.userId, templateUserId))
-    .limit(1);
-  if (templateExists.length > 0) {
+  const [templateExists] = await db`
+    select id from categories where user_id = ${templateUserId} limit 1
+  `;
+  if (templateExists) {
     return;
   }
 
-  await db.transaction(async (tx) => {
+  await db.begin(async (tx) => {
     await insertCategorySeedTreeForUserTx(tx, templateUserId);
   });
 }
 
 const DEFAULT_LOCATIONS = ["Home", "Hyderabad", "Bangalore", "Chennai", "General"] as const;
 
-const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith", "Appa", "Sajun", "Mayu", "Nandhini"] as const;
+const DEFAULT_CONTACTS = ["Jainam", "Meiyarasan", "Likhith", "Appa", "Sajun", "Mayu", "Nandhini", "Naren Mamz"] as const;
 
 const DEFAULT_COMPANIES = ["Aretedge", "Family"] as const;
 
@@ -61,15 +50,13 @@ async function seedAdminUserDefaults(): Promise<void> {
 
   const idFromEnv = seedUserId();
 
-  const [existing] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
+  const [existing] = await db`
+    select id from users where email = ${email} limit 1
+  `;
 
   let userId: string;
   if (existing) {
-    userId = existing.id;
+    userId = (existing as { id: string }).id;
     if (userId !== idFromEnv) {
       console.warn(
         `Seed: user ${email} has id ${userId}, expected SEED_ADMIN_USER_ID=${idFromEnv}. ` +
@@ -85,53 +72,53 @@ async function seedAdminUserDefaults(): Promise<void> {
       return;
     }
     const passwordHash = await hashPassword(password);
-    const [created] = await db
-      .insert(users)
-      .values({ id: idFromEnv, email, passwordHash })
-      .returning({ id: users.id });
+    const [created] = await db`
+      insert into users ${db({ id: idFromEnv, email, password_hash: passwordHash })}
+      returning id
+    `;
     if (!created) throw new Error("Failed to create seed admin user");
-    userId = created.id;
+    userId = (created as { id: string }).id;
   }
 
-  const [cash] = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.name, "Cash")))
-    .limit(1);
+  const [cash] = await db`
+    select id from accounts where user_id = ${userId} and name = 'Cash' limit 1
+  `;
   if (!cash) {
-    await db.insert(accounts).values({ userId, name: "Cash" });
+    await db`
+      insert into accounts ${db({ user_id: userId, name: "Cash" })}
+    `;
   }
 
   for (const name of DEFAULT_LOCATIONS) {
-    const [loc] = await db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(and(eq(locations.userId, userId), eq(locations.name, name)))
-      .limit(1);
+    const [loc] = await db`
+      select id from locations where user_id = ${userId} and name = ${name} limit 1
+    `;
     if (!loc) {
-      await db.insert(locations).values({ userId, name });
+      await db`
+        insert into locations ${db({ user_id: userId, name })}
+      `;
     }
   }
 
   for (const name of DEFAULT_CONTACTS) {
-    const [row] = await db
-      .select({ id: contacts.id })
-      .from(contacts)
-      .where(and(eq(contacts.userId, userId), eq(contacts.name, name)))
-      .limit(1);
+    const [row] = await db`
+      select id from contacts where user_id = ${userId} and name = ${name} limit 1
+    `;
     if (!row) {
-      await db.insert(contacts).values({ userId, name });
+      await db`
+        insert into contacts ${db({ user_id: userId, name })}
+      `;
     }
   }
 
   for (const name of DEFAULT_COMPANIES) {
-    const [row] = await db
-      .select({ id: companies.id })
-      .from(companies)
-      .where(and(eq(companies.userId, userId), eq(companies.name, name)))
-      .limit(1);
+    const [row] = await db`
+      select id from companies where user_id = ${userId} and name = ${name} limit 1
+    `;
     if (!row) {
-      await db.insert(companies).values({ userId, name });
+      await db`
+        insert into companies ${db({ user_id: userId, name })}
+      `;
     }
   }
 

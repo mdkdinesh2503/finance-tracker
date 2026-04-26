@@ -1,7 +1,15 @@
-import type { SQL } from "drizzle-orm";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { transactions } from "@/lib/db/schema";
+import type postgres from "postgres";
+
+import type { Sql } from "@/lib/db/sql-fragments";
+import { sqlAnd } from "@/lib/db/sql-fragments";
 import type { DatePreset } from "@/lib/types/filters";
+
+type PgFrag = postgres.PendingQuery<any>;
+
+/** Qualified `transactions` alias `t` (must match `from transactions t` in queries). */
+function tCol(sql: Sql, name: string) {
+  return sql.unsafe(`t.${name}`);
+}
 
 export function formatLocalYMD(d: Date): string {
   const y = d.getFullYear();
@@ -90,28 +98,33 @@ export function dateBoundsForPreset(
   }
 }
 
-export function customDateRangeFilter(fromDate: string | null, toDate: string | null): SQL | undefined {
-  const parts: SQL[] = [];
+export function customDateRangeFilter(
+  sql: Sql,
+  fromDate: string | null,
+  toDate: string | null,
+): PgFrag | undefined {
+  const parts: PgFrag[] = [];
   if (fromDate && YMD.test(fromDate)) {
-    parts.push(gte(transactions.transactionDate, fromDate));
+    parts.push(sql`${tCol(sql, "transaction_date")} >= ${fromDate}`);
   }
   if (toDate && YMD.test(toDate)) {
-    parts.push(lte(transactions.transactionDate, toDate));
+    parts.push(sql`${tCol(sql, "transaction_date")} <= ${toDate}`);
   }
   if (parts.length === 0) return undefined;
-  return parts.length === 1 ? parts[0]! : and(...parts)!;
+  return parts.length === 1 ? parts[0]! : sqlAnd(sql, parts);
 }
 
 export function resolveTransactionDateCondition(
+  sql: Sql,
   preset: DatePreset,
   fromDate: string | null,
   toDate: string | null,
   now = new Date(),
-): SQL | undefined {
+): PgFrag | undefined {
   if (preset === "CUSTOM_RANGE") {
-    return customDateRangeFilter(fromDate, toDate);
+    return customDateRangeFilter(sql, fromDate, toDate);
   }
-  return transactionDateFilter(preset, now);
+  return transactionDateFilter(sql, preset, now);
 }
 
 export function lastCalendarMonth(now: Date): number {
@@ -120,7 +133,11 @@ export function lastCalendarMonth(now: Date): number {
   return d.getMonth() + 1;
 }
 
-export function transactionDateFilter(preset: DatePreset, now = new Date()): SQL | undefined {
+export function transactionDateFilter(
+  sql: Sql,
+  preset: DatePreset,
+  now = new Date(),
+): PgFrag | undefined {
   switch (preset) {
     case "CUSTOM_RANGE":
       return undefined;
@@ -128,46 +145,45 @@ export function transactionDateFilter(preset: DatePreset, now = new Date()): SQL
       return undefined;
     case "THIS_YEAR": {
       const y = now.getFullYear();
-      return and(
-        gte(transactions.transactionDate, formatLocalYMD(startOfYear(y))),
-        lte(transactions.transactionDate, formatLocalYMD(endOfYear(y))),
-      );
+      return sqlAnd(sql, [
+        sql`${tCol(sql, "transaction_date")} >= ${formatLocalYMD(startOfYear(y))}`,
+        sql`${tCol(sql, "transaction_date")} <= ${formatLocalYMD(endOfYear(y))}`,
+      ]);
     }
     case "THIS_AND_PREVIOUS_YEAR": {
       const y = now.getFullYear();
-      return and(
-        gte(transactions.transactionDate, formatLocalYMD(startOfYear(y - 1))),
-        lte(transactions.transactionDate, formatLocalYMD(endOfYear(y))),
-      );
+      return sqlAnd(sql, [
+        sql`${tCol(sql, "transaction_date")} >= ${formatLocalYMD(startOfYear(y - 1))}`,
+        sql`${tCol(sql, "transaction_date")} <= ${formatLocalYMD(endOfYear(y))}`,
+      ]);
     }
     case "THIS_MONTH": {
       const s = startOfMonth(now);
       const e = endOfMonth(now);
-      return and(
-        gte(transactions.transactionDate, formatLocalYMD(s)),
-        lte(transactions.transactionDate, formatLocalYMD(e)),
-      );
+      return sqlAnd(sql, [
+        sql`${tCol(sql, "transaction_date")} >= ${formatLocalYMD(s)}`,
+        sql`${tCol(sql, "transaction_date")} <= ${formatLocalYMD(e)}`,
+      ]);
     }
     case "LAST_MONTH": {
       const d = new Date(now);
       d.setMonth(d.getMonth() - 1);
       const s = startOfMonth(d);
       const e = endOfMonth(d);
-      return and(
-        gte(transactions.transactionDate, formatLocalYMD(s)),
-        lte(transactions.transactionDate, formatLocalYMD(e)),
-      );
+      return sqlAnd(sql, [
+        sql`${tCol(sql, "transaction_date")} >= ${formatLocalYMD(s)}`,
+        sql`${tCol(sql, "transaction_date")} <= ${formatLocalYMD(e)}`,
+      ]);
     }
     case "THIS_MONTH_ALL_YEARS": {
       const m = now.getMonth() + 1;
-      return eq(sql<number>`extract(month from ${transactions.transactionDate})`, m);
+      return sql`extract(month from ${tCol(sql, "transaction_date")}) = ${m}`;
     }
     case "LAST_MONTH_ALL_YEARS": {
       const m = lastCalendarMonth(now);
-      return eq(sql<number>`extract(month from ${transactions.transactionDate})`, m);
+      return sql`extract(month from ${tCol(sql, "transaction_date")}) = ${m}`;
     }
     default:
       return undefined;
   }
 }
-

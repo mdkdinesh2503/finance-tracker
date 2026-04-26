@@ -1,23 +1,18 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { z } from "zod";
+import type postgres from "postgres";
 
-import * as schema from "../schema";
-import { categories } from "../schema";
-import type { TransactionType } from "../schema";
+import type { Db } from "../client";
+import type { CategoryRow, TransactionType } from "../schema";
 
 /**
  * UUID for seeded default admin (`users.id`) and system category template
- * (`categories.user_id`). Env: `SEED_ADMIN_USER_ID`. Legacy: `DEFAULT_SEED_ADMIN_USER_ID`, `SEED_USER_ID`.
+ * (`categories.user_id`). Env: `SEED_ADMIN_USER_ID`.
  *
  * When unset, runtime bootstrap uses the static tree in `CATEGORY_SEED_WITH_CHILDREN` instead of cloning
  * from a template user (so production works without this env). CLI `db:seed` still requires {@link seedUserId}.
  */
 export function resolveSeedUserId(): string | null {
-  const raw =
-    process.env.SEED_ADMIN_USER_ID?.trim() ||
-    process.env.DEFAULT_SEED_ADMIN_USER_ID?.trim() ||
-    process.env.SEED_USER_ID?.trim();
+  const raw = process.env.SEED_ADMIN_USER_ID?.trim();
   if (!raw) return null;
   const parsed = z.string().uuid().safeParse(raw);
   return parsed.success ? parsed.data : null;
@@ -26,21 +21,12 @@ export function resolveSeedUserId(): string | null {
 export function seedUserId(): string {
   const id = resolveSeedUserId();
   if (id) return id;
-  const raw =
-    process.env.SEED_ADMIN_USER_ID?.trim() ||
-    process.env.DEFAULT_SEED_ADMIN_USER_ID?.trim() ||
-    process.env.SEED_USER_ID?.trim();
+  const raw = process.env.SEED_ADMIN_USER_ID?.trim();
   if (!raw) {
-    throw new Error(
-      "Set SEED_ADMIN_USER_ID to a UUID (seeded admin id and category template owner).",
-    );
+    throw new Error("Set SEED_ADMIN_USER_ID to a UUID (seeded admin id).");
   }
-  throw new Error(
-    `SEED_ADMIN_USER_ID must be a valid UUID, got: ${JSON.stringify(raw)}`,
-  );
+  throw new Error(`SEED_ADMIN_USER_ID must be a valid UUID, got: ${JSON.stringify(raw)}`);
 }
-
-// --- Category tree (template seed + idempotent child sync) -----------------
 
 export type CategorySeedChild = {
   name: string;
@@ -221,49 +207,48 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
   },
 ];
 
-// --- Runtime: clone template + sync seed children ------------------------
+const CATEGORY_BOOTSTRAP_LOCK_NS = 0x63_61_74_31;
+const CATEGORY_CHILD_SYNC_LOCK_NS = 0x63_61_74_32;
 
-type Db = PostgresJsDatabase<typeof schema>;
-
-type CategoryTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Tx = postgres.TransactionSql<Record<string, never>>;
 
 /** Inserts the full default category tree for `userId` (same shape as CLI system seed). */
 export async function insertCategorySeedTreeForUserTx(
-  tx: CategoryTx,
+  tx: Tx,
   userId: string,
 ): Promise<void> {
   for (let i = 0; i < CATEGORY_SEED_WITH_CHILDREN.length; i++) {
     const p = CATEGORY_SEED_WITH_CHILDREN[i]!;
-    const [parent] = await tx
-      .insert(categories)
-      .values({
-        userId,
+    const [parent] = await tx`
+      insert into categories ${tx({
+        user_id: userId,
         name: p.name,
-        parentId: null,
+        parent_id: null,
         type: p.type,
-        isSelectable: false,
-        sortOrder: i,
-      })
-      .returning({ id: categories.id });
+        is_selectable: false,
+        sort_order: i,
+      })}
+      returning id
+    `;
     if (!parent) continue;
 
+    const pid = (parent as { id: string }).id;
     if (p.children.length > 0) {
-      await tx.insert(categories).values(
-        p.children.map((c) => ({
-          userId,
-          name: c.name,
-          parentId: parent.id,
-          type: p.type,
-          isSelectable: true,
-          sortOrder: c.sortOrder,
-        })),
-      );
+      for (const c of p.children) {
+        await tx`
+          insert into categories ${tx({
+            user_id: userId,
+            name: c.name,
+            parent_id: pid,
+            type: p.type,
+            is_selectable: true,
+            sort_order: c.sortOrder,
+          })}
+        `;
+      }
     }
   }
 }
-
-const CATEGORY_BOOTSTRAP_LOCK_NS = 0x63_61_74_31; // "cat1"
-const CATEGORY_CHILD_SYNC_LOCK_NS = 0x63_61_74_32; // "cat2"
 
 /**
  * Ensures every child from `CATEGORY_SEED_WITH_CHILDREN` exists under its parent
@@ -273,51 +258,58 @@ export async function ensureCategorySeedChildrenForUser(
   db: Db,
   userId: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(${CATEGORY_CHILD_SYNC_LOCK_NS}, hashtext(${userId}::text))`,
-    );
+  await db.begin(async (tx) => {
+    await tx`
+      select pg_advisory_xact_lock(${CATEGORY_CHILD_SYNC_LOCK_NS}, hashtext(${userId}::text))
+    `;
 
     for (const parent of CATEGORY_SEED_WITH_CHILDREN) {
-      const [pRow] = await tx
-        .select({ id: categories.id })
-        .from(categories)
-        .where(
-          and(
-            eq(categories.userId, userId),
-            eq(categories.type, parent.type),
-            eq(categories.name, parent.name),
-            isNull(categories.parentId),
-          ),
-        )
-        .limit(1);
+      const [pRow] = await tx`
+        select id from categories
+        where user_id = ${userId}
+          and type = ${parent.type}
+          and name = ${parent.name}
+          and parent_id is null
+        limit 1
+      `;
       if (!pRow) continue;
+      const pid = (pRow as { id: string }).id;
 
       for (const child of parent.children) {
-        const [existing] = await tx
-          .select({ id: categories.id })
-          .from(categories)
-          .where(
-            and(
-              eq(categories.userId, userId),
-              eq(categories.parentId, pRow.id),
-              eq(categories.name, child.name),
-            ),
-          )
-          .limit(1);
+        const [existing] = await tx`
+          select id from categories
+          where user_id = ${userId}
+            and parent_id = ${pid}
+            and name = ${child.name}
+          limit 1
+        `;
         if (existing) continue;
 
-        await tx.insert(categories).values({
-          userId,
-          name: child.name,
-          parentId: pRow.id,
-          type: parent.type,
-          isSelectable: true,
-          sortOrder: child.sortOrder,
-        });
+        await tx`
+          insert into categories ${tx({
+            user_id: userId,
+            name: child.name,
+            parent_id: pid,
+            type: parent.type,
+            is_selectable: true,
+            sort_order: child.sortOrder,
+          })}
+        `;
       }
     }
   });
+}
+
+function mapCategoryRow(r: Record<string, unknown>): CategoryRow {
+  return {
+    id: String(r.id),
+    userId: String(r.user_id),
+    name: String(r.name),
+    parentId: r.parent_id == null ? null : String(r.parent_id),
+    type: r.type as TransactionType,
+    isSelectable: Boolean(r.is_selectable),
+    sortOrder: Number(r.sort_order),
+  };
 }
 
 /** Clone default category rows for a new user when they have none yet. */
@@ -325,30 +317,30 @@ export async function ensureDefaultReferenceDataForUser(
   db: Db,
   userId: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(${CATEGORY_BOOTSTRAP_LOCK_NS}, hashtext(${userId}::text))`,
-    );
+  await db.begin(async (tx) => {
+    await tx`
+      select pg_advisory_xact_lock(${CATEGORY_BOOTSTRAP_LOCK_NS}, hashtext(${userId}::text))
+    `;
 
-    const existing = await tx
-      .select({ id: categories.id })
-      .from(categories)
-      .where(eq(categories.userId, userId))
-      .limit(1);
-    if (existing.length > 0) return;
+    const [existing] = await tx`
+      select id from categories where user_id = ${userId} limit 1
+    `;
+    if (existing) return;
 
     const templateOwnerId = resolveSeedUserId();
     const template =
       templateOwnerId === null
         ? []
-        : await tx
-            .select()
-            .from(categories)
-            .where(eq(categories.userId, templateOwnerId));
+        : ((await tx`
+            select id, user_id, name, parent_id, type, is_selectable, sort_order
+            from categories
+            where user_id = ${templateOwnerId}
+          `) as Record<string, unknown>[]);
 
     if (template.length > 0) {
-      const roots = template.filter((c) => c.parentId === null);
-      const ordered: typeof template = [];
+      const rows = template.map(mapCategoryRow);
+      const roots = rows.filter((c) => c.parentId === null);
+      const ordered: CategoryRow[] = [];
       const queue = [...roots];
       const seen = new Set<string>();
       while (queue.length > 0) {
@@ -356,29 +348,29 @@ export async function ensureDefaultReferenceDataForUser(
         if (seen.has(c.id)) continue;
         seen.add(c.id);
         ordered.push(c);
-        for (const row of template) {
+        for (const row of rows) {
           if (row.parentId === c.id) queue.push(row);
         }
       }
-      for (const c of template) {
+      for (const c of rows) {
         if (!seen.has(c.id)) ordered.push(c);
       }
 
       const idMap = new Map<string, string>();
       for (const c of ordered) {
-        const newParentId = c.parentId ? idMap.get(c.parentId) ?? null : null;
-        const [inserted] = await tx
-          .insert(categories)
-          .values({
-            userId,
+        const newParentId = c.parentId ? (idMap.get(c.parentId) ?? null) : null;
+        const [inserted] = await tx`
+          insert into categories ${tx({
+            user_id: userId,
             name: c.name,
-            parentId: newParentId,
+            parent_id: newParentId,
             type: c.type,
-            isSelectable: c.isSelectable,
-            sortOrder: c.sortOrder,
-          })
-          .returning({ id: categories.id });
-        if (inserted) idMap.set(c.id, inserted.id);
+            is_selectable: c.isSelectable,
+            sort_order: c.sortOrder,
+          })}
+          returning id
+        `;
+        if (inserted) idMap.set(c.id, (inserted as { id: string }).id);
       }
     } else {
       await insertCategorySeedTreeForUserTx(tx, userId);

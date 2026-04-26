@@ -14,17 +14,17 @@ try {
   const tables = await sql`
     select table_schema, table_name
     from information_schema.tables
-    where table_schema in ('public', 'drizzle')
-    order by table_schema, table_name
+    where table_schema = 'public'
+    order by table_name
   `;
+  console.log("public tables:", tables);
 
   const mig = await sql`
-    select *
-    from drizzle.__drizzle_migrations
-    order by created_at
+    select name, applied_at
+    from schema_migrations
+    order by applied_at
   `.catch((e) => ({ error: String(e?.message ?? e) }));
-  console.log("__drizzle_migrations:", mig);
+  console.log("schema_migrations:", mig);
 } finally {
   await sql.end({ timeout: 5 });
 }
-
