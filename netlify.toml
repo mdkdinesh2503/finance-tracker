@@ -7,7 +7,7 @@
 [build]
   # Ensure optional deps are installed (Tailwind v4 uses lightningcss native binary on Linux).
   # Use `npm install` (not `npm ci`) so Netlify's Linux build resolves the correct optional binary.
-  command = "npm install --include=optional --no-audit --no-fund && npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
 
 [build.environment]
@@ -15,6 +15,7 @@
   NPM_FLAGS = "--include=optional"
   npm_config_optional = "true"
   npm_config_omit = ""
+  npm_config_ignore_scripts = "false"
 
 # Native N-API addon: keep installable on Netlify’s Linux build + function runtime.
 [functions]
