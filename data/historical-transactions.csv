@@ -236,7 +236,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 09-04-2026,12:00:00,EXPENSE,530,Shopping & Lifestyle,Household Items,Hyderabad,,,Laundry Bag Shopping
 12-04-2026,12:00:00,EXPENSE,210,Health & Wellness,Personal Care,Hyderabad,,,Hair cut
 14-04-2026,12:00:00,BORROW,500,Personal Borrowing,Borrow from Friend,Hyderabad,Meiyarasan,,Money (Outside Meals)
-15-04-2026,12:00:00,EXPENSE,500,Food & Dining,Eating Out,Hyderabad,,,Food
+15-04-2026,12:00:00,EXPENSE,400,Food & Dining,Eating Out,Hyderabad,,,Food
 16-04-2026,12:00:00,REPAYMENT,500,Debt Settlement,Full Repayment,Hyderabad,Meiyarasan,,Resettled the Money
 14-04-2026,12:00:00,BORROW,2500,Personal Borrowing,Borrow from Family,Hyderabad,Naren Mamz,,Money (Travel)
 29-04-2026,12:00:00,EXPENSE,2100,Transport,Travel Outstation,General,,,Hyd - Nkl (Buss)
