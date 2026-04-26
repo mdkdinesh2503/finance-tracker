@@ -35,7 +35,7 @@ function Td({
       className={`border-b border-white/4 px-3 py-2.5 text-sm text-ink transition-colors duration-150 first:rounded-l-lg last:rounded-r-lg ${className}`}
       colSpan={colSpan}
     >
-      {children}a
+      {children}
     </td>
   );
 }
