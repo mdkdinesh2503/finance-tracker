@@ -11,6 +11,17 @@ export type LendingContactBalanceRow = {
   received: number;
   /** max(0, lent − received). */
   theyOweYou: number;
+  /** Last transaction date for BORROW/REPAYMENT for this contact (`YYYY-MM-DD`). */
+  lastBorrowActivityYmd: string | null;
+  /** Last transaction date for LEND/RECEIVE for this contact (`YYYY-MM-DD`). */
+  lastLendActivityYmd: string | null;
+};
+
+export type LendingMonthlyTrendRow = {
+  ym: string; // YYYY-MM
+  deltaYouOwe: number; // borrow − repay for that month
+  deltaTheyOweYou: number; // lend − receive for that month
+  netDelta: number; // deltaTheyOweYou − deltaYouOwe
 };
 
 export type LendingSubcategoryRow = {
@@ -37,4 +48,6 @@ export type LendingAnalyticsSnapshot = {
   noContact: Omit<LendingContactBalanceRow, "contactId" | "contactName">;
   /** Leaf category totals per transaction type (BORROW / REPAYMENT / LEND / RECEIVE). */
   bySubcategory: LendingSubcategoryRow[];
+  /** Last 12 calendar months of deltas. */
+  monthlyTrend: LendingMonthlyTrendRow[];
 };

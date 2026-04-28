@@ -8,6 +8,7 @@ import {
   transactionChipClass,
   transactionTypeLabel,
 } from "@/lib/utilities/transactions/type-ui";
+import { LendingMonthlyDeltaChart } from "@/components/feature-specific/analytics/charts/lending-monthly-delta-chart";
 
 type Props = {
   data: LendingAnalyticsSnapshot;
@@ -64,7 +65,7 @@ function NetChip({ net }: { net: number }) {
 }
 
 export function LendingAnalyticsView({ data }: Props) {
-  const { totals, byContact, noContact, bySubcategory } = data;
+  const { totals, byContact, noContact, bySubcategory, monthlyTrend } = data;
   const hasNoContactActivity =
     noContact.borrowed > 0 ||
     noContact.repaid > 0 ||
@@ -73,8 +74,12 @@ export function LendingAnalyticsView({ data }: Props) {
 
   const netReceivable = totals.theyOweYou - totals.youOwe;
   const maxExposure = Math.max(totals.youOwe, totals.theyOweYou, 1);
-  const youBarPct = (totals.youOwe / maxExposure) * 100;
-  const theyBarPct = (totals.theyOweYou / maxExposure) * 100;
+  void maxExposure;
+
+  const contactsYouOwe = byContact.filter((r) => r.youOwe > 0);
+  const contactsTheyOweYou = byContact.filter((r) => r.theyOweYou > 0);
+
+  // Aging analysis removed (replaced with By subcategory summary).
 
   return (
     <div className="lending-scope relative space-y-10 pb-16">
@@ -128,14 +133,28 @@ export function LendingAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              You owe (borrow − repay)
+              You owe (balance)
             </p>
             <p className="mt-2 text-2xl font-semibold text-amber-100 tabular-nums sm:text-3xl">
               {formatInr(totals.youOwe)}
             </p>
-            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Borrowed {formatInr(totals.borrowed)} · Repaid {formatInr(totals.repaid)}
-            </p>
+            <div className="mt-auto grid gap-1.5 pt-4 text-[11px] text-zinc-500">
+              <div className="flex items-baseline justify-between gap-3">
+                <span>Total borrowed</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(totals.borrowed)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <span>Total repaid</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(totals.repaid)}
+                </span>
+              </div>
+              <div className="pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                {contactsYouOwe.length} contact{contactsYouOwe.length === 1 ? "" : "s"} to repay
+              </div>
+            </div>
           </GlassCard>
 
           <GlassCard
@@ -144,14 +163,29 @@ export function LendingAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              They owe you (lend − receive)
+              They owe you (balance)
             </p>
             <p className="mt-2 text-2xl font-semibold text-violet-100 tabular-nums sm:text-3xl">
               {formatInr(totals.theyOweYou)}
             </p>
-            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Lent {formatInr(totals.lent)} · Received {formatInr(totals.received)}
-            </p>
+            <div className="mt-auto grid gap-1.5 pt-4 text-[11px] text-zinc-500">
+              <div className="flex items-baseline justify-between gap-3">
+                <span>Total lent</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(totals.lent)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <span>Total received</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(totals.received)}
+                </span>
+              </div>
+              <div className="pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
+                {contactsTheyOweYou.length} contact
+                {contactsTheyOweYou.length === 1 ? "" : "s"} to collect from
+              </div>
+            </div>
           </GlassCard>
 
           <GlassCard
@@ -182,41 +216,73 @@ export function LendingAnalyticsView({ data }: Props) {
       </header>
 
       <section className="relative z-1 space-y-4">
-        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Exposure mix</p>
-          <p className="mt-2 text-xs text-ink-muted">
-            Relative scale — not a payoff order. Assign contacts on each loan transaction for per-person
-            rows below.
-          </p>
-          <div className="mt-5 space-y-4">
-            <div>
-              <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <span>You owe</span>
-                <span className="tabular-nums text-amber-200/95">{formatInr(totals.youOwe)}</span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-amber-600 to-amber-400 motion-safe:transition-all motion-safe:duration-500"
-                  style={{ width: `${youBarPct}%` }}
-                  aria-hidden
-                />
-              </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
+              12‑month trend · net deltas
+            </p>
+            <p className="mt-2 text-xs text-ink-muted">
+              Monthly change in balances (borrow−repay, lend−receive) and net delta.
+            </p>
+            <div className="mt-4 h-[260px]">
+              <LendingMonthlyDeltaChart data={monthlyTrend} />
             </div>
-            <div>
-              <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <span>They owe you</span>
-                <span className="tabular-nums text-violet-200/95">{formatInr(totals.theyOweYou)}</span>
+          </GlassCard>
+
+          <div className="grid gap-3">
+            <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
+                By subcategory
+              </p>
+              <p className="mt-2 text-xs text-ink-muted">
+                Per leaf category and transaction type (borrow/repay/lend/receive).
+              </p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[520px] border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <Th>Type</Th>
+                      <Th>Subcategory</Th>
+                      <Th>Transactions</Th>
+                      <Th>Total</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:hover]:bg-white/4">
+                    {bySubcategory.length === 0 ? (
+                      <tr>
+                        <Td className="text-zinc-500" colSpan={4}>
+                          No borrow, repay, lend, or receive transactions yet.
+                        </Td>
+                      </tr>
+                    ) : (
+                      bySubcategory.slice(0, 14).map((r, i) => (
+                        <tr key={`${r.type}-${r.categoryName}-${i}`}>
+                          <Td>
+                            <span
+                              className={`inline-flex rounded-lg border px-2 py-0.5 text-xs font-medium ${transactionChipClass(
+                                r.type,
+                              )}`}
+                            >
+                              {transactionTypeLabel(r.type)}
+                            </span>
+                          </Td>
+                          <Td>{r.categoryName}</Td>
+                          <Td className="tabular-nums">{r.count}</Td>
+                          <Td className="tabular-nums font-medium">{formatInr(r.total)}</Td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-violet-600 to-violet-400 motion-safe:transition-all motion-safe:duration-500"
-                  style={{ width: `${theyBarPct}%` }}
-                  aria-hidden
-                />
-              </div>
-            </div>
+              {bySubcategory.length > 14 ? (
+                <p className="mt-3 text-xs text-ink-muted">
+                  Showing top 14 rows. Full table is below.
+                </p>
+              ) : null}
+            </GlassCard>
           </div>
-        </GlassCard>
+        </div>
       </section>
 
       <section className="relative z-1 space-y-3">
@@ -244,21 +310,65 @@ export function LendingAnalyticsView({ data }: Props) {
                     </Td>
                   </tr>
                 ) : (
-                  byContact.map((r) => (
-                    <tr key={r.contactId}>
-                      <Td className="font-medium">{r.contactName}</Td>
+                  byContact.map((r) => {
+                    const rowClass =
+                      r.youOwe > 0
+                        ? "bg-amber-500/6"
+                        : r.theyOweYou > 0
+                          ? "bg-violet-500/7"
+                          : "";
+                    return (
+                      <tr key={r.contactId} className={rowClass}>
+                        <Td className="font-medium">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${
+                                r.youOwe > 0
+                                  ? "bg-amber-400/90 shadow-[0_0_16px_rgba(251,191,36,0.25)]"
+                                  : r.theyOweYou > 0
+                                    ? "bg-violet-400/90 shadow-[0_0_16px_rgba(167,139,250,0.25)]"
+                                    : "bg-white/20"
+                              }`}
+                              aria-hidden
+                            />
+                            <span className="min-w-0 truncate">{r.contactName}</span>
+                            {r.youOwe > 0 ? (
+                              <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/12 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                                repay
+                              </span>
+                            ) : null}
+                            {r.theyOweYou > 0 ? (
+                              <span className="shrink-0 rounded-full border border-violet-500/30 bg-violet-500/12 px-2 py-0.5 text-[11px] font-semibold text-violet-200">
+                                collect
+                              </span>
+                            ) : null}
+                          </div>
+                        </Td>
                       <Td className="tabular-nums">{formatInr(r.borrowed)}</Td>
                       <Td className="tabular-nums">{formatInr(r.repaid)}</Td>
-                      <Td className={r.youOwe > 0 ? "tabular-nums text-amber-200" : "tabular-nums"}>
+                      <Td
+                        className={
+                          r.youOwe > 0
+                            ? "tabular-nums font-semibold text-amber-200"
+                            : "tabular-nums"
+                        }
+                      >
                         {formatInr(r.youOwe)}
                       </Td>
                       <Td className="tabular-nums">{formatInr(r.lent)}</Td>
                       <Td className="tabular-nums">{formatInr(r.received)}</Td>
-                      <Td className={r.theyOweYou > 0 ? "tabular-nums text-violet-200" : "tabular-nums"}>
+                      <Td
+                        className={
+                          r.theyOweYou > 0
+                            ? "tabular-nums font-semibold text-violet-200"
+                            : "tabular-nums"
+                        }
+                      >
                         {formatInr(r.theyOweYou)}
                       </Td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -308,50 +418,7 @@ export function LendingAnalyticsView({ data }: Props) {
         </section>
       ) : null}
 
-      <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">By subcategory</h2>
-        <p className="text-xs text-ink-muted">Per leaf and transaction type</p>
-        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-0 !overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] border-collapse text-left">
-              <thead>
-                <tr>
-                  <Th>Type</Th>
-                  <Th>Subcategory</Th>
-                  <Th>Transactions</Th>
-                  <Th>Total</Th>
-                </tr>
-              </thead>
-              <tbody className="[&_tr:hover]:bg-white/4">
-                {bySubcategory.length === 0 ? (
-                  <tr>
-                    <Td className="text-zinc-500" colSpan={4}>
-                      No borrow, repay, lend, or receive transactions yet.
-                    </Td>
-                  </tr>
-                ) : (
-                  bySubcategory.map((r, i) => (
-                    <tr key={`${r.type}-${r.categoryName}-${i}`}>
-                      <Td>
-                        <span
-                          className={`inline-flex rounded-lg border px-2 py-0.5 text-xs font-medium ${transactionChipClass(
-                            r.type,
-                          )}`}
-                        >
-                          {transactionTypeLabel(r.type)}
-                        </span>
-                      </Td>
-                      <Td>{r.categoryName}</Td>
-                      <Td className="tabular-nums">{r.count}</Td>
-                      <Td className="tabular-nums font-medium">{formatInr(r.total)}</Td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      </section>
+      {/* By subcategory moved into the insights band above */}
     </div>
   );
 }

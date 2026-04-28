@@ -199,55 +199,6 @@ function SalaryIncomeAnalyticsViewContent({ data }: Props) {
         </div>
       </header>
 
-      <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">This month vs previous month</h2>
-        <p className="text-xs text-ink-muted">
-          Calendar-month totals for all Salary &amp; Wages credits (every employer combined).
-        </p>
-        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-5">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                {thisMonth.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-100">
-                {formatInr(thisMonth.totalIncome)}
-              </p>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/8 ring-1 ring-white/10">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-emerald-500 to-teal-400"
-                  style={{ width: `${barThisPct}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                {lastMonth.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-100/85">
-                {formatInr(lastMonth.totalIncome)}
-              </p>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/8 ring-1 ring-white/10">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-emerald-700/80 to-teal-700/60"
-                  style={{ width: `${barLastPct}%` }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-5">
-            <DeltaChip pct={salaryDelta} />
-            <span className="text-sm tabular-nums text-ink-muted">
-              Absolute change:{" "}
-              <span className="font-semibold text-ink">
-                {absDeltaInr >= 0 ? "+" : ""}
-                {formatInr(absDeltaInr)}
-              </span>
-            </span>
-          </div>
-        </GlassCard>
-      </section>
-
       <section className="relative z-1 space-y-4">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-ink">By employer over time</h2>
@@ -323,66 +274,6 @@ function SalaryIncomeAnalyticsViewContent({ data }: Props) {
           </GlassCard>
         </section>
       ) : null}
-
-      <section className="relative z-1 space-y-4">
-        <GlassCard
-          variant="signature"
-          hideAccent
-          noLift
-          className="flex min-h-0 flex-col"
-          panelClassName="flex min-h-0 flex-1 flex-col !p-3"
-        >
-          <div className="mb-2 shrink-0">
-            <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between min-[400px]:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-2">
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-linear-to-br from-emerald-500/15 to-teal-600/5 text-emerald-300"
-                  aria-hidden
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-                  </svg>
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-pretty text-sm font-semibold tracking-tight text-ink">
-                    Salary &amp; Wages · 12-month flow
-                  </h2>
-                  <p className="mt-0.5 text-pretty text-[11px] leading-snug text-ink-muted">
-                    Green = credited calendar month. Blue (when shown) = same cash attributed to the
-                    month you spend it in (last-day-of-month rule).
-                  </p>
-                </div>
-              </div>
-              {salaryRhythmHasData && peakSalaryMonth ? (
-                <div
-                  className="grid w-full max-w-sm shrink-0 grid-rows-[auto_auto] gap-2 self-end rounded-lg border border-emerald-500/25 bg-emerald-500/8 px-3 py-2 min-[400px]:w-50 min-[400px]:max-w-[42%] min-[400px]:self-auto"
-                  role="group"
-                  aria-label="Peak salary month in window"
-                >
-                  <p className="border-b border-emerald-500/20 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-200/90">
-                    Peak month
-                  </p>
-                  <div className="flex items-end justify-between gap-2">
-                    <span className="min-w-0 truncate text-sm font-semibold tabular-nums leading-none text-ink">
-                      {formatInr(peakSalaryMonth.total)}
-                    </span>
-                    <span className="shrink-0 text-right text-[10px] leading-snug text-ink-muted">
-                      {formatYearMonthLabel(peakSalaryMonth.ym)}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="min-h-0 w-full flex-1">
-            <IncomeSalaryWagesChart
-              data={salaryChartData}
-              primarySeriesLabel="Salary & Wages"
-              showSpendMonthInTooltip
-            />
-          </div>
-        </GlassCard>
-      </section>
     </div>
   );
 }
