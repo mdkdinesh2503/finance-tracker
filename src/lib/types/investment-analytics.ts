@@ -11,6 +11,13 @@ export type InvestmentLeafBreakdownRow = {
   shareOfPeriod: number;
 };
 
+export type InvestmentLeafAllTimeRow = {
+  parentName: string;
+  leafName: string;
+  total: number;
+  shareOfAllTime: number;
+};
+
 export type InvestmentMonthlyRow = {
   ym: string;
   total: number;
@@ -39,6 +46,7 @@ export type InvestmentAnalyticsSnapshot = {
   lastMonth: InvestmentPeriodSummary;
   byParentThisMonth: InvestmentParentBreakdownRow[];
   byLeafThisMonth: InvestmentLeafBreakdownRow[];
+  byLeafAllTime: InvestmentLeafAllTimeRow[];
   /** Last 12 rolling months of INVESTMENT totals. */
   monthlyTotals: InvestmentMonthlyRow[];
   runRate: InvestmentRunRate;

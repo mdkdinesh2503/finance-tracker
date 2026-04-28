@@ -69,6 +69,17 @@ function addShares<T extends { total: number }>(
   }));
 }
 
+function addAllTimeShares<T extends { total: number }>(
+  rows: T[],
+  allTimeTotal: number,
+): (T & { shareOfAllTime: number })[] {
+  const safe = allTimeTotal > 0 ? allTimeTotal : 1;
+  return rows.map((r) => ({
+    ...r,
+    shareOfAllTime: (r.total / safe) * 100,
+  }));
+}
+
 function computeRunRate(
   monthly: { ym: string; total: number }[],
   now: Date,
@@ -162,6 +173,33 @@ export async function investmentAnalyticsSnapshot(
     }))
     .sort((a, b) => b.total - a.total);
 
+  const byLeafAllTimeRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(l.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.amount)::text, '0') as total
+    from transactions t
+    left join categories l on l.id = t.category_id and l.user_id = ${userId}
+    left join categories p on p.id = t.parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'INVESTMENT'
+    group by t.parent_category_id, p.name, t.category_id, l.name
+  `;
+
+  const byLeafAllTimeSorted = (
+    byLeafAllTimeRaw as unknown as {
+      parent_name: string;
+      leaf_name: string;
+      total: string;
+    }[]
+  )
+    .map((r) => ({
+      parentName: r.parent_name ?? "Uncategorized",
+      leafName: r.leaf_name ?? "Uncategorized",
+      total: num(r.total),
+    }))
+    .sort((a, b) => b.total - a.total);
+
   const monthlyRows = await db`
     select
       to_char(transaction_date, 'YYYY-MM') as ym,
@@ -204,6 +242,7 @@ export async function investmentAnalyticsSnapshot(
     },
     byParentThisMonth: addShares(byParentSorted, periodTotal),
     byLeafThisMonth: addShares(byLeafSorted, periodTotal),
+    byLeafAllTime: addAllTimeShares(byLeafAllTimeSorted, allTimeTotal),
     monthlyTotals,
     runRate,
   };

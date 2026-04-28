@@ -3,7 +3,10 @@ import Link from "next/link";
 
 import { InvestMonthlyContributionChart } from "@/components/feature-specific/analytics/charts/invest-monthly-contribution-chart";
 import { GlassCard } from "@/components/ui/glass-card";
-import type { InvestmentAnalyticsSnapshot } from "@/lib/types/investment-analytics";
+import type {
+  InvestmentAnalyticsSnapshot,
+  InvestmentLeafBreakdownRow,
+} from "@/lib/types/investment-analytics";
 import { formatInr, formatYearMonthLabel } from "@/lib/utilities/format";
 
 type Props = {
@@ -80,11 +83,13 @@ function MonthComposition({
   cash,
   total,
   monthLabel,
+  leafRows,
 }: {
   financial: number;
   cash: number;
   total: number;
   monthLabel: string;
+  leafRows: InvestmentLeafBreakdownRow[];
 }) {
   if (total <= 0) {
     return (
@@ -97,117 +102,74 @@ function MonthComposition({
     );
   }
 
-  const other = Math.max(0, total - financial - cash);
-  const pFin = (financial / total) * 100;
-  const pCash = (cash / total) * 100;
-  const pOther = (other / total) * 100;
-
-  const conic = `conic-gradient(from -90deg, rgb(2,132,199) 0% ${pFin}%, rgb(20,184,166) ${pFin}% ${pFin + pCash}%, rgb(139,92,246) ${pFin + pCash}% 100%)`;
-
-  const rows: SplitRow[] = [
-    {
-      key: "fin",
-      label: "Financial & obligations",
-      amount: financial,
-      pct: pFin,
-      barClass: "bg-linear-to-r from-sky-600 to-sky-400",
-      dotClass: "bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.45)]",
-      amountClass: "text-sky-100",
-    },
-    {
-      key: "cash",
-      label: "Cash savings",
-      amount: cash,
-      pct: pCash,
-      barClass: "bg-linear-to-r from-teal-600 to-emerald-400",
-      dotClass: "bg-teal-400 shadow-[0_0_12px_rgba(45,212,191,0.35)]",
-      amountClass: "text-teal-100",
-    },
-  ];
-  if (other > 0) {
-    rows.push({
-      key: "other",
-      label: "Other parent groups",
-      amount: other,
-      pct: pOther,
-      barClass: "bg-linear-to-r from-violet-600 to-indigo-400",
-      dotClass: "bg-violet-400 shadow-[0_0_12px_rgba(167,139,250,0.35)]",
-      amountClass: "text-violet-100",
-    });
-  }
+  const leafSorted = [...leafRows].sort((a, b) => b.total - a.total);
+  const maxLeafTotal = leafSorted.reduce((m, r) => Math.max(m, r.total), 0);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-8 lg:flex-row lg:items-center lg:gap-10">
-      <p className="sr-only">
-        This month total {formatInr(total)}. Financial and obligations{" "}
-        {formatInr(financial)}, {pFin.toFixed(1)} percent. Cash savings{" "}
-        {formatInr(cash)}, {pCash.toFixed(1)} percent.
-        {other > 0
-          ? ` Other groups ${formatInr(other)}, ${pOther.toFixed(1)} percent.`
-          : ""}
-      </p>
-      <div className="flex justify-center lg:shrink-0">
-        <div
-          className="relative rounded-full p-[10px] shadow-[0_0_48px_-12px_rgba(59,130,246,0.55)] ring-1 ring-white/10 motion-safe:transition-transform motion-safe:duration-500 motion-safe:hover:scale-[1.02]"
-          style={{ background: conic }}
-          aria-hidden
-        >
-          <div
-            className="flex h-38 w-38 flex-col items-center justify-center rounded-full border border-white/10 bg-(--glass-inner-bg) px-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-            style={{ backdropFilter: "blur(12px)" }}
-          >
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              This month
-            </span>
-            <span className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-ink sm:text-2xl">
-              {formatInr(total)}
-            </span>
-            <span className="mt-2 text-[10px] text-zinc-500">{monthLabel}</span>
-          </div>
-        </div>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-8">
+      <div className="min-w-0 space-y-6">
+          <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-linear-to-b from-white/5 to-white/2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(700px_circle_at_20%_0%,rgba(56,189,248,0.14),transparent_55%),radial-gradient(560px_circle_at_90%_10%,rgba(99,102,241,0.12),transparent_60%)] before:opacity-100">
 
-      <ul
-        className="min-w-0 flex-1 space-y-3"
-        aria-label="Composition by pillar"
-      >
-        {rows.map((r) => (
-          <li
-            key={r.key}
-            className="group rounded-xl border border-white/[0.07] bg-white/3 p-3.5 transition-[border-color,background-color] duration-200 hover:border-primary/25 hover:bg-white/5"
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${r.dotClass}`}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-ink">
-                    {r.label}
-                  </span>
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${r.amountClass}`}
-                  >
-                    {formatInr(r.amount)}
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5">
-                    <div
-                      className={`h-full rounded-full ${r.barClass} motion-safe:transition-all motion-safe:duration-700`}
-                      style={{ width: `${Math.max(r.pct, 0.5)}%` }}
-                    />
-                  </div>
-                  <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums text-zinc-400">
-                    {r.pct.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
+            <div className="relative p-3">
+              {leafSorted.length === 0 ? (
+                <p className="mt-3 text-sm text-zinc-500">No subcategories.</p>
+              ) : (
+                <ul className="space-y-2.5" role="list">
+                  {leafSorted.map((r, i) => {
+                    const pct = r.shareOfPeriod;
+                    const barPct =
+                      maxLeafTotal > 0
+                        ? Math.max(3, (r.total / maxLeafTotal) * 100)
+                        : 0;
+                    return (
+                      <li
+                        key={`${r.parentName}-${r.leafName}-${i}`}
+                        className="group relative overflow-hidden rounded-xl border border-white/8 bg-[#070c16]/60 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-[border-color,background-color,transform,box-shadow] duration-200 hover:border-sky-500/25 hover:bg-[#070c16]/75 hover:shadow-[0_16px_50px_-26px_rgba(56,189,248,0.35)] motion-safe:hover:-translate-y-px"
+                      >
+                        <div
+                          className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-linear-to-b from-sky-400/80 via-cyan-300/50 to-indigo-400/60 opacity-70 transition-opacity duration-200 group-hover:opacity-100"
+                          aria-hidden
+                        />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-lg border border-white/10 bg-linear-to-br from-white/8 to-white/2 px-1.5 text-[11px] font-semibold tabular-nums text-zinc-200">
+                                {i + 1}
+                              </span>
+                              <p className="truncate text-sm font-semibold text-ink">
+                                {r.leafName}
+                              </p>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="inline-flex max-w-full items-center truncate rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-zinc-400">
+                                {r.parentName}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold tabular-nums text-ink">
+                              {formatInr(r.total)}
+                            </p>
+                            <span className="mt-1 inline-flex rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-sky-100/90">
+                              {pctCell(pct)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[#050914] ring-1 ring-white/6">
+                          <div
+                            className="h-full rounded-full bg-linear-to-r from-sky-600/95 via-cyan-400/75 to-indigo-400/65 motion-safe:transition-[width] motion-safe:duration-500"
+                            style={{ width: `${barPct}%` }}
+                            aria-hidden
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-          </li>
-        ))}
-      </ul>
+          </div>
+      </div>
     </div>
   );
 }
@@ -222,6 +184,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
     thisMonth,
     lastMonth,
     byLeafThisMonth,
+    byLeafAllTime,
     monthlyTotals,
     runRate,
   } = data;
@@ -245,13 +208,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
 
   const compositionHasData = thisMonth.total > 0;
 
-  const monthByMonthRows = [...monthlyTotals].sort((a, b) =>
-    b.ym.localeCompare(a.ym),
-  );
-  const maxMonthByMonthTotal = monthByMonthRows.reduce(
-    (m, r) => Math.max(m, r.total),
-    0,
-  );
+  const allTimeLeafRows = [...byLeafAllTime].sort((a, b) => b.total - a.total);
 
   return (
     <div className="invest-scope space-y-10 pb-16">
@@ -493,6 +450,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
                 cash={thisMonth.cashSavingsTotal}
                 total={thisMonth.total}
                 monthLabel={thisMonth.label}
+                leafRows={byLeafThisMonth}
               />
             </div>
           </div>
@@ -500,9 +458,14 @@ export function InvestmentAnalyticsView({ data }: Props) {
       </section>
 
       <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold text-ink">
-          This month · subcategories
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            All-time · subcategories
+          </h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Total till now · share is out of {formatInr(allTimeTotal)}
+          </p>
+        </div>
         <GlassCard
           variant="signature"
           hideAccent
@@ -520,89 +483,26 @@ export function InvestmentAnalyticsView({ data }: Props) {
                 </tr>
               </thead>
               <tbody className="[&_tr:hover]:bg-white/4">
-                {byLeafThisMonth.length === 0 ? (
+                {allTimeLeafRows.length === 0 ? (
                   <tr>
                     <Td className="text-zinc-500" colSpan={4}>
-                      No investments this month.
+                      No investments yet.
                     </Td>
                   </tr>
                 ) : (
-                  byLeafThisMonth.map((r, i) => (
+                  allTimeLeafRows.map((r, i) => (
                     <tr key={`${r.parentName}-${r.leafName}-${i}`}>
                       <Td className="text-zinc-400">{r.parentName}</Td>
                       <Td className="font-medium">{r.leafName}</Td>
                       <Td className="tabular-nums">{formatInr(r.total)}</Td>
                       <Td className="text-zinc-400 tabular-nums">
-                        {pctCell(r.shareOfPeriod)}
+                        {pctCell(r.shareOfAllTime)}
                       </Td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-          </div>
-        </GlassCard>
-      </section>
-
-      {/* Month-by-month list */}
-      <section className="relative z-1 space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Month-by-month
-          </h2>
-          <p className="mt-1 text-xs text-ink-muted">
-            Newest first · same window as the chart above
-          </p>
-        </div>
-        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-3">
-          <div className="rounded-2xl">
-            {monthByMonthRows.length === 0 ? (
-              <p className="py-10 text-center text-sm text-ink-muted">
-                No investment transactions in range.
-              </p>
-            ) : (
-              <>
-                <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    Month
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                    Invested
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-1.5" role="list">
-                  {monthByMonthRows.map((r) => {
-                    const barPct =
-                      maxMonthByMonthTotal > 0 && r.total > 0
-                        ? (r.total / maxMonthByMonthTotal) * 100
-                        : 0;
-                    return (
-                      <li key={r.ym}>
-                        <div className="rounded-xl px-3 py-2.5 transition-[border-color,background-color] duration-200 hover:border-sky-500/20 hover:bg-white/5">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <span className="min-w-0 truncate text-sm font-medium text-ink">
-                              {formatYearMonthLabel(r.ym)}
-                            </span>
-                            <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-100/95">
-                              {formatInr(r.total)}
-                            </span>
-                          </div>
-                          <div
-                            className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5"
-                            aria-hidden
-                          >
-                            <div
-                              className="h-full rounded-full bg-linear-to-r from-sky-600/90 to-sky-400/70 motion-safe:transition-[width] motion-safe:duration-500"
-                              style={{ width: `${barPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
           </div>
         </GlassCard>
       </section>
