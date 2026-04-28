@@ -237,7 +237,23 @@ export function InvestmentAnalyticsView({ data }: Props) {
           <DeltaChip pct={monthDelta} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <GlassCard
+            variant="signature"
+            className="invest-hero-stat flex h-full min-h-0 flex-col overflow-hidden"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              All-time invested
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-sky-100 tabular-nums sm:text-3xl">
+              {formatInr(allTimeGross)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Gross total (before used for expenses)
+            </p>
+          </GlassCard>
+
           <GlassCard
             variant="signature"
             className="invest-hero-stat flex h-full min-h-0 flex-col overflow-hidden sm:col-span-2 xl:col-span-1"
@@ -251,9 +267,9 @@ export function InvestmentAnalyticsView({ data }: Props) {
             </p>
             <div className="mt-auto grid gap-1.5 pt-4 text-[11px] text-zinc-500">
               <div className="flex items-baseline justify-between gap-3">
-                <span>Invested (gross)</span>
+                <span>Used from investments</span>
                 <span className="font-semibold tabular-nums text-ink">
-                  {formatInr(allTimeGross)}
+                  {formatInr(usedInvestmentAllTime)}
                 </span>
               </div>
             </div>
@@ -265,7 +281,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              This month · {thisMonth.label}
+              This month invest · {thisMonth.label}
             </p>
             <p className="mt-2 text-2xl font-semibold text-cyan-100 tabular-nums">
               {formatInr(thisMonth.total)}
@@ -441,7 +457,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
             All-time · subcategories
           </h2>
           <p className="mt-1 text-xs text-ink-muted">
-            Total till now · share is out of {formatInr(allTimeTotal)}
+            Total till now · share is out of net {formatInr(allTimeTotal)}
           </p>
         </div>
         <GlassCard

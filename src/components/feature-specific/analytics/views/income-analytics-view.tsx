@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { IncomeSalaryWagesChart } from "@/components/feature-specific/analytics/charts/income-salary-wages-chart";
 import { SalaryByEmployerChart } from "@/components/feature-specific/analytics/charts/salary-by-employer-chart";
+import { CategoryBarChart } from "@/components/feature-specific/analytics/charts/analytics-charts";
 import { GlassCard } from "@/components/ui/glass-card";
 import type {
   IncomeAnalyticsSnapshot,
@@ -292,6 +293,14 @@ function OtherIncomeAnalyticsView({ data }: Props) {
   } = data;
 
   const totalDelta = pctVsPrevious(thisMonth.totalIncome, lastMonth.totalIncome);
+  const absDeltaInr = thisMonth.totalIncome - lastMonth.totalIncome;
+  const compareMax = Math.max(thisMonth.totalIncome, lastMonth.totalIncome, 1);
+  const barThisPct = (thisMonth.totalIncome / compareMax) * 100;
+  const barLastPct = (lastMonth.totalIncome / compareMax) * 100;
+  const nonFamilySupportAllTime = Math.max(
+    0,
+    lifetimeOtherIncomeParentTotal - lifetimeFamilySupportTotal,
+  );
   const chartData = mergeSalaryChartSeries(otherIncomeMonthly, otherIncomeMonthly);
   const otherRhythmHasData =
     chartData.length > 0 && chartData.some((d) => d.salary > 0);
@@ -343,7 +352,7 @@ function OtherIncomeAnalyticsView({ data }: Props) {
           <DeltaChip pct={totalDelta} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <GlassCard
             variant="signature"
             className="income-hero-stat flex h-full min-h-0 flex-col overflow-hidden"
@@ -355,8 +364,42 @@ function OtherIncomeAnalyticsView({ data }: Props) {
             <p className="mt-2 text-2xl font-semibold tracking-tight text-teal-100 tabular-nums sm:text-3xl">
               {formatInr(thisMonth.totalIncome)}
             </p>
+            <div className="mt-auto space-y-2 pt-3">
+              <div className="flex items-baseline justify-between gap-3 text-[11px] text-zinc-500">
+                <span>Prev month</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(lastMonth.totalIncome)}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#0a1020] ring-1 ring-white/5">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-teal-600 to-cyan-400 motion-safe:transition-[width] motion-safe:duration-500"
+                  style={{ width: `${barThisPct}%` }}
+                  aria-hidden
+                />
+              </div>
+              <div className="flex items-baseline justify-between gap-3 text-[11px] text-zinc-500">
+                <span>This month</span>
+                <span className="font-semibold tabular-nums text-teal-200/90">
+                  {formatInr(thisMonth.totalIncome)}
+                </span>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Total · all time
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-teal-100 tabular-nums sm:text-3xl">
+              {formatInr(lifetimeOtherIncomeParentTotal)}
+            </p>
             <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Prev month: {formatInr(lastMonth.totalIncome)}
+              Other Income parent totals
             </p>
           </GlassCard>
 
@@ -375,22 +418,24 @@ function OtherIncomeAnalyticsView({ data }: Props) {
               Subcategory under Other Income (not a loan).
             </p>
           </GlassCard>
-        </div>
-      </header>
 
-      <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · Other Income</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <GlassCard variant="signature" panelClassName="!p-5">
+          <GlassCard
+            variant="signature"
+            className="income-hero-stat flex h-full min-h-0 flex-col"
+            panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
+          >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Other Income parent · all time
+              Non-family support · all time
             </p>
-            <p className="mt-2 text-xl font-semibold tabular-nums text-teal-100/90 sm:text-2xl">
-              {formatInr(lifetimeOtherIncomeParentTotal)}
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-teal-100 tabular-nums sm:text-3xl">
+              {formatInr(nonFamilySupportAllTime)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              Other Income − Family Support
             </p>
           </GlassCard>
         </div>
-      </section>
+      </header>
 
       <section className="relative z-1 space-y-4">
         <GlassCard
@@ -494,41 +539,9 @@ function OtherIncomeAnalyticsView({ data }: Props) {
       </section>
 
       <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">This month · parent groups</h2>
-        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[360px] border-collapse text-left">
-              <thead>
-                <tr>
-                  <Th>Parent</Th>
-                  <Th>Total</Th>
-                </tr>
-              </thead>
-              <tbody className="[&_tr:hover]:bg-white/4">
-                {byParentThisMonth.length === 0 ? (
-                  <tr>
-                    <Td className="text-zinc-500" colSpan={2}>
-                      No Other Income recorded this month.
-                    </Td>
-                  </tr>
-                ) : (
-                  byParentThisMonth.map((r) => (
-                    <tr key={r.parentName}>
-                      <Td className="font-medium">{r.parentName}</Td>
-                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      </section>
-
-      <section className="relative z-1 space-y-3">
         <h2 className="text-lg font-semibold tracking-tight text-ink">This month · subcategories</h2>
         <p className="text-xs text-ink-muted">Leaf categories</p>
-        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-0 !overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-left">
               <thead>
@@ -547,72 +560,6 @@ function OtherIncomeAnalyticsView({ data }: Props) {
                   </tr>
                 ) : (
                   byLeafThisMonth.map((r, i) => (
-                    <tr key={`${r.parentName}-${r.leafName}-${i}`}>
-                      <Td className="text-ink-muted">{r.parentName}</Td>
-                      <Td className="font-medium">{r.leafName}</Td>
-                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      </section>
-
-      <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · parent groups</h2>
-        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[360px] border-collapse text-left">
-              <thead>
-                <tr>
-                  <Th>Parent</Th>
-                  <Th>Total</Th>
-                </tr>
-              </thead>
-              <tbody className="[&_tr:hover]:bg-white/4">
-                {lifetimeByParent.length === 0 ? (
-                  <tr>
-                    <Td className="text-zinc-500" colSpan={2}>
-                      No Other Income yet.
-                    </Td>
-                  </tr>
-                ) : (
-                  lifetimeByParent.map((r) => (
-                    <tr key={r.parentName}>
-                      <Td className="font-medium">{r.parentName}</Td>
-                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      </section>
-
-      <section className="relative z-1 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">All-time · subcategories</h2>
-        <GlassCard variant="signature" hideAccent panelClassName="!p-0 !overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] border-collapse text-left">
-              <thead>
-                <tr>
-                  <Th>Parent</Th>
-                  <Th>Subcategory</Th>
-                  <Th>Total</Th>
-                </tr>
-              </thead>
-              <tbody className="[&_tr:hover]:bg-white/4">
-                {lifetimeByLeaf.length === 0 ? (
-                  <tr>
-                    <Td className="text-zinc-500" colSpan={3}>
-                      No Other Income yet.
-                    </Td>
-                  </tr>
-                ) : (
-                  lifetimeByLeaf.map((r, i) => (
                     <tr key={`${r.parentName}-${r.leafName}-${i}`}>
                       <Td className="text-ink-muted">{r.parentName}</Td>
                       <Td className="font-medium">{r.leafName}</Td>

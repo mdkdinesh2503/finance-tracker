@@ -69,6 +69,10 @@ export function CategoryVsLastMonth({ payload }: { payload: CategoryVsLastMonthP
   const change = payload.change;
   const pct = payload.pctVsLastMonth;
   const sentence = pctSentence(change, pct, payload.lastMonthTotal);
+  const maxAbs =
+    payload.rows.length === 0
+      ? 0
+      : payload.rows.reduce((m, r) => Math.max(m, Math.max(r.thisMonth, r.lastMonth)), 0);
 
   return (
     <div className="space-y-8">
@@ -93,46 +97,98 @@ export function CategoryVsLastMonth({ payload }: { payload: CategoryVsLastMonthP
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/15 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] shadow-(--shadow-lift)">
-        <div className="border-b border-white/10 bg-black/20 px-5 py-4 sm:px-6">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-            Breakdown
-          </p>
-          <h2 className="mt-2 text-lg font-semibold text-white sm:text-xl">
-            Categories vs last month
-          </h2>
-          <p className="mt-2 text-sm text-zinc-500">
-            Sorted by max(this month, last month). Percent is vs last month total.
-          </p>
+      <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-linear-to-b from-white/4 to-white/1 shadow-(--shadow-lift)">
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_circle_at_10%_0%,rgba(99,102,241,0.16),transparent_55%),radial-gradient(560px_circle_at_90%_10%,rgba(56,189,248,0.12),transparent_60%)]"
+          aria-hidden
+        />
+
+        <div className="relative border-b border-white/10 bg-black/15 px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                Breakdown
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-white sm:text-xl">
+                Categories vs last month
+              </h2>
+              <p className="mt-2 text-sm text-zinc-500">
+                Sorted by max(this month, last month). Percent is vs last month total.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-3 py-1.5 text-xs font-semibold text-zinc-400">
+              <span className="inline-flex h-2 w-2 rounded-full bg-primary/80" />
+              This month
+              <span className="mx-1 h-3 w-px bg-white/10" aria-hidden />
+              <span className="inline-flex h-2 w-2 rounded-full bg-white/35" />
+              Last month
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-3 p-4 sm:p-6">
-          <div className="hidden gap-4 border-b border-white/10 pb-2 text-xs font-semibold text-zinc-500 sm:grid sm:grid-cols-[1fr_1fr_auto]">
+        <div className="relative p-3 sm:p-4">
+          <div className="hidden gap-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:grid sm:grid-cols-[1.2fr_1fr_auto]">
             <span>Category</span>
-            <span>This / last</span>
+            <span>Scale</span>
             <span className="justify-self-end">Δ</span>
           </div>
-          {payload.rows.map((r) => (
-            <div
-              key={r.categoryId}
-              className="flex flex-col gap-2 border-b border-white/6 py-3 last:border-0 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{r.category}</p>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {formatCurrency(r.thisMonth)} · {formatCurrency(r.lastMonth)}
-                </p>
-              </div>
-              <div className="flex items-center justify-between gap-4 sm:justify-end">
-                <p className="text-sm font-semibold tabular-nums text-white">
-                  {formatDeltaCurrency(r.delta)}
-                </p>
-                <p className="text-xs font-semibold tabular-nums text-zinc-500">
-                  {r.lastMonth > 0 ? `${((r.delta / r.lastMonth) * 100).toFixed(1)}%` : "n/a"}
-                </p>
-              </div>
-            </div>
-          ))}
+
+          <div className="space-y-2">
+            {payload.rows.map((r) => {
+              const thisPct = maxAbs > 0 ? (r.thisMonth / maxAbs) * 100 : 0;
+              const lastPct = maxAbs > 0 ? (r.lastMonth / maxAbs) * 100 : 0;
+              const up = r.delta >= 0;
+              const pctDelta = r.lastMonth > 0 ? (r.delta / r.lastMonth) * 100 : null;
+
+              return (
+                <div
+                  key={r.categoryId}
+                  className="group rounded-xl border border-white/8 bg-white/2 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-[border-color,background-color,transform,box-shadow] duration-200 hover:border-primary/20 hover:bg-white/3 hover:shadow-[0_18px_60px_-34px_rgba(37,99,235,0.45)] motion-safe:hover:-translate-y-px"
+                >
+                  <div className="grid gap-3 sm:grid-cols-[1.2fr_1fr_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {r.category}
+                      </p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {formatCurrency(r.thisMonth)}{" "}
+                        <span className="text-white/20">·</span>{" "}
+                        {formatCurrency(r.lastMonth)}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="h-2 w-full overflow-hidden rounded-full border border-white/10 bg-black/20">
+                        <div
+                          className="h-full rounded-full bg-linear-to-r from-primary/70 via-sky-400/60 to-indigo-400/50"
+                          style={{ width: `${Math.min(100, Math.max(0, thisPct))}%` }}
+                        />
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full border border-white/10 bg-black/20">
+                        <div
+                          className="h-full rounded-full bg-white/25"
+                          style={{ width: `${Math.min(100, Math.max(0, lastPct))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 sm:block sm:text-right">
+                      <p
+                        className={`text-sm font-semibold tabular-nums ${
+                          up ? "text-rose-200" : "text-emerald-200"
+                        }`}
+                      >
+                        {formatDeltaCurrency(r.delta)}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold tabular-nums text-zinc-500">
+                        {pctDelta == null ? "n/a" : `${up ? "+" : ""}${pctDelta.toFixed(1)}%`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

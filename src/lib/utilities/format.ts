@@ -92,14 +92,37 @@ export function formatTransactionTableTime(timeStr: string): string {
 }
 
 /** `DD/MM/YYYY, h:mm AM/PM` for dashboard activity rows (DB date + time strings). */
-export function formatActivityDateTime(dateStr: string, timeStr: string): string {
-  const [y, mo, d] = dateStr.split("-").map(Number);
-  const parts = timeStr.split(":");
+export function formatActivityDateTime(
+  dateStr: string | null | undefined,
+  timeStr: string | null | undefined,
+): string {
+  const date = typeof dateStr === "string" ? dateStr.trim() : "";
+  const time = typeof timeStr === "string" ? timeStr.trim() : "";
+
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) {
+    // If the DB row is incomplete, avoid "undefined/NaN" UI.
+    return "—";
+  }
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || mo < 1 || mo > 12 || d < 1 || d > 31) {
+    return "—";
+  }
+
+  const parts = time.split(":");
   const h24 = Number.parseInt(parts[0] ?? "0", 10);
-  const mm = (parts[1] ?? "00").padStart(2, "0");
+  const minutePart = (parts[1] ?? "00").split(".")[0] ?? "00";
+  const mmNum = Number.parseInt(minutePart, 10);
+  const mm = String(
+    Number.isFinite(mmNum) ? Math.min(59, Math.max(0, mmNum)) : 0,
+  ).padStart(2, "0");
+
   const safeH = Number.isFinite(h24) ? Math.min(23, Math.max(0, h24)) : 0;
   const ampm = safeH >= 12 ? "PM" : "AM";
   const h12 = safeH % 12 || 12;
+
   const dd = String(d).padStart(2, "0");
   const MM = String(mo).padStart(2, "0");
   return `${dd}/${MM}/${y}, ${h12}:${mm} ${ampm}`;
