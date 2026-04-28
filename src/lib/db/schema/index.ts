@@ -73,6 +73,9 @@ export type TransactionRow = {
   amount: string;
   categoryId: string | null;
   parentCategoryId: string | null;
+  investmentUsedAmount?: string | null;
+  investmentUsedCategoryId?: string | null;
+  investmentUsedParentCategoryId?: string | null;
   locationId: string | null;
   contactId: string | null;
   companyId: string | null;

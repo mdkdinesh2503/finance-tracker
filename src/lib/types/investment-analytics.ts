@@ -41,13 +41,19 @@ export type InvestmentRunRate = {
 };
 
 export type InvestmentAnalyticsSnapshot = {
+  /** Sum of INVESTMENT totals across all time (before withdrawals used for expenses). */
+  allTimeGross: number;
   allTimeTotal: number;
+  /** Sum of EXPENSE `investment_used_amount` across all time. */
+  usedInvestmentAllTime: number;
+  /** Sum of EXPENSE `investment_used_amount` in the same 12-month window as `monthlyTotals`. */
+  usedInvestmentLast12Months: number;
   thisMonth: InvestmentPeriodSummary;
   lastMonth: InvestmentPeriodSummary;
   byParentThisMonth: InvestmentParentBreakdownRow[];
   byLeafThisMonth: InvestmentLeafBreakdownRow[];
   byLeafAllTime: InvestmentLeafAllTimeRow[];
-  /** Last 12 rolling months of INVESTMENT totals. */
+  /** Last 12 rolling months of NET investment totals (`invested - used`). */
   monthlyTotals: InvestmentMonthlyRow[];
   runRate: InvestmentRunRate;
 };

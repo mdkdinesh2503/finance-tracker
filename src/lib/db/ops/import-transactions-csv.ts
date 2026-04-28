@@ -80,6 +80,13 @@ const HEADER_V4 = [
   "Notes",
 ] as const;
 
+const HEADER_V5 = [
+  ...HEADER_V4,
+  "Investment Used Parent Category",
+  "Investment Used Child Category",
+  "Investment Used Amount",
+] as const;
+
 const HEADER_V3 = [
   "Date",
   "Time",
@@ -113,8 +120,14 @@ const HEADER_V1 = [
   "Notes",
 ] as const;
 
-function detectCsvFormat(header: string[]): "v4" | "v3" | "v2" | "v1" {
+function detectCsvFormat(header: string[]): "v5" | "v4" | "v3" | "v2" | "v1" {
   const h = header.map((x) => x.trim());
+  if (
+    h.length === HEADER_V5.length &&
+    HEADER_V5.every((name, i) => h[i] === name)
+  ) {
+    return "v5";
+  }
   if (
     h.length === HEADER_V4.length &&
     HEADER_V4.every((name, i) => h[i] === name)
@@ -140,7 +153,7 @@ function detectCsvFormat(header: string[]): "v4" | "v3" | "v2" | "v1" {
     return "v1";
   }
   throw new Error(
-    "Unexpected CSV header. Use v4: Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,Notes — or v3 without Company, v2 without Contact, or legacy v1.",
+    "Unexpected CSV header. Use v5: v4 + Investment Used Parent/Child/Amount — or v4, v3 without Company, v2 without Contact, or legacy v1.",
   );
 }
 
@@ -223,7 +236,7 @@ async function main() {
   }
 
   const header = rows[0]!.map((h) => h.trim());
-  let format: "v4" | "v3" | "v2" | "v1";
+  let format: "v5" | "v4" | "v3" | "v2" | "v1";
   try {
     format = detectCsvFormat(header);
   } catch (e) {
@@ -311,7 +324,15 @@ async function main() {
   for (let i = 1; i < rows.length; i++) {
     const cols = rows[i]!;
     const expectedCols =
-      format === "v4" ? 10 : format === "v3" ? 9 : format === "v2" ? 8 : 7;
+      format === "v5"
+        ? 13
+        : format === "v4"
+          ? 10
+          : format === "v3"
+            ? 9
+            : format === "v2"
+              ? 8
+              : 7;
     if (cols.length !== expectedCols) {
       console.error(
         `Row ${i + 1}: expected ${expectedCols} columns, got ${cols.length}`,
@@ -329,8 +350,27 @@ async function main() {
     let contactName: string;
     let companyName: string;
     let note: string;
+    let investmentUsedParentCategory: string;
+    let investmentUsedChildCategory: string;
+    let investmentUsedAmountStr: string;
 
-    if (format === "v4") {
+    if (format === "v5") {
+      [
+        dateStr,
+        timeStr,
+        typeStr,
+        amountStr,
+        parentCategory,
+        childCategory,
+        locationName,
+        contactName,
+        companyName,
+        note,
+        investmentUsedParentCategory,
+        investmentUsedChildCategory,
+        investmentUsedAmountStr,
+      ] = cols;
+    } else if (format === "v4") {
       [
         dateStr,
         timeStr,
@@ -343,6 +383,9 @@ async function main() {
         companyName,
         note,
       ] = cols;
+      investmentUsedParentCategory = "";
+      investmentUsedChildCategory = "";
+      investmentUsedAmountStr = "";
     } else if (format === "v3") {
       [
         dateStr,
@@ -356,6 +399,9 @@ async function main() {
         note,
       ] = cols;
       companyName = "";
+      investmentUsedParentCategory = "";
+      investmentUsedChildCategory = "";
+      investmentUsedAmountStr = "";
     } else if (format === "v2") {
       [
         dateStr,
@@ -369,12 +415,18 @@ async function main() {
       ] = cols;
       contactName = "";
       companyName = "";
+      investmentUsedParentCategory = "";
+      investmentUsedChildCategory = "";
+      investmentUsedAmountStr = "";
     } else {
       [dateStr, timeStr, typeStr, amountStr, parentCategory, locationName, note] =
         cols;
       childCategory = "";
       contactName = "";
       companyName = "";
+      investmentUsedParentCategory = "";
+      investmentUsedChildCategory = "";
+      investmentUsedAmountStr = "";
     }
 
     const txType = typeStr.trim().toUpperCase();
@@ -403,6 +455,52 @@ async function main() {
     if (!Number.isFinite(amt) || amt <= 0) {
       console.error(`Row ${i + 1}: invalid amount ${amountStr}`);
       process.exit(1);
+    }
+
+    let investmentUsedAmount: number | null = null;
+    let investmentUsedCategoryId: string | null = null;
+    let investmentUsedParentCategoryId: string | null = null;
+    const hasInvestmentUsed =
+      investmentUsedParentCategory.trim() ||
+      investmentUsedChildCategory.trim() ||
+      investmentUsedAmountStr.trim();
+    if (hasInvestmentUsed) {
+      if (txType !== "EXPENSE") {
+        console.error(
+          `Row ${i + 1}: Investment Used columns are only valid for EXPENSE rows.`,
+        );
+        process.exit(1);
+      }
+      const used = Number(String(investmentUsedAmountStr).trim().replace(/,/g, ""));
+      if (!Number.isFinite(used) || used <= 0) {
+        console.error(
+          `Row ${i + 1}: invalid Investment Used Amount ${investmentUsedAmountStr}`,
+        );
+        process.exit(1);
+      }
+      if (used > amt + 1e-9) {
+        console.error(
+          `Row ${i + 1}: Investment Used Amount cannot exceed Amount`,
+        );
+        process.exit(1);
+      }
+
+      const invCat = resolveCategoryForImport(
+        catRows,
+        "INVESTMENT",
+        investmentUsedParentCategory,
+        investmentUsedChildCategory,
+      );
+      if (!invCat) {
+        console.error(
+          `Row ${i + 1}: could not resolve investment funding category "${investmentUsedParentCategory.trim()}" / "${investmentUsedChildCategory.trim()}".`,
+        );
+        process.exit(1);
+      }
+
+      investmentUsedAmount = used;
+      investmentUsedCategoryId = invCat.id;
+      investmentUsedParentCategoryId = invCat.parentId;
     }
 
     let locationId: string | null = null;
@@ -498,6 +596,9 @@ async function main() {
         amount: amt.toFixed(2),
         category_id: cat.id,
         parent_category_id: cat.parentId,
+        investment_used_amount: investmentUsedAmount != null ? investmentUsedAmount.toFixed(2) : null,
+        investment_used_category_id: investmentUsedCategoryId,
+        investment_used_parent_category_id: investmentUsedParentCategoryId,
         location_id: locationId,
         contact_id: contactId,
         company_id: companyId,

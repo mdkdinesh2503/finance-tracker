@@ -110,8 +110,14 @@ export async function exportTransactionsCsvAction(filters: {
       type: r.type,
       amount: r.amount,
       categoryName: r.categoryName,
+      parentCategoryName: r.parentCategoryName,
       locationName: r.locationName,
+      contactName: r.contactName,
+      companyName: r.companyName,
       note: r.note,
+      investmentUsedParentCategoryName: r.investmentUsedParentCategoryName,
+      investmentUsedCategoryName: r.investmentUsedCategoryName,
+      investmentUsedAmount: r.investmentUsedAmount,
     }))
   );
   return { ok: true as const, csv, filename: `transactions-export.csv` };

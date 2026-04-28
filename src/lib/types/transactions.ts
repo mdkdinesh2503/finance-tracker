@@ -6,6 +6,9 @@ export type TransactionRowDTO = {
   amount: string;
   categoryId: string | null;
   parentCategoryId: string | null;
+  investmentUsedAmount: string | null;
+  investmentUsedCategoryId: string | null;
+  investmentUsedParentCategoryId: string | null;
   locationId: string | null;
   contactId: string | null;
   companyId: string | null;
@@ -14,6 +17,8 @@ export type TransactionRowDTO = {
   transactionTime: string;
   categoryName: string | null;
   parentCategoryName: string | null;
+  investmentUsedCategoryName: string | null;
+  investmentUsedParentCategoryName: string | null;
   locationName: string | null;
   contactName: string | null;
   companyName: string | null;
@@ -28,6 +33,12 @@ export type CreateTransactionInput = {
   transactionDate: string;
   transactionTime: string;
   note?: string;
+  /**
+   * When set on an EXPENSE, marks it as funded by withdrawing from an INVESTMENT
+   * subcategory. This reduces investment totals without requiring cash balance.
+   */
+  investmentUsedCategoryId?: string;
+  investmentUsedAmount?: string;
 };
 
 /** Aggregates for a single calendar month (income, expense, etc.). */

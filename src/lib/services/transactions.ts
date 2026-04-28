@@ -136,7 +136,17 @@ export async function sumByTypeForUser(
     : db`user_id = ${userId}`;
 
   const rows = await db`
-    select type, coalesce(sum(amount)::text, '0') as total
+    select
+      type,
+      coalesce(
+        sum(
+          case
+            when type = 'EXPENSE' then amount - coalesce(investment_used_amount, 0)
+            else amount
+          end
+        )::text,
+        '0'
+      ) as total
     from transactions
     where ${whereClause}
     group by type
@@ -219,7 +229,7 @@ export async function expenseMonthlyTrendLastN(
   const rows = await db`
     select
       to_char(transaction_date, 'YYYY-MM') as ym,
-      coalesce(sum(amount)::text, '0') as total
+      coalesce(sum(amount - coalesce(investment_used_amount, 0))::text, '0') as total
     from transactions
     where user_id = ${userId}
       and type = 'EXPENSE'
@@ -405,6 +415,9 @@ export async function listTransactionsFiltered(
       t.amount,
       t.category_id,
       t.parent_category_id,
+      t.investment_used_amount,
+      t.investment_used_category_id,
+      t.investment_used_parent_category_id,
       t.location_id,
       t.contact_id,
       t.company_id,
@@ -413,6 +426,8 @@ export async function listTransactionsFiltered(
       t.transaction_time::text as transaction_time,
       cat.name as category_name,
       pc.name as parent_category_name,
+      inv_cat.name as investment_used_category_name,
+      inv_pc.name as investment_used_parent_category_name,
       loc.name as location_name,
       ct.name as contact_name,
       co.name as company_name
@@ -421,6 +436,10 @@ export async function listTransactionsFiltered(
       on cat.id = t.category_id and cat.user_id = ${userId}
     left join categories pc
       on pc.id = t.parent_category_id and pc.user_id = ${userId}
+    left join categories inv_cat
+      on inv_cat.id = t.investment_used_category_id and inv_cat.user_id = ${userId}
+    left join categories inv_pc
+      on inv_pc.id = t.investment_used_parent_category_id and inv_pc.user_id = ${userId}
     left join locations loc
       on loc.id = t.location_id and loc.user_id = ${userId}
     left join contacts ct
@@ -437,6 +456,9 @@ export async function listTransactionsFiltered(
     amount: String(r.amount),
     categoryId: r.category_id != null ? String(r.category_id) : null,
     parentCategoryId: r.parent_category_id != null ? String(r.parent_category_id) : null,
+    investmentUsedAmount: r.investment_used_amount != null ? String(r.investment_used_amount) : null,
+    investmentUsedCategoryId: r.investment_used_category_id != null ? String(r.investment_used_category_id) : null,
+    investmentUsedParentCategoryId: r.investment_used_parent_category_id != null ? String(r.investment_used_parent_category_id) : null,
     locationId: r.location_id != null ? String(r.location_id) : null,
     contactId: r.contact_id != null ? String(r.contact_id) : null,
     companyId: r.company_id != null ? String(r.company_id) : null,
@@ -445,6 +467,10 @@ export async function listTransactionsFiltered(
     transactionTime: String(r.transaction_time),
     categoryName: r.category_name != null ? String(r.category_name) : null,
     parentCategoryName: r.parent_category_name != null ? String(r.parent_category_name) : null,
+    investmentUsedCategoryName:
+      r.investment_used_category_name != null ? String(r.investment_used_category_name) : null,
+    investmentUsedParentCategoryName:
+      r.investment_used_parent_category_name != null ? String(r.investment_used_parent_category_name) : null,
     locationName: r.location_name != null ? String(r.location_name) : null,
     contactName: r.contact_name != null ? String(r.contact_name) : null,
     companyName: r.company_name != null ? String(r.company_name) : null,
@@ -545,6 +571,79 @@ export async function createTransactionForUser(
   const amt = Number(amountStored);
   if (!Number.isFinite(amt) || amt <= 0) {
     return { ok: false, error: "Invalid amount" };
+  }
+
+  const investmentUsedCategoryIdRaw = input.investmentUsedCategoryId?.trim() || null;
+  const investmentUsedAmountRaw = input.investmentUsedAmount?.trim() || null;
+  const wantsInvestmentFunding = !!investmentUsedCategoryIdRaw || !!investmentUsedAmountRaw;
+
+  if (wantsInvestmentFunding && type !== "EXPENSE") {
+    return { ok: false, error: "Investment funding is only available for Expenses." };
+  }
+
+  let investmentUsedAmountStored: string | null = null;
+  let investmentUsedCategoryIdStored: string | null = null;
+  let investmentUsedParentCategoryIdStored: string | null = null;
+
+  if (wantsInvestmentFunding) {
+    if (!investmentUsedCategoryIdRaw) {
+      return { ok: false, error: "Pick which investment subcategory you used." };
+    }
+    if (!investmentUsedAmountRaw) {
+      return { ok: false, error: "Enter how much investment you used." };
+    }
+
+    const usedStored = parseAmountString(investmentUsedAmountRaw);
+    if (!usedStored) return { ok: false, error: "Invalid investment-used amount." };
+    const used = Number(usedStored);
+    if (!Number.isFinite(used) || used <= 0) {
+      return { ok: false, error: "Invalid investment-used amount." };
+    }
+    if (used - amt > 1e-9) {
+      return { ok: false, error: "Investment-used amount cannot exceed expense amount." };
+    }
+
+    const [invLeafRow] = await db`
+      select id, parent_id, type, is_selectable
+      from categories
+      where id = ${investmentUsedCategoryIdRaw} and user_id = ${userId}
+      limit 1
+    `;
+    if (!invLeafRow) return { ok: false, error: "Investment subcategory not found." };
+    if (String(invLeafRow.type) !== "INVESTMENT") {
+      return { ok: false, error: "Selected funding category is not an investment subcategory." };
+    }
+    if (invLeafRow.is_selectable !== true) {
+      return { ok: false, error: "Selected investment category is not selectable." };
+    }
+
+    const invParentId =
+      invLeafRow.parent_id != null ? String(invLeafRow.parent_id) : null;
+    if (!invParentId) {
+      return { ok: false, error: "Investment subcategory is missing a parent group." };
+    }
+
+    // Ensure you don't overdraw this investment subcategory (net of prior uses).
+    const [netRow] = await db`
+      select
+        coalesce(sum(case when type = 'INVESTMENT' and category_id = ${investmentUsedCategoryIdRaw} then amount else 0 end)::text, '0') as invested,
+        coalesce(sum(case when type = 'EXPENSE' and investment_used_category_id = ${investmentUsedCategoryIdRaw} then investment_used_amount else 0 end)::text, '0') as used
+      from transactions
+      where user_id = ${userId}
+    `;
+    const invested = num((netRow as { invested?: string } | undefined)?.invested);
+    const usedSoFar = num((netRow as { used?: string } | undefined)?.used);
+    const available = invested - usedSoFar;
+    if (used > available + 1e-9) {
+      return {
+        ok: false,
+        error: `Not enough available in that investment. Available: ${available.toFixed(2)}`,
+      };
+    }
+
+    investmentUsedAmountStored = usedStored;
+    investmentUsedCategoryIdStored = investmentUsedCategoryIdRaw;
+    investmentUsedParentCategoryIdStored = invParentId;
   }
 
   const loanTypes =
@@ -673,6 +772,10 @@ export async function createTransactionForUser(
       type === "REPAYMENT" ||
       type === "LEND";
     if (isCashOutflow) {
+      // When an expense is funded by investment withdrawal, don't block on cash balance.
+      if (type === "EXPENSE" && investmentUsedAmountStored != null) {
+        // no-op
+      } else {
       const sums = await sumByTypeForUser(db, userId);
       const bal = balanceFromSums(sums);
       if (amt > bal + 1e-9) {
@@ -680,6 +783,7 @@ export async function createTransactionForUser(
           ok: false,
           error: `Insufficient balance. Available: ${bal.toFixed(2)}`,
         };
+      }
       }
     }
   }
@@ -711,6 +815,9 @@ export async function createTransactionForUser(
         amount: amountStored,
         category_id: input.categoryId,
         parent_category_id: parentCategoryId,
+        investment_used_amount: investmentUsedAmountStored,
+        investment_used_category_id: investmentUsedCategoryIdStored,
+        investment_used_parent_category_id: investmentUsedParentCategoryIdStored,
         location_id: locationIdStored,
         contact_id: contactIdStored,
         company_id: companyIdStored,

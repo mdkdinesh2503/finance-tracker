@@ -104,6 +104,9 @@ export function NewTransactionForm({
   const [date, setDate] = useState(() => formatLocalYMD(new Date()));
   const [time, setTime] = useState(defaultTime);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fundedByInvestment, setFundedByInvestment] = useState(false);
+  const [investmentUsedCategoryId, setInvestmentUsedCategoryId] = useState<string | null>(null);
+  const [investmentUsedAmount, setInvestmentUsedAmount] = useState("");
   const showLoanPerson =
     txType === "BORROW" ||
     txType === "REPAYMENT" ||
@@ -135,6 +138,12 @@ export function NewTransactionForm({
   const showContactBlock = showLoanPerson || showGiftRecipient || showRechargeContact;
 
   const notesStepLabel = `${4 + (showSalaryCompany ? 1 : 0) + (showContactBlock ? 1 : 0)} · Extra`;
+
+  const investmentLeafOptions = useMemo(() => {
+    return categories
+      .filter((c) => c.type === "INVESTMENT" && c.isSelectable)
+      .map((c) => ({ id: c.id, name: c.name }));
+  }, [categories]);
 
   const locationOptions = useMemo(
     () => locations.map((l) => ({ id: l.id, name: l.name })),
@@ -183,6 +192,12 @@ export function NewTransactionForm({
     if (!txType) next.type = "Pick a transaction type";
     if (!date) next.date = "Pick a date";
     if (!time) next.time = "Pick a time";
+    if (txType === "EXPENSE" && fundedByInvestment) {
+      if (!investmentUsedCategoryId) next.investmentUsedCategory = "Pick the investment subcategory";
+      const u = Number(investmentUsedAmount);
+      if (!Number.isFinite(u) || u <= 0) next.investmentUsedAmount = "Enter a valid investment-used amount";
+      if (Number.isFinite(u) && Number.isFinite(n) && u > n) next.investmentUsedAmount = "Cannot exceed expense amount";
+    }
     if (showContactBlock && !contactId) {
       next.contact = showGiftRecipient
         ? "Pick who the gift is for"
@@ -207,6 +222,12 @@ export function NewTransactionForm({
         companyId: showSalaryCompany ? companyId ?? "" : "",
         transactionDate: date,
         transactionTime: time,
+        investmentUsedCategoryId:
+          txType === "EXPENSE" && fundedByInvestment
+            ? (investmentUsedCategoryId ?? "")
+            : "",
+        investmentUsedAmount:
+          txType === "EXPENSE" && fundedByInvestment ? investmentUsedAmount : "",
       });
       if (!res.ok) {
         toast.error("Couldn’t save", { description: res.error });
@@ -363,6 +384,112 @@ export function NewTransactionForm({
                 {errors.location ? <p className="text-xs text-rose-400">{errors.location}</p> : null}
               </div>
             </div>
+
+            {txType === "EXPENSE" ? (
+              <div>
+                <SectionLabel
+                  step="04 · Funding"
+                  title="Funded by investment?"
+                  hint="If you spent money by withdrawing from an investment (PF/RD/etc), enable this. It reduces investment totals and won’t block on cash balance."
+                />
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/3 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">
+                        Use investment amount
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-muted">
+                        Optional
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFundedByInvestment((v) => {
+                          const next = !v;
+                          if (next) {
+                            if (!investmentUsedAmount) setInvestmentUsedAmount(amount || "");
+                          } else {
+                            setInvestmentUsedCategoryId(null);
+                            setInvestmentUsedAmount("");
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`relative h-7 w-12 rounded-full border transition-colors ${
+                        fundedByInvestment
+                          ? "border-sky-500/30 bg-sky-500/25"
+                          : "border-white/10 bg-white/6"
+                      }`}
+                      aria-pressed={fundedByInvestment}
+                      aria-label="Toggle investment funding"
+                    >
+                      <span
+                        className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-[left,background-color] ${
+                          fundedByInvestment ? "left-6 bg-sky-200" : "left-1 bg-zinc-200"
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
+
+                  {fundedByInvestment ? (
+                    <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/3 p-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-ink-muted">
+                          From which investment subcategory?
+                        </Label>
+                        <DropdownSelect
+                          id="investmentUsedCategory"
+                          value={investmentUsedCategoryId}
+                          onChange={(v) => setInvestmentUsedCategoryId(v)}
+                          options={investmentLeafOptions}
+                          emptyLabel="Select investment (e.g. Partial Fund)"
+                          includeEmptyOption
+                          aria-invalid={!!errors.investmentUsedCategory}
+                        />
+                        {errors.investmentUsedCategory ? (
+                          <p className="text-xs text-rose-400">
+                            {errors.investmentUsedCategory}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-ink-muted">
+                          Investment amount used
+                        </Label>
+                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/3">
+                          <div className="grid grid-cols-[54px_1fr]">
+                            <div className="flex items-center justify-center border-r border-white/10 bg-white/5 text-sm font-semibold text-ink">
+                              ₹
+                            </div>
+                            <Input
+                              id="investmentUsedAmount"
+                              inputMode="decimal"
+                              value={investmentUsedAmount}
+                              onChange={(e) => setInvestmentUsedAmount(e.target.value)}
+                              aria-invalid={!!errors.investmentUsedAmount}
+                              className="h-12 rounded-none border-0 bg-transparent px-4 text-base font-semibold tabular-nums tracking-tight focus:ring-0"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                        {errors.investmentUsedAmount ? (
+                          <p className="text-xs text-rose-400">
+                            {errors.investmentUsedAmount}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-ink-muted">
+                            Must be ≤ expense amount.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
             {showSalaryCompany ? (
               <div>

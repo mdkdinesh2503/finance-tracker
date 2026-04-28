@@ -32,7 +32,7 @@ async function periodTotals(
   financialObligationsTotal: number;
   cashSavingsTotal: number;
 }> {
-  const rows = await db`
+  const investedRows = await db`
     select
       coalesce(p.name, '') as parent_name,
       coalesce(sum(t.amount)::text, '0') as sub
@@ -46,11 +46,33 @@ async function periodTotals(
     group by t.parent_category_id, p.name
   `;
 
+  const usedRows = await db`
+    select
+      coalesce(p.name, '') as parent_name,
+      coalesce(sum(t.investment_used_amount)::text, '0') as sub
+    from transactions t
+    left join categories p
+      on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.investment_used_amount is not null
+      and t.transaction_date >= ${from}
+      and t.transaction_date <= ${to}
+    group by t.investment_used_parent_category_id, p.name
+  `;
+
+  const usedByParent = new Map<string, number>();
+  for (const r of usedRows as unknown as { parent_name: string; sub: string }[]) {
+    usedByParent.set(r.parent_name ?? "", num(r.sub));
+  }
+
   let total = 0;
   let financialObligationsTotal = 0;
   let cashSavingsTotal = 0;
-  for (const r of rows as unknown as { parent_name: string; sub: string }[]) {
-    const t = num(r.sub);
+  for (const r of investedRows as unknown as { parent_name: string; sub: string }[]) {
+    const invested = num(r.sub);
+    const used = usedByParent.get(r.parent_name ?? "") ?? 0;
+    const t = invested - used;
     total += t;
     if (r.parent_name === FINANCIAL_PARENT) financialObligationsTotal += t;
     else if (r.parent_name === CASH_SAVINGS_PARENT) cashSavingsTotal += t;
@@ -118,13 +140,22 @@ export async function investmentAnalyticsSnapshot(
   const lookbackStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   const lookbackFrom = formatLocalYMD(lookbackStart);
 
-  const [allTimeRow] = await db`
+  const [allTimeGrossRow] = await db`
     select coalesce(sum(amount)::text, '0') as total
     from transactions
     where user_id = ${userId} and type = 'INVESTMENT'
   `;
+  const [allTimeUsedRow] = await db`
+    select coalesce(sum(investment_used_amount)::text, '0') as total
+    from transactions
+    where user_id = ${userId}
+      and type = 'EXPENSE'
+      and investment_used_amount is not null
+  `;
 
-  const allTimeTotal = num((allTimeRow as { total: string } | undefined)?.total);
+  const allTimeGross = num((allTimeGrossRow as { total: string } | undefined)?.total);
+  const usedInvestmentAllTime = num((allTimeUsedRow as { total: string } | undefined)?.total);
+  const allTimeTotal = allTimeGross - usedInvestmentAllTime;
 
   const thisTotals = await periodTotals(db, userId, thisRange.from, thisRange.to);
   const lastTotals = await periodTotals(db, userId, lastRange.from, lastRange.to);
@@ -143,10 +174,30 @@ export async function investmentAnalyticsSnapshot(
     group by t.parent_category_id, p.name
   `;
 
+  const byParentUsedRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(sum(t.investment_used_amount)::text, '0') as total
+    from transactions t
+    left join categories p
+      on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.investment_used_amount is not null
+      and t.transaction_date >= ${thisRange.from}
+      and t.transaction_date <= ${thisRange.to}
+    group by t.investment_used_parent_category_id, p.name
+  `;
+
+  const usedByParentName = new Map<string, number>();
+  for (const r of byParentUsedRaw as unknown as { parent_name: string; total: string }[]) {
+    usedByParentName.set(r.parent_name ?? "Uncategorized", num(r.total));
+  }
+
   const byParentSorted = (byParentRaw as unknown as { parent_name: string; total: string }[])
     .map((r) => ({
       parentName: r.parent_name ?? "Uncategorized",
-      total: num(r.total),
+      total: num(r.total) - (usedByParentName.get(r.parent_name ?? "Uncategorized") ?? 0),
     }))
     .sort((a, b) => b.total - a.total);
 
@@ -165,11 +216,37 @@ export async function investmentAnalyticsSnapshot(
     group by t.parent_category_id, p.name, t.category_id, l.name
   `;
 
+  const byLeafUsedRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(l.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.investment_used_amount)::text, '0') as total
+    from transactions t
+    left join categories l on l.id = t.investment_used_category_id and l.user_id = ${userId}
+    left join categories p on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.investment_used_amount is not null
+      and t.transaction_date >= ${thisRange.from}
+      and t.transaction_date <= ${thisRange.to}
+    group by t.investment_used_parent_category_id, p.name, t.investment_used_category_id, l.name
+  `;
+
+  const usedByLeafKey = new Map<string, number>();
+  for (const r of byLeafUsedRaw as unknown as { parent_name: string; leaf_name: string; total: string }[]) {
+    const key = `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`;
+    usedByLeafKey.set(key, num(r.total));
+  }
+
   const byLeafSorted = (byLeafRaw as unknown as { parent_name: string; leaf_name: string; total: string }[])
     .map((r) => ({
       parentName: r.parent_name ?? "Uncategorized",
       leafName: r.leaf_name ?? "Uncategorized",
-      total: num(r.total),
+      total:
+        num(r.total) -
+        (usedByLeafKey.get(
+          `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`,
+        ) ?? 0),
     }))
     .sort((a, b) => b.total - a.total);
 
@@ -186,6 +263,26 @@ export async function investmentAnalyticsSnapshot(
     group by t.parent_category_id, p.name, t.category_id, l.name
   `;
 
+  const byLeafAllTimeUsedRaw = await db`
+    select
+      coalesce(p.name, 'Uncategorized') as parent_name,
+      coalesce(l.name, 'Uncategorized') as leaf_name,
+      coalesce(sum(t.investment_used_amount)::text, '0') as total
+    from transactions t
+    left join categories l on l.id = t.investment_used_category_id and l.user_id = ${userId}
+    left join categories p on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
+    where t.user_id = ${userId}
+      and t.type = 'EXPENSE'
+      and t.investment_used_amount is not null
+    group by t.investment_used_parent_category_id, p.name, t.investment_used_category_id, l.name
+  `;
+
+  const usedAllTimeByLeafKey = new Map<string, number>();
+  for (const r of byLeafAllTimeUsedRaw as unknown as { parent_name: string; leaf_name: string; total: string }[]) {
+    const key = `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`;
+    usedAllTimeByLeafKey.set(key, num(r.total));
+  }
+
   const byLeafAllTimeSorted = (
     byLeafAllTimeRaw as unknown as {
       parent_name: string;
@@ -196,11 +293,15 @@ export async function investmentAnalyticsSnapshot(
     .map((r) => ({
       parentName: r.parent_name ?? "Uncategorized",
       leafName: r.leaf_name ?? "Uncategorized",
-      total: num(r.total),
+      total:
+        num(r.total) -
+        (usedAllTimeByLeafKey.get(
+          `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`,
+        ) ?? 0),
     }))
     .sort((a, b) => b.total - a.total);
 
-  const monthlyRows = await db`
+  const monthlyInvestedRows = await db`
     select
       to_char(transaction_date, 'YYYY-MM') as ym,
       coalesce(sum(amount)::text, '0') as total
@@ -213,17 +314,49 @@ export async function investmentAnalyticsSnapshot(
     order by 1
   `;
 
-  const monthlyTotals = (monthlyRows as unknown as { ym: string; total: string }[]).map((r) => ({
-    ym: r.ym,
-    total: num(r.total),
+  const monthlyUsedRows = await db`
+    select
+      to_char(transaction_date, 'YYYY-MM') as ym,
+      coalesce(sum(investment_used_amount)::text, '0') as total
+    from transactions
+    where user_id = ${userId}
+      and type = 'EXPENSE'
+      and investment_used_amount is not null
+      and transaction_date >= ${lookbackFrom}
+      and transaction_date <= ${thisRange.to}
+    group by to_char(transaction_date, 'YYYY-MM')
+    order by 1
+  `;
+
+  const investedByYm = new Map<string, number>();
+  for (const r of monthlyInvestedRows as unknown as { ym: string; total: string }[]) {
+    investedByYm.set(r.ym, num(r.total));
+  }
+  const usedByYm = new Map<string, number>();
+  for (const r of monthlyUsedRows as unknown as { ym: string; total: string }[]) {
+    usedByYm.set(r.ym, num(r.total));
+  }
+
+  const ymKeys = [...new Set([...investedByYm.keys(), ...usedByYm.keys()])].sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  const monthlyTotals = ymKeys.map((ym) => ({
+    ym,
+    total: (investedByYm.get(ym) ?? 0) - (usedByYm.get(ym) ?? 0),
   }));
+
+  const usedInvestmentLast12Months = ymKeys.reduce((s, ym) => s + (usedByYm.get(ym) ?? 0), 0);
 
   const runRate = computeRunRate(monthlyTotals, now);
 
   const periodTotal = thisTotals.total;
 
   return {
+    allTimeGross,
     allTimeTotal,
+    usedInvestmentAllTime,
+    usedInvestmentLast12Months,
     thisMonth: {
       label: thisRange.label,
       from: thisRange.from,

@@ -15,7 +15,8 @@
     "db:migrate": "bun run src/lib/db/ops/migrate.ts",
     "db:reset": "bun run src/lib/db/ops/reset.ts",
     "db:seed": "bun run src/lib/db/ops/seed.ts",
-    "db:data": "bun run src/lib/db/ops/import-transactions-csv.ts"
+    "db:data:reset": "bun run src/lib/db/ops/reset-transactions.ts",
+    "db:data": "bun run src/lib/db/ops/reset-transactions.ts && bun run src/lib/db/ops/import-transactions-csv.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

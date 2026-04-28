@@ -68,25 +68,11 @@ function DeltaChip({ pct }: { pct: number | null }) {
   );
 }
 
-type SplitRow = {
-  key: string;
-  label: string;
-  amount: number;
-  pct: number;
-  barClass: string;
-  dotClass: string;
-  amountClass: string;
-};
-
 function MonthComposition({
-  financial,
-  cash,
   total,
   monthLabel,
   leafRows,
 }: {
-  financial: number;
-  cash: number;
   total: number;
   monthLabel: string;
   leafRows: InvestmentLeafBreakdownRow[];
@@ -180,13 +166,15 @@ function pctCell(p: number) {
 
 export function InvestmentAnalyticsView({ data }: Props) {
   const {
+    allTimeGross,
     allTimeTotal,
+    usedInvestmentAllTime,
+    usedInvestmentLast12Months,
     thisMonth,
     lastMonth,
     byLeafThisMonth,
     byLeafAllTime,
     monthlyTotals,
-    runRate,
   } = data;
 
   const monthDelta = pctVsPrevious(thisMonth.total, lastMonth.total);
@@ -256,14 +244,19 @@ export function InvestmentAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              All-time recorded
+              All-time net
             </p>
             <p className="mt-2 text-2xl font-semibold tracking-tight text-sky-100 tabular-nums sm:text-3xl">
               {formatInr(allTimeTotal)}
             </p>
-            <p className="mt-auto pt-3 text-[11px] leading-snug text-zinc-500">
-              Sum of all INVESTMENT entries.
-            </p>
+            <div className="mt-auto grid gap-1.5 pt-4 text-[11px] text-zinc-500">
+              <div className="flex items-baseline justify-between gap-3">
+                <span>Invested (gross)</span>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatInr(allTimeGross)}
+                </span>
+              </div>
+            </div>
           </GlassCard>
 
           <GlassCard
@@ -288,27 +281,14 @@ export function InvestmentAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Recent pace
+              Used investment
             </p>
-            {runRate.averageMonthlyLastCompleted != null ? (
-              <>
-                <p className="mt-2 text-xl font-semibold text-indigo-100 tabular-nums">
-                  ~{formatInr(runRate.averageMonthlyLastCompleted)}
-                  <span className="text-sm font-normal text-zinc-500">
-                    {" "}
-                    /mo
-                  </span>
-                </p>
-                <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-                  ~{formatInr(runRate.impliedAnnualFromRecentPace ?? 0)} / yr ·{" "}
-                  {runRate.monthsAveraged} mo avg
-                </p>
-              </>
-            ) : (
-              <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-                Need more month data.
-              </p>
-            )}
+            <p className="mt-2 text-xl font-semibold text-indigo-100 tabular-nums">
+              {formatInr(usedInvestmentAllTime)}
+            </p>
+            <p className="mt-auto pt-3 text-[11px] text-zinc-500">
+              All-time used for expenses · last 12 mo: {formatInr(usedInvestmentLast12Months)}
+            </p>
           </GlassCard>
         </div>
       </header>
@@ -446,8 +426,6 @@ export function InvestmentAnalyticsView({ data }: Props) {
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex h-full min-h-[200px] w-full flex-1 flex-col rounded-2xl border border-(--border) bg-(--glass-simple-bg) p-3 pb-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <MonthComposition
-                financial={thisMonth.financialObligationsTotal}
-                cash={thisMonth.cashSavingsTotal}
                 total={thisMonth.total}
                 monthLabel={thisMonth.label}
                 leafRows={byLeafThisMonth}
