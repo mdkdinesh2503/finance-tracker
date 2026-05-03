@@ -10,6 +10,7 @@ import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
+  investmentFundingSkipsAvailableBalanceCheck,
 } from "@/lib/constants/category-rules";
 import {
   formatLocalYMD,
@@ -142,6 +143,7 @@ export async function sumByTypeForUser(
         sum(
           case
             when type = 'EXPENSE' then amount - coalesce(investment_used_amount, 0)
+            when type = 'INVESTMENT' then amount - coalesce(investment_used_amount, 0)
             else amount
           end
         )::text,
@@ -577,8 +579,11 @@ export async function createTransactionForUser(
   const investmentUsedAmountRaw = input.investmentUsedAmount?.trim() || null;
   const wantsInvestmentFunding = !!investmentUsedCategoryIdRaw || !!investmentUsedAmountRaw;
 
-  if (wantsInvestmentFunding && type !== "EXPENSE") {
-    return { ok: false, error: "Investment funding is only available for Expenses." };
+  if (wantsInvestmentFunding && type !== "EXPENSE" && type !== "INVESTMENT") {
+    return {
+      ok: false,
+      error: "Investment funding is only available for expenses and investments.",
+    };
   }
 
   let investmentUsedAmountStored: string | null = null;
@@ -592,6 +597,12 @@ export async function createTransactionForUser(
     if (!investmentUsedAmountRaw) {
       return { ok: false, error: "Enter how much investment you used." };
     }
+    if (type === "INVESTMENT" && investmentUsedCategoryIdRaw === input.categoryId) {
+      return {
+        ok: false,
+        error: "Funding source must be a different investment than the one you are adding to.",
+      };
+    }
 
     const usedStored = parseAmountString(investmentUsedAmountRaw);
     if (!usedStored) return { ok: false, error: "Invalid investment-used amount." };
@@ -600,11 +611,14 @@ export async function createTransactionForUser(
       return { ok: false, error: "Invalid investment-used amount." };
     }
     if (used - amt > 1e-9) {
-      return { ok: false, error: "Investment-used amount cannot exceed expense amount." };
+      return {
+        ok: false,
+        error: "Investment-used amount cannot exceed the transaction amount.",
+      };
     }
 
     const [invLeafRow] = await db`
-      select id, parent_id, type, is_selectable
+      select id, parent_id, type, is_selectable, name
       from categories
       where id = ${investmentUsedCategoryIdRaw} and user_id = ${userId}
       limit 1
@@ -623,22 +637,24 @@ export async function createTransactionForUser(
       return { ok: false, error: "Investment subcategory is missing a parent group." };
     }
 
-    // Ensure you don't overdraw this investment subcategory (net of prior uses).
-    const [netRow] = await db`
-      select
-        coalesce(sum(case when type = 'INVESTMENT' and category_id = ${investmentUsedCategoryIdRaw} then amount else 0 end)::text, '0') as invested,
-        coalesce(sum(case when type = 'EXPENSE' and investment_used_category_id = ${investmentUsedCategoryIdRaw} then investment_used_amount else 0 end)::text, '0') as used
-      from transactions
-      where user_id = ${userId}
-    `;
-    const invested = num((netRow as { invested?: string } | undefined)?.invested);
-    const usedSoFar = num((netRow as { used?: string } | undefined)?.used);
-    const available = invested - usedSoFar;
-    if (used > available + 1e-9) {
-      return {
-        ok: false,
-        error: `Not enough available in that investment. Available: ${available.toFixed(2)}`,
-      };
+    const fundingLeafName = String(invLeafRow.name ?? "").trim();
+    if (!investmentFundingSkipsAvailableBalanceCheck(fundingLeafName)) {
+      const [netRow] = await db`
+        select
+          coalesce(sum(case when type = 'INVESTMENT' and category_id = ${investmentUsedCategoryIdRaw} then amount else 0 end)::text, '0') as invested,
+          coalesce(sum(case when type in ('EXPENSE', 'INVESTMENT') and investment_used_category_id = ${investmentUsedCategoryIdRaw} then investment_used_amount else 0 end)::text, '0') as used
+        from transactions
+        where user_id = ${userId}
+      `;
+      const invested = num((netRow as { invested?: string } | undefined)?.invested);
+      const usedSoFar = num((netRow as { used?: string } | undefined)?.used);
+      const available = invested - usedSoFar;
+      if (used > available + 1e-9) {
+        return {
+          ok: false,
+          error: `That investment only has ${available.toFixed(2)} free (invested ${invested.toFixed(2)}, already drawn ${usedSoFar.toFixed(2)}); you asked for ${used.toFixed(2)}.`,
+        };
+      }
     }
 
     investmentUsedAmountStored = usedStored;
@@ -773,8 +789,11 @@ export async function createTransactionForUser(
       type === "LEND";
     if (isCashOutflow) {
       // When an expense is funded by investment withdrawal, don't block on cash balance.
-      if (type === "EXPENSE" && investmentUsedAmountStored != null) {
-        // no-op
+      if (
+        (type === "EXPENSE" || type === "INVESTMENT") &&
+        investmentUsedAmountStored != null
+      ) {
+        // no-op: portion from another investment is not cash outflow
       } else {
       const sums = await sumByTypeForUser(db, userId);
       const bal = balanceFromSums(sums);

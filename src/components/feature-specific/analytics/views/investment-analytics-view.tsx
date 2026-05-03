@@ -250,7 +250,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
               {formatInr(allTimeGross)}
             </p>
             <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              Gross total (before used for expenses)
+              Gross total (before draws for spending or moving to another bucket)
             </p>
           </GlassCard>
 
@@ -267,7 +267,7 @@ export function InvestmentAnalyticsView({ data }: Props) {
             </p>
             <div className="mt-auto grid gap-1.5 pt-4 text-[11px] text-zinc-500">
               <div className="flex items-baseline justify-between gap-3">
-                <span>Used from investments</span>
+                <span>Drawn from investments</span>
                 <span className="font-semibold tabular-nums text-ink">
                   {formatInr(usedInvestmentAllTime)}
                 </span>
@@ -297,13 +297,14 @@ export function InvestmentAnalyticsView({ data }: Props) {
             panelClassName="!flex !min-h-0 !flex-1 !flex-col !p-5"
           >
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Used investment
+              Drawn total
             </p>
             <p className="mt-2 text-xl font-semibold text-indigo-100 tabular-nums">
               {formatInr(usedInvestmentAllTime)}
             </p>
             <p className="mt-auto pt-3 text-[11px] text-zinc-500">
-              All-time used for expenses · last 12 mo: {formatInr(usedInvestmentLast12Months)}
+              All-time drawn (spend + reallocations) · last 12 mo:{" "}
+              {formatInr(usedInvestmentLast12Months)}
             </p>
           </GlassCard>
         </div>
@@ -457,7 +458,9 @@ export function InvestmentAnalyticsView({ data }: Props) {
             All-time · subcategories
           </h2>
           <p className="mt-1 text-xs text-ink-muted">
-            Total till now · share is out of net {formatInr(allTimeTotal)}
+            Invested = money into each subcategory. Drawn = taken out (funded spend or moved to
+            another investment). Net = invested − drawn. Share is out of portfolio net{" "}
+            {formatInr(allTimeTotal)}.
           </p>
         </div>
         <GlassCard
@@ -467,19 +470,21 @@ export function InvestmentAnalyticsView({ data }: Props) {
           panelClassName="!p-0 !overflow-hidden"
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-left">
+            <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
                 <tr className="bg-white/3">
                   <Th>Parent</Th>
                   <Th>Subcategory</Th>
-                  <Th>Amount</Th>
+                  <Th>Invested</Th>
+                  <Th>Drawn</Th>
+                  <Th>Net</Th>
                   <Th>Share</Th>
                 </tr>
               </thead>
               <tbody className="[&_tr:hover]:bg-white/4">
                 {allTimeLeafRows.length === 0 ? (
                   <tr>
-                    <Td className="text-zinc-500" colSpan={4}>
+                    <Td className="text-zinc-500" colSpan={6}>
                       No investments yet.
                     </Td>
                   </tr>
@@ -488,7 +493,9 @@ export function InvestmentAnalyticsView({ data }: Props) {
                     <tr key={`${r.parentName}-${r.leafName}-${i}`}>
                       <Td className="text-zinc-400">{r.parentName}</Td>
                       <Td className="font-medium">{r.leafName}</Td>
-                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                      <Td className="tabular-nums">{formatInr(r.grossInvested)}</Td>
+                      <Td className="tabular-nums">{formatInr(r.drawn)}</Td>
+                      <Td className="tabular-nums font-medium">{formatInr(r.total)}</Td>
                       <Td className="text-zinc-400 tabular-nums">
                         {pctCell(r.shareOfAllTime)}
                       </Td>

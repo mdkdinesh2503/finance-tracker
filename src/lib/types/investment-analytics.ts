@@ -14,6 +14,11 @@ export type InvestmentLeafBreakdownRow = {
 export type InvestmentLeafAllTimeRow = {
   parentName: string;
   leafName: string;
+  /** Sum of INVESTMENT rows into this subcategory. */
+  grossInvested: number;
+  /** Sum of `investment_used_amount` drawn from this subcategory (expenses + cross-investment funding). */
+  drawn: number;
+  /** `grossInvested - drawn` (same as previous single “amount”). */
   total: number;
   shareOfAllTime: number;
 };
@@ -44,9 +49,9 @@ export type InvestmentAnalyticsSnapshot = {
   /** Sum of INVESTMENT totals across all time (before withdrawals used for expenses). */
   allTimeGross: number;
   allTimeTotal: number;
-  /** Sum of EXPENSE `investment_used_amount` across all time. */
+  /** Sum of `investment_used_amount` on EXPENSE and INVESTMENT rows (draws / reallocations). */
   usedInvestmentAllTime: number;
-  /** Sum of EXPENSE `investment_used_amount` in the same 12-month window as `monthlyTotals`. */
+  /** Same sum in the 12-month window as `monthlyTotals`. */
   usedInvestmentLast12Months: number;
   thisMonth: InvestmentPeriodSummary;
   lastMonth: InvestmentPeriodSummary;

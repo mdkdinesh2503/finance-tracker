@@ -10,6 +10,7 @@ import {
   OTHER_INCOME_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
+  investmentFundingSkipsAvailableBalanceCheck,
 } from "@/lib/constants/category-rules";
 
 const TX_TYPES = new Set<string>(TRANSACTION_TYPES);
@@ -465,9 +466,9 @@ async function main() {
       investmentUsedChildCategory.trim() ||
       investmentUsedAmountStr.trim();
     if (hasInvestmentUsed) {
-      if (txType !== "EXPENSE") {
+      if (txType !== "EXPENSE" && txType !== "INVESTMENT") {
         console.error(
-          `Row ${i + 1}: Investment Used columns are only valid for EXPENSE rows.`,
+          `Row ${i + 1}: Investment Used columns are only valid for EXPENSE or INVESTMENT rows.`,
         );
         process.exit(1);
       }
@@ -497,10 +498,43 @@ async function main() {
         );
         process.exit(1);
       }
+      if (txType === "INVESTMENT" && invCat.id === cat.id) {
+        console.error(
+          `Row ${i + 1}: Investment Used source must differ from this row's investment subcategory.`,
+        );
+        process.exit(1);
+      }
 
       investmentUsedAmount = used;
       investmentUsedCategoryId = invCat.id;
       investmentUsedParentCategoryId = invCat.parentId;
+
+      const fundingLeafName =
+        leafCategoryNameForImport(catRows, invCat)?.trim() ?? "";
+      if (!investmentFundingSkipsAvailableBalanceCheck(fundingLeafName)) {
+        const [netRow] = await db`
+          select
+            coalesce(sum(case when type = 'INVESTMENT' and category_id = ${invCat.id} then amount else 0 end)::text, '0') as invested,
+            coalesce(sum(case when type in ('EXPENSE', 'INVESTMENT') and investment_used_category_id = ${invCat.id} then investment_used_amount else 0 end)::text, '0') as used
+          from transactions
+          where user_id = ${userId}
+        `;
+        const investedN = Number(
+          String((netRow as { invested?: unknown } | undefined)?.invested ?? "0"),
+        );
+        const usedSoFarN = Number(
+          String((netRow as { used?: unknown } | undefined)?.used ?? "0"),
+        );
+        const available = investedN - usedSoFarN;
+        if (used > available + 1e-9) {
+          const src = `${investmentUsedParentCategory.trim()} / ${investmentUsedChildCategory.trim()}`;
+          console.error(
+            `Row ${i + 1}: funding "${src}" — need ${used.toFixed(2)} but only ${available.toFixed(2)} is free ` +
+              `(invested ${investedN.toFixed(2)}, already drawn ${usedSoFarN.toFixed(2)} in earlier rows or DB).`,
+          );
+          process.exit(1);
+        }
+      }
     }
 
     let locationId: string | null = null;

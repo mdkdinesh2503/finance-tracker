@@ -54,7 +54,7 @@ async function periodTotals(
     left join categories p
       on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
     where t.user_id = ${userId}
-      and t.type = 'EXPENSE'
+      and (t.type = 'EXPENSE' or t.type = 'INVESTMENT')
       and t.investment_used_amount is not null
       and t.transaction_date >= ${from}
       and t.transaction_date <= ${to}
@@ -149,7 +149,7 @@ export async function investmentAnalyticsSnapshot(
     select coalesce(sum(investment_used_amount)::text, '0') as total
     from transactions
     where user_id = ${userId}
-      and type = 'EXPENSE'
+      and (type = 'EXPENSE' or type = 'INVESTMENT')
       and investment_used_amount is not null
   `;
 
@@ -182,7 +182,7 @@ export async function investmentAnalyticsSnapshot(
     left join categories p
       on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
     where t.user_id = ${userId}
-      and t.type = 'EXPENSE'
+      and (t.type = 'EXPENSE' or t.type = 'INVESTMENT')
       and t.investment_used_amount is not null
       and t.transaction_date >= ${thisRange.from}
       and t.transaction_date <= ${thisRange.to}
@@ -225,7 +225,7 @@ export async function investmentAnalyticsSnapshot(
     left join categories l on l.id = t.investment_used_category_id and l.user_id = ${userId}
     left join categories p on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
     where t.user_id = ${userId}
-      and t.type = 'EXPENSE'
+      and (t.type = 'EXPENSE' or t.type = 'INVESTMENT')
       and t.investment_used_amount is not null
       and t.transaction_date >= ${thisRange.from}
       and t.transaction_date <= ${thisRange.to}
@@ -272,7 +272,7 @@ export async function investmentAnalyticsSnapshot(
     left join categories l on l.id = t.investment_used_category_id and l.user_id = ${userId}
     left join categories p on p.id = t.investment_used_parent_category_id and p.user_id = ${userId}
     where t.user_id = ${userId}
-      and t.type = 'EXPENSE'
+      and (t.type = 'EXPENSE' or t.type = 'INVESTMENT')
       and t.investment_used_amount is not null
     group by t.investment_used_parent_category_id, p.name, t.investment_used_category_id, l.name
   `;
@@ -283,23 +283,51 @@ export async function investmentAnalyticsSnapshot(
     usedAllTimeByLeafKey.set(key, num(r.total));
   }
 
-  const byLeafAllTimeSorted = (
-    byLeafAllTimeRaw as unknown as {
-      parent_name: string;
-      leaf_name: string;
-      total: string;
-    }[]
-  )
-    .map((r) => ({
-      parentName: r.parent_name ?? "Uncategorized",
-      leafName: r.leaf_name ?? "Uncategorized",
-      total:
-        num(r.total) -
-        (usedAllTimeByLeafKey.get(
-          `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`,
-        ) ?? 0),
-    }))
-    .sort((a, b) => b.total - a.total);
+  const grossRows = byLeafAllTimeRaw as unknown as {
+    parent_name: string;
+    leaf_name: string;
+    total: string;
+  }[];
+  const grossKeySet = new Set(
+    grossRows.map(
+      (r) =>
+        `${r.parent_name ?? "Uncategorized"}__${r.leaf_name ?? "Uncategorized"}`,
+    ),
+  );
+
+  const baseAllTimeLeaves = grossRows.map((r) => {
+    const parentName = r.parent_name ?? "Uncategorized";
+    const leafName = r.leaf_name ?? "Uncategorized";
+    const key = `${parentName}__${leafName}`;
+    const grossInvested = num(r.total);
+    const drawn = usedAllTimeByLeafKey.get(key) ?? 0;
+    return { parentName, leafName, grossInvested, drawn, total: grossInvested - drawn };
+  });
+
+  const usedOnlyLeaves: typeof baseAllTimeLeaves = [];
+  for (const r of byLeafAllTimeUsedRaw as unknown as {
+    parent_name: string;
+    leaf_name: string;
+    total: string;
+  }[]) {
+    const parentName = r.parent_name ?? "Uncategorized";
+    const leafName = r.leaf_name ?? "Uncategorized";
+    const key = `${parentName}__${leafName}`;
+    if (grossKeySet.has(key)) continue;
+    const drawn = num(r.total);
+    if (drawn <= 0) continue;
+    usedOnlyLeaves.push({
+      parentName,
+      leafName,
+      grossInvested: 0,
+      drawn,
+      total: -drawn,
+    });
+  }
+
+  const byLeafAllTimeSorted = [...baseAllTimeLeaves, ...usedOnlyLeaves].sort(
+    (a, b) => b.total - a.total,
+  );
 
   const monthlyInvestedRows = await db`
     select
@@ -320,7 +348,7 @@ export async function investmentAnalyticsSnapshot(
       coalesce(sum(investment_used_amount)::text, '0') as total
     from transactions
     where user_id = ${userId}
-      and type = 'EXPENSE'
+      and (type = 'EXPENSE' or type = 'INVESTMENT')
       and investment_used_amount is not null
       and transaction_date >= ${lookbackFrom}
       and transaction_date <= ${thisRange.to}

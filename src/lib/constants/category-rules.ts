@@ -13,3 +13,15 @@ export function giftRecipientRequiredForSubcategory(name: string): boolean {
     name,
   );
 }
+
+/** INVESTMENT leaf names that skip deposits-vs-draws when used as funding (chit-style). */
+const INVESTMENT_FUNDING_SKIP_AVAILABLE_BALANCE_LEAVES = ["Chit Fund"] as const;
+
+export function investmentFundingSkipsAvailableBalanceCheck(
+  fundingInvestmentLeafName: string,
+): boolean {
+  const n = fundingInvestmentLeafName.trim();
+  return (INVESTMENT_FUNDING_SKIP_AVAILABLE_BALANCE_LEAVES as readonly string[]).includes(
+    n,
+  );
+}

@@ -160,11 +160,18 @@ export function NewTransactionForm({
 
   const notesStepLabel = `${4 + (showSalaryCompany ? 1 : 0) + (showContactBlock ? 1 : 0)} · Extra`;
 
+  const allowInvestmentFunding = txType === "EXPENSE" || txType === "INVESTMENT";
+
   const investmentLeafOptions = useMemo(() => {
     return categories
-      .filter((c) => c.type === "INVESTMENT" && c.isSelectable)
+      .filter(
+        (c) =>
+          c.type === "INVESTMENT" &&
+          c.isSelectable &&
+          !(txType === "INVESTMENT" && c.id === categoryId),
+      )
       .map((c) => ({ id: c.id, name: c.name }));
-  }, [categories]);
+  }, [categories, txType, categoryId]);
 
   const locationOptions = useMemo(
     () => locations.map((l) => ({ id: l.id, name: l.name })),
@@ -233,11 +240,13 @@ export function NewTransactionForm({
     if (!txType) next.type = "Pick a transaction type";
     if (!date) next.date = "Pick a date";
     if (!time) next.time = "Pick a time";
-    if (txType === "EXPENSE" && fundedByInvestment) {
+    if (allowInvestmentFunding && fundedByInvestment) {
       if (!investmentUsedCategoryId) next.investmentUsedCategory = "Pick the investment subcategory";
       const u = Number(investmentUsedAmount);
       if (!Number.isFinite(u) || u <= 0) next.investmentUsedAmount = "Enter a valid investment-used amount";
-      if (Number.isFinite(u) && Number.isFinite(n) && u > n) next.investmentUsedAmount = "Cannot exceed expense amount";
+      if (Number.isFinite(u) && Number.isFinite(n) && u > n) {
+        next.investmentUsedAmount = "Cannot exceed transaction amount";
+      }
     }
     if (showContactBlock && !contactId) {
       next.contact = showGiftRecipient
@@ -264,11 +273,11 @@ export function NewTransactionForm({
         transactionDate: date,
         transactionTime: time,
         investmentUsedCategoryId:
-          txType === "EXPENSE" && fundedByInvestment
+          allowInvestmentFunding && fundedByInvestment
             ? (investmentUsedCategoryId ?? "")
             : "",
         investmentUsedAmount:
-          txType === "EXPENSE" && fundedByInvestment ? investmentUsedAmount : "",
+          allowInvestmentFunding && fundedByInvestment ? investmentUsedAmount : "",
       });
       if (!res.ok) {
         toast.error("Couldn’t save", { description: res.error });
@@ -431,7 +440,13 @@ export function NewTransactionForm({
                   onParentChange={onParentChange}
                   onSubChange={(id, t) => {
                     setCategoryId(id ?? "");
-                    setTxType(t ?? "");
+                    const nextType = (t ?? "") as TransactionType | "";
+                    setTxType(nextType);
+                    if (nextType !== "EXPENSE" && nextType !== "INVESTMENT") {
+                      setFundedByInvestment(false);
+                      setInvestmentUsedCategoryId(null);
+                      setInvestmentUsedAmount("");
+                    }
                   }}
                   error={errors.category}
                 />
@@ -454,12 +469,16 @@ export function NewTransactionForm({
               </div>
             </StepCard>
 
-            {txType === "EXPENSE" ? (
+            {allowInvestmentFunding ? (
               <StepCard>
                 <SectionLabel
                   step="04 · Funding"
                   title="Funded by investment?"
-                  hint="If you spent money by withdrawing from an investment (PF/RD/etc), enable this. It reduces investment totals and won’t block on cash balance."
+                  hint={
+                    txType === "INVESTMENT"
+                      ? "If this investment was funded by moving money from another bucket (e.g. RD into chit), enable this. Only the cash portion counts against your wallet balance."
+                      : "If you spent money by withdrawing from an investment (PF/RD/etc), enable this. It reduces investment totals and won’t block on cash balance."
+                  }
                 />
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/3 px-4 py-3">
@@ -550,7 +569,7 @@ export function NewTransactionForm({
                           </p>
                         ) : (
                           <p className="text-xs text-ink-muted">
-                            Must be ≤ expense amount.
+                            Must be ≤ transaction amount.
                           </p>
                         )}
                       </div>
