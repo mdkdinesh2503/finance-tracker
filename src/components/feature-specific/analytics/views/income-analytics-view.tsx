@@ -540,7 +540,7 @@ function OtherIncomeAnalyticsView({ data }: Props) {
 
       <section className="relative z-1 space-y-3">
         <h2 className="text-lg font-semibold tracking-tight text-ink">This month · subcategories</h2>
-        <p className="text-xs text-ink-muted">Leaf categories</p>
+        <p className="text-xs text-ink-muted">Leaf categories · {thisMonth.label}</p>
         <GlassCard variant="signature" hideAccent noLift panelClassName="!p-0 !overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-left">
@@ -560,6 +560,41 @@ function OtherIncomeAnalyticsView({ data }: Props) {
                   </tr>
                 ) : (
                   byLeafThisMonth.map((r, i) => (
+                    <tr key={`${r.parentName}-${r.leafName}-${i}`}>
+                      <Td className="text-ink-muted">{r.parentName}</Td>
+                      <Td className="font-medium">{r.leafName}</Td>
+                      <Td className="tabular-nums">{formatInr(r.total)}</Td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </section>
+
+      <section className="relative z-1 space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">All time · subcategories</h2>
+        <p className="text-xs text-ink-muted">Totals up to today · leaf categories</p>
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-0 !overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <Th>Parent</Th>
+                  <Th>Subcategory</Th>
+                  <Th>Total</Th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:hover]:bg-white/4">
+                {lifetimeByLeaf.length === 0 ? (
+                  <tr>
+                    <Td className="text-zinc-500" colSpan={3}>
+                      No Other Income recorded yet.
+                    </Td>
+                  </tr>
+                ) : (
+                  lifetimeByLeaf.map((r, i) => (
                     <tr key={`${r.parentName}-${r.leafName}-${i}`}>
                       <Td className="text-ink-muted">{r.parentName}</Td>
                       <Td className="font-medium">{r.leafName}</Td>

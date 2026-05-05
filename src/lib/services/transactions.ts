@@ -199,11 +199,32 @@ export async function dashboardMonthStats(
   start: string,
   end: string,
 ): Promise<DashboardMonthSlice> {
-  const range = sqlAnd(db, [
-    db`transaction_date >= ${start}`,
-    db`transaction_date <= ${end}`,
-  ]);
-  const sums = await sumByTypeForUser(db, userId, range);
+  // Dashboard "This month" should show gross INVESTMENT contributions,
+  // while still netting EXPENSE by subtracting any investment-funded portion.
+  const rows = await db`
+    select
+      type,
+      coalesce(
+        sum(
+          case
+            when type = 'EXPENSE' then amount - coalesce(investment_used_amount, 0)
+            when type = 'INVESTMENT' then amount
+            else amount
+          end
+        )::text,
+        '0'
+      ) as total
+    from transactions
+    where user_id = ${userId}
+      and transaction_date >= ${start}
+      and transaction_date <= ${end}
+    group by type
+  `;
+
+  const sums: Record<string, number> = {};
+  for (const r of rows) {
+    sums[String(r.type)] = num(r.total as string);
+  }
   return monthSliceFromSums(sums);
 }
 
