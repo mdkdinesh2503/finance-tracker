@@ -469,27 +469,77 @@ export function DashboardPanel({ data }: { data: DashboardPayload }) {
               <ul className="scrollbar-hide flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-lg bg-(--glass-simple-bg) shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 {recentActivity.map((row) => {
                   const loc = row.locationName?.trim() || "—";
+                  const contact = row.contactName?.trim() ?? "";
+                  const company = row.companyName?.trim() ?? "";
                   const when = formatActivityDateTime(row.transactionDate, row.transactionTime);
                   return (
                     <li key={row.id}>
-                      <div className="group/row relative flex gap-2 overflow-hidden rounded-lg border border-white/8 bg-white/3 px-2.5 py-2 transition-all duration-200 hover:border-blue-500/25 hover:bg-white/5 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.12)]">
+                      <div className="group/row relative flex items-start gap-2 overflow-hidden rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 transition-all duration-200 hover:border-blue-500/25 hover:bg-white/5 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.12)]">
                         <div
-                          className={`w-1 shrink-0 self-stretch rounded-full bg-linear-to-b ${transactionRailClass(row.type)} opacity-90 group-hover/row:opacity-100`}
+                          className={`mt-0.5 h-10 w-1 shrink-0 rounded-full bg-linear-to-b ${transactionRailClass(row.type)} opacity-90 group-hover/row:opacity-100`}
                           aria-hidden
                         />
+
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <p className="min-w-0 truncate text-xs font-medium leading-snug tracking-tight text-ink">
-                              {row.title}
-                            </p>
-                            <ActivityAmount compact type={row.type} amount={row.amount} />
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="min-w-0 truncate text-[13px] font-semibold leading-snug tracking-tight text-ink">
+                                {row.title}
+                              </p>
+                            </div>
+                            <div className="shrink-0">
+                              <ActivityAmount compact type={row.type} amount={row.amount} />
+                            </div>
                           </div>
-                          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                            <span className="text-[10px] tabular-nums text-ink-muted">{when}</span>
-                            <TransactionTypeBadge type={row.type} />
-                            <span className="min-w-0 truncate text-[9px] font-medium uppercase tracking-wide text-(--ink-muted-2)">
-                              {loc}
+
+                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center rounded-md border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] tabular-nums text-ink-muted">
+                              {when}
                             </span>
+
+                            <TransactionTypeBadge type={row.type} />
+
+                            <span className="inline-flex min-w-0 items-center rounded-md border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] font-medium text-(--ink-muted-2)">
+                              <span className="min-w-0 truncate">{loc}</span>
+                            </span>
+
+                            {contact ? (
+                              <span className="inline-flex min-w-0 items-center gap-1 rounded-md border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] text-ink-muted">
+                                <svg
+                                  className="h-3 w-3 shrink-0 text-ink-muted"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={1.75}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 19a6 6 0 00-12 0m12 0a6 6 0 0112 0m-12 0v1m0-11a4 4 0 100-8 4 4 0 000 8zm12 0a4 4 0 100-8 4 4 0 000 8z"
+                                  />
+                                </svg>
+                                <span className="min-w-0 truncate">{contact}</span>
+                              </span>
+                            ) : null}
+
+                            {company ? (
+                              <span className="inline-flex min-w-0 items-center gap-1 rounded-md border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] text-ink-muted">
+                                <svg
+                                  className="h-3 w-3 shrink-0 text-ink-muted"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth={1.75}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M3 21h18M6 21V7a2 2 0 012-2h8a2 2 0 012 2v14M9 9h1m-1 3h1m-1 3h1m4-6h1m-1 3h1m-1 3h1"
+                                  />
+                                </svg>
+                                <span className="min-w-0 truncate">{company}</span>
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>

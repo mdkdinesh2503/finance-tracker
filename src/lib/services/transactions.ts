@@ -290,7 +290,9 @@ export async function recentActivityForDashboard(
       t.transaction_time::text as transaction_time,
       cat.name as category_name,
       pc.name as parent_category_name,
-      loc.name as location_name
+      loc.name as location_name,
+      ct.name as contact_name,
+      co.name as company_name
     from transactions t
     left join categories cat
       on cat.id = t.category_id and cat.user_id = ${userId}
@@ -298,6 +300,10 @@ export async function recentActivityForDashboard(
       on pc.id = t.parent_category_id and pc.user_id = ${userId}
     left join locations loc
       on loc.id = t.location_id and loc.user_id = ${userId}
+    left join contacts ct
+      on ct.id = t.contact_id and ct.user_id = ${userId}
+    left join companies co
+      on co.id = t.company_id and co.user_id = ${userId}
     where t.user_id = ${userId}
       and t.transaction_date >= ${fromDateStr}
       and t.transaction_date <= ${toDateStr}
@@ -319,6 +325,8 @@ export async function recentActivityForDashboard(
       transactionDate: String(r.transaction_date),
       transactionTime: String(r.transaction_time),
       locationName: r.location_name != null ? String(r.location_name) : null,
+      contactName: r.contact_name != null ? String(r.contact_name) : null,
+      companyName: r.company_name != null ? String(r.company_name) : null,
     };
   });
 }

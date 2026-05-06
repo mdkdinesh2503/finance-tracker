@@ -251,3 +251,4 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 05-05-2026,12:00:00,EXPENSE,200,Transport,Local Travel,Hyderabad,,,Rapido,,,
 05-05-2026,22:00:00,BORROW,20000,Personal Borrowing,Emergency Borrowing,Hyderabad,Mayur,,Money (Emergency),,,
 05-05-2026,23:30:00,REPAYMENT,2500,Debt Settlement,Full Repayment,Hyderabad,Naren Mamz,,Resettled the Money,,,
+06-05-2026,10:00:00,LEND,2000,Friends & Family Loan,Loan to Friend,Hyderabad,Meiyarasan,,Money Giveaway,,,

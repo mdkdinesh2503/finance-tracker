@@ -61,6 +61,8 @@ export type DashboardRecentRow = {
   transactionDate: string;
   transactionTime: string;
   locationName: string | null;
+  contactName: string | null;
+  companyName: string | null;
 };
 
 /** Full dashboard: monthly slices, cumulative metrics, trend chart, recent list. */
