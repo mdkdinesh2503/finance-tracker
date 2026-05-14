@@ -5,6 +5,7 @@ export const DEFAULT_LOCATIONS = [
   "Chennai",
   "General",
   "Pondicherry",
+  "Erode"
 ] as const;
 
 export const DEFAULT_CONTACTS = [
