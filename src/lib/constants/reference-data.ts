@@ -18,7 +18,9 @@ export const DEFAULT_CONTACTS = [
   "Mayu Ather",
   "Nandhini",
   "Naren Mamz",
-  "Mayur"
+  "Mayur",
+  "Issai Kutty",
+  "Harini Kutty"
 ] as const;
 
 export const DEFAULT_COMPANIES = ["Aretedge", "Family"] as const;
