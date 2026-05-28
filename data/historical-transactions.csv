@@ -213,7 +213,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 31-03-2026,12:00:00,EXPENSE,860,Essential Housing & Utilities,Mobile Recharge,Hyderabad,Myself,,Samsung S24 (Airtel),,,
 31-03-2026,12:00:00,EXPENSE,350,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Phone Temper Glass,,,
 31-03-2026,12:00:00,EXPENSE,450,Subscriptions & Entertainment,Movies & Outings,Home,,,Youth Movie,,,
-31-03-2026,12:00:00,BORROW,6000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Birthday Celebration),,,
+31-03-2026,12:00:00,INCOME,6000,Other Income,Family Support,Home,,Family,Money (Birthday Celebration),,,
 25-03-2026,12:00:00,EXPENSE,520,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Sweets,,,
 25-03-2026,12:00:00,EXPENSE,5500,Food & Dining,Treats & Parties,Hyderabad,,,Birthday Treat,,,
 31-03-2026,12:00:00,EXPENSE,288,Health & Wellness,Personal Care,Hyderabad,,,Body wash (Guava Tini DeTan),,,
@@ -242,7 +242,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 21-04-2026,12:00:00,EXPENSE,55,Transport,Local Travel,Hyderabad,,,Rapido,,,
 21-04-2026,12:00:00,EXPENSE,750,Shopping & Lifestyle,Clothing,Home,,,Dress Purchase,,,
 01-05-2026,12:00:00,EXPENSE,100,Shopping & Lifestyle,Personal Purchases,Pondicherry,,,Bracelet,,,
-01-05-2026,12:00:00,BORROW,5000,Personal Borrowing,Borrow from Family,Home,Appa,,Money (Travel),,,
+01-05-2026,12:00:00,INCOME,5000,Other Income,Family Support,Home,,Family,Money (Travel),,,
 02-05-2026,12:00:00,EXPENSE,4000,Transport,Trips & Vacations,Pondicherry,,,Resort & Beach,,,
 02-05-2026,12:00:00,EXPENSE,120,Transport,Local Travel,Pondicherry,,,Rapido,,,
 03-05-2026,12:00:00,EXPENSE,530,Gifts & Occasions,Birthday Gifts,Home,Naren Mamz,,Birthday Shares,,,
@@ -262,7 +262,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 11-05-2026,12:00:00,EXPENSE,200,Food & Dining,Eating Out,Home,,,Food (Mushroom & Others),,,
 11-05-2026,12:00:00,EXPENSE,100,Essential Housing & Utilities,Mobile Recharge,Home,Myself,,Samsung S24 (Airtel) - Extra Topup,,,
 11-05-2026,12:00:00,EXPENSE,184,Food & Dining,Snacks,Home,,,Snacks,,,
-12-05-2026,19:00:00,EXPENSE,2150,Shopping & Lifestyle,Clothing,Erode,,,Dress Purchase,,,
+12-05-2026,19:00:00,EXPENSE,2150,Shopping & Lifestyle,Clothing,Erode,,,Dress Purchase,Financial & Obligations,Mutual Funds,2000
 13-05-2026,12:00:00,EXPENSE,580,Health & Wellness,Personal Care,Home,,,Shampoo (Sabamed Anti Dandruf),,,
 13-05-2026,12:00:00,EXPENSE,224,Food & Dining,Snacks,Home,,,Snacks (Kanna Super Market),,,
 13-05-2026,12:00:00,EXPENSE,300,Transport,Fuel,Home,,,Petrol,,,
@@ -273,3 +273,4 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 24-05-2026,12:00:00,EXPENSE,50,Food & Dining,Eating Out,Home,,,Food (Grill & Egg),,,
 25-05-2026,12:00:00,EXPENSE,670,Gifts & Occasions,Personal Gifts,Home,Harini Kutty,,Toys (Isai & Harini),,,
 27-05-2026,12:00:00,EXPENSE,200,Transport,Fuel,Home,,,Petrol,,,
+28-05-2026,12:10:00,EXPENSE,8980,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Air Cooler (Kenstar),Cash Savings,Chit Fund,8980
