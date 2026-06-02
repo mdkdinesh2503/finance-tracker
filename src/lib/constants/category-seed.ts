@@ -18,15 +18,15 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     name: "Essential Housing & Utilities",
     children: [
       { name: "Rent", sortOrder: 0 },
-      { name: "Home Loan EMI", sortOrder: 1 },
-      { name: "Advance / Deposit", sortOrder: 2 },
-      { name: "Electricity Bill", sortOrder: 3 },
-      { name: "Water Bill", sortOrder: 4 },
-      { name: "Gas Bill", sortOrder: 5 },
-      { name: "Mobile Recharge", sortOrder: 6 },
-      { name: "Internet / WiFi", sortOrder: 7 },
-      { name: "DTH / Cable", sortOrder: 8 },
-      { name: "Home Repairs", sortOrder: 9 },
+      { name: "Electricity Bill", sortOrder: 1 },
+      { name: "Water Bill", sortOrder: 2 },
+      { name: "Gas Bill", sortOrder: 3 },
+      { name: "Mobile Recharge", sortOrder: 4 },
+      { name: "Internet / WiFi", sortOrder: 5 },
+      { name: "DTH / Cable", sortOrder: 6 },
+      { name: "Home Repairs", sortOrder: 7 },
+      { name: "Home Loan EMI", sortOrder: 8 },
+      { name: "Advance / Deposit", sortOrder: 9 },
     ],
   },
   {
@@ -47,9 +47,7 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
       { name: "Electronics & Gadgets", sortOrder: 1 },
       { name: "Household Items", sortOrder: 2 },
       { name: "Repairs & Accessories", sortOrder: 3 },
-      { name: "Personal Purchases", sortOrder: 4 },
-      { name: "Education", sortOrder: 5 },
-      { name: "Kids Items", sortOrder: 6 },
+      { name: "Personal Purchases", sortOrder: 4 }
     ],
   },
   {
@@ -68,13 +66,12 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     type: "EXPENSE",
     name: "Health & Wellness",
     children: [
-      { name: "Medicines", sortOrder: 0 },
-      { name: "Doctor / Clinic", sortOrder: 1 },
-      { name: "Hospitalization", sortOrder: 2 },
-      { name: "Health Insurance", sortOrder: 3 },
-      { name: "Personal Care", sortOrder: 4 },
-      { name: "Fitness", sortOrder: 5 },
-      { name: "Laundry & Cleaning", sortOrder: 6 },
+      { name: "Personal Care", sortOrder: 0 },
+      { name: "Hospital", sortOrder: 1 },
+      { name: "Medicines", sortOrder: 2 },
+      { name: "Laundry & Cleaning", sortOrder: 3 },
+      { name: "Fitness", sortOrder: 4 },
+      { name: "Health Insurance", sortOrder: 5 },
     ],
   },
   {
@@ -84,7 +81,6 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
       { name: "OTT Subscriptions", sortOrder: 0 },
       { name: "Software Subscriptions", sortOrder: 1 },
       { name: "Movies & Outings", sortOrder: 2 },
-      { name: "Events & Tourism", sortOrder: 3 },
     ],
   },
   {
@@ -92,15 +88,15 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
     name: "Gifts & Occasions",
     children: [
       { name: "Birthday Gifts", sortOrder: 0 },
-      { name: "Festival Gifts", sortOrder: 1 },
-      { name: "Family Events", sortOrder: 2 },
+      { name: "Public Festivals", sortOrder: 1 },
+      { name: "Family Festivals", sortOrder: 2 },
       { name: "Personal Gifts", sortOrder: 3 },
     ],
   },
   {
     type: "EXPENSE",
     name: "Miscellaneous",
-    children: [{ name: "Cash Withdrawal", sortOrder: 0 }],
+    children: [{ name: "Cash Amount", sortOrder: 0 }],
   },
   {
     type: "INVESTMENT",
@@ -115,7 +111,7 @@ export const CATEGORY_SEED_WITH_CHILDREN: readonly CategorySeedParent[] = [
   },
   {
     type: "INVESTMENT",
-    name: "Cash Savings",
+    name: "Savings & Contributions",
     children: [
       { name: "Chit Fund", sortOrder: 0 },
       { name: "Emergency Fund", sortOrder: 1 },
