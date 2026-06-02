@@ -273,6 +273,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 24-05-2026,12:00:00,EXPENSE,50,Food & Dining,Eating Out,Home,,,Food (Grill & Egg),,,
 25-05-2026,12:00:00,EXPENSE,670,Gifts & Occasions,Personal Gifts,Home,Harini Kutty,,Toys (Isai & Harini),,,
 27-05-2026,12:00:00,EXPENSE,200,Transport,Fuel,Home,,,Petrol,,,
-28-05-2026,12:10:00,EXPENSE,8980,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Air Cooler (Kenstar),Savings & Contributions,Chit Fund,8980
+28-05-2026,12:10:00,EXPENSE,9000,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Air Cooler (Kenstar),Savings & Contributions,Chit Fund,9000
 29-05-2026,12:00:00,EXPENSE,145,Food & Dining,Groceries,Home,,,Groceries (Mavu & Cauliflower),,,
 01-06-2026,12:00:00,EXPENSE,750,Subscriptions & Entertainment,Software Subscriptions,Home,,,Naukri Pro,,,
+02-06-2026,12:00:00,INVESTMENT,2000,Savings & Contributions,Chit Fund,Home,,,Family Chit,,,
+02-06-2026,12:00:00,EXPENSE,500,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Temper & BackCase (S24),,,
