@@ -278,3 +278,8 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 01-06-2026,12:00:00,EXPENSE,750,Subscriptions & Entertainment,Software Subscriptions,Home,,,Naukri Pro,,,
 02-06-2026,12:00:00,INVESTMENT,2000,Savings & Contributions,Chit Fund,Home,,,Family Chit,,,
 02-06-2026,12:00:00,EXPENSE,500,Shopping & Lifestyle,Electronics & Gadgets,Home,,,Temper & BackCase (S24),,,
+03-06-2026,12:00:00,EXPENSE,140,Food & Dining,Snacks,Home,,,Snacks,,,
+04-06-2026,12:00:00,EXPENSE,200,Transport,Fuel,Home,,,Petrol,,,
+08-06-2026,12:00:00,EXPENSE,1200,Essential Housing & Utilities,Mobile Recharge,Home,Myself,,Samsung S24 (Airtel),,,
+10-06-2026,12:00:00,EXPENSE,200,Food & Dining,Eating Out,Home,,,Food (Chilli with Manoj),,,
+10-06-2026,12:00:00,EXPENSE,200,Food & Dining,Eating Out,Home,,,Food (Narmatha Chicken),,,
