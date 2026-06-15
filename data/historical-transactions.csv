@@ -282,4 +282,7 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 04-06-2026,12:00:00,EXPENSE,200,Transport,Fuel,Home,,,Petrol,,,
 08-06-2026,12:00:00,EXPENSE,1200,Essential Housing & Utilities,Mobile Recharge,Home,Myself,,Samsung S24 (Airtel),,,
 10-06-2026,12:00:00,EXPENSE,200,Food & Dining,Eating Out,Home,,,Food (Chilli with Manoj),,,
-10-06-2026,12:00:00,EXPENSE,200,Food & Dining,Eating Out,Home,,,Food (Narmatha Chicken),,,
+10-06-2026,12:00:00,EXPENSE,250,Food & Dining,Eating Out,Home,,,Food (Narmatha Chicken),,,
+12-06-2026,10:00:00,EXPENSE,160,Food & Dining,Eating Out,Home,,,Food (Chilli),,,
+12-06-2026,12:00:00,EXPENSE,70,Food & Dining,Groceries,Home,,,Groceries (Mavu & Cauliflower),,,
+13-06-2026,12:00:00,EXPENSE,925,Food & Dining,Treats & Parties,Home,,,Vangili Resturent (School Treat),Savings & Contributions,Chit Fund,925
