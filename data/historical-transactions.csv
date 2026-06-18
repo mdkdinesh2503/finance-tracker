@@ -286,3 +286,5 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 12-06-2026,10:00:00,EXPENSE,160,Food & Dining,Eating Out,Home,,,Food (Chilli),,,
 12-06-2026,12:00:00,EXPENSE,70,Food & Dining,Groceries,Home,,,Groceries (Mavu & Cauliflower),,,
 13-06-2026,12:00:00,EXPENSE,925,Food & Dining,Treats & Parties,Home,,,Vangili Resturent (School Treat),Savings & Contributions,Chit Fund,925
+17-06-2026,12:00:00,EXPENSE,260,Food & Dining,Eating Out,Home,,,Food (Briyani),,,
+18-06-2026,05:09:00,EXPENSE,354,Shopping & Lifestyle,Personal Purchases,Home,,,Axis DebitCard Charges,Savings & Contributions,Chit Fund,354
