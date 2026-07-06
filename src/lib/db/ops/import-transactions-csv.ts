@@ -498,12 +498,12 @@ async function main() {
         );
         process.exit(1);
       }
-      if (txType === "INVESTMENT" && invCat.id === cat.id) {
-        console.error(
-          `Row ${i + 1}: Investment Used source must differ from this row's investment subcategory.`,
-        );
-        process.exit(1);
-      }
+      // if (txType === "INVESTMENT" && invCat.id === cat.id) {
+      //   console.error(
+      //     `Row ${i + 1}: Investment Used source must differ from this row's investment subcategory.`,
+      //   );
+      //   process.exit(1);
+      // }
 
       investmentUsedAmount = used;
       investmentUsedCategoryId = invCat.id;
@@ -530,7 +530,7 @@ async function main() {
           const src = `${investmentUsedParentCategory.trim()} / ${investmentUsedChildCategory.trim()}`;
           console.error(
             `Row ${i + 1}: funding "${src}" — need ${used.toFixed(2)} but only ${available.toFixed(2)} is free ` +
-              `(invested ${investedN.toFixed(2)}, already drawn ${usedSoFarN.toFixed(2)} in earlier rows or DB).`,
+            `(invested ${investedN.toFixed(2)}, already drawn ${usedSoFarN.toFixed(2)} in earlier rows or DB).`,
           );
           process.exit(1);
         }
@@ -625,22 +625,22 @@ async function main() {
 
     await db`
       insert into transactions ${db({
-        user_id: userId,
-        type: txType as TransactionType,
-        amount: amt.toFixed(2),
-        category_id: cat.id,
-        parent_category_id: cat.parentId,
-        investment_used_amount: investmentUsedAmount != null ? investmentUsedAmount.toFixed(2) : null,
-        investment_used_category_id: investmentUsedCategoryId,
-        investment_used_parent_category_id: investmentUsedParentCategoryId,
-        location_id: locationId,
-        contact_id: contactId,
-        company_id: companyId,
-        account_id: (accRow as { id: string }).id,
-        note: noteTrim,
-        transaction_date: datePg,
-        transaction_time: timeNorm,
-      })}
+      user_id: userId,
+      type: txType as TransactionType,
+      amount: amt.toFixed(2),
+      category_id: cat.id,
+      parent_category_id: cat.parentId,
+      investment_used_amount: investmentUsedAmount != null ? investmentUsedAmount.toFixed(2) : null,
+      investment_used_category_id: investmentUsedCategoryId,
+      investment_used_parent_category_id: investmentUsedParentCategoryId,
+      location_id: locationId,
+      contact_id: contactId,
+      company_id: companyId,
+      account_id: (accRow as { id: string }).id,
+      note: noteTrim,
+      transaction_date: datePg,
+      transaction_time: timeNorm,
+    })}
     `;
     inserted++;
   }
@@ -659,6 +659,6 @@ main()
   })
   .catch(async (e) => {
     console.error(e);
-    await closeDatabaseConnection().catch(() => {});
+    await closeDatabaseConnection().catch(() => { });
     process.exit(1);
   });
