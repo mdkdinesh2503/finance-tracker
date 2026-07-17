@@ -287,14 +287,19 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 12-06-2026,12:00:00,EXPENSE,70,Food & Dining,Groceries,Home,,,Groceries (Mavu & Cauliflower),,,
 13-06-2026,12:00:00,EXPENSE,925,Food & Dining,Treats & Parties,Home,,,Vangili Resturent (School Treat),Savings & Contributions,Chit Fund,925
 17-06-2026,12:00:00,EXPENSE,260,Food & Dining,Eating Out,Home,,,Food (Briyani),,,
-18-06-2026,05:09:00,EXPENSE,354,Shopping & Lifestyle,Personal Purchases,Home,,,Axis DebitCard Charges,Savings & Contributions,Chit Fund,354
+18-06-2026,05:09:00,EXPENSE,355,Shopping & Lifestyle,Personal Purchases,Home,,,Axis DebitCard Charges,Savings & Contributions,Chit Fund,355
 01-07-2026,05:09:00,EXPENSE,2500,Gifts & Occasions,Public Festivals,Home,,,Mariamman Katalai,Savings & Contributions,Chit Fund,2500
-01-07-2026,12:00:00,INCOME,500,Other Income,Family Support,Home,,Family,Money (Insufficient),,,
-01-07-2026,12:00:00,EXPENSE,200,Health & Wellness,Personal Care,Home,,,Hair cut,,,
+01-07-2026,12:00:00,INCOME,5000,Other Income,Family Support,Home,,Family,Money (Insufficient),,,
+01-07-2026,12:00:00,EXPENSE,200,Health & Wellness,Personal Care,Home,,,Hair cut,Savings & Contributions,Chit Fund,200
 02-07-2026,12:00:00,EXPENSE,50,Essential Housing & Utilities,Home Repairs,Home,,,Mamz (c type - vga Gadget Wire),,,
-02-07-2026,12:00:00,EXPENSE,40,Health & Wellness,Medicines,Home,,,Tablets for Mamz,,,
+02-07-2026,12:00:00,EXPENSE,20,Health & Wellness,Medicines,Home,,,Tablets for Mamz,Savings & Contributions,Chit Fund,20
 02-07-2026,12:00:00,EXPENSE,60,Essential Housing & Utilities,Internet / WiFi,Home,,,SMS Charges (June Month),,,
 02-07-2026,12:00:00,EXPENSE,250,Health & Wellness,Personal Care,Home,,,Photo Shoot ,,,
-02-07-2026,12:00:00,EXPENSE,240,Food & Dining,Snacks,Home,,,Snacks,,,
+02-07-2026,12:00:00,EXPENSE,525,Food & Dining,Snacks,Home,,,Snacks,,,
 05-07-2026,12:00:00,INVESTMENT,2000,Savings & Contributions,Chit Fund,Home,,,Family Chit,Savings & Contributions,Chit Fund,2000
 05-07-2026,12:00:00,INVESTMENT,2000,Savings & Contributions,Chit Fund,Home,,,Family Chit,Savings & Contributions,Chit Fund,2000
+08-07-2026,12:00:00,EXPENSE,1500,Subscriptions & Entertainment,Software Subscriptions,Home,,,Naukri Pro,,,
+09-07-2026,12:00:00,EXPENSE,250,Food & Dining,Eating Out,Home,,,Food (Chilli),,,
+10-07-2026,21:00:00,EXPENSE,1200,Transport,Travel Outstation,General,,,Nkl - Chennai (Buss),,,
+10-07-2026,12:00:00,EXPENSE,660,Food & Dining,Eating Out,Chennai,,,Food (Briyani),,,
+11-07-2026,21:00:00,EXPENSE,885,Transport,Travel Outstation,General,,,Chennai - Nkl (Buss),,,
