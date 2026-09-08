@@ -1,196 +1,346 @@
-# Finance Tracker
+# Personal Finance Tracker
 
-Personal finance tracker built with **Next.js App Router** and **PostgreSQL** (no ORM).
+A full-stack, self-hosted personal finance tracking and ledger web application built with **Next.js 16 (App Router)** and **PostgreSQL (raw SQL via `postgres.js`, no ORM)**.
 
-## 🎯 Project Overview
-This project is a comprehensive, self-hosted personal finance management application. It is designed to give you complete control over your financial data with a fast, modern interface. It allows you to track expenses, income, and investments, all while supporting advanced categorization rules and robust analytics.
+---
 
-## ✨ Features
-- **Secure Authentication**: Full user login, registration, and session management.
-- **Interactive Dashboard**: A high-level, visual overview of your financial health.
-- **Transaction Management**: Log various types of transactions including Expenses, Income, Borrowing, Repayment, Investments, and Adjustments.
-- **Multi-Dimensional Categorization**:
-  - **Accounts**: Track balances across multiple accounts (e.g., Cash, Bank).
-  - **Hierarchical Categories**: Group transactions with parent-child category relationships.
-  - **Tags & Metadata**: Link transactions to specific Contacts, Companies, and Locations.
-- **Automation Rules Engine**: Define keyword-based rules to automatically assign categories, contacts, and locations to transactions.
-- **Analytics & Reporting**: Generate visualizations and charts to analyze spending trends over time.
-- **Bulk Data Import**: Easily import historical transactions from CSV files.
-- **Row-Level Security (RLS)**: Enforces strict data isolation at the database level to ensure privacy.
+## 📌 Executive Q&A (Quick Reference)
 
-## 📐 Architecture & Data Flow
+| Question | Answer |
+| :--- | :--- |
+| **Authentication Method** | **Custom JWT + Secure HTTP-only Cookie (`pf_session`)** using `jose` and `@node-rs/argon2` for password hashing. *(No NextAuth, No Supabase Auth library dependency).* |
+| **Database Engine & Client** | **PostgreSQL (Compatible with Neon Postgres, Supabase, AWS RDS, Render, Local)**. Queried via **`postgres.js` tagged template literals (No ORM; Drizzle was completely removed)**. |
+| **Row-Level Security (RLS)** | Tables have RLS enabled (`ENABLE ROW LEVEL SECURITY`) at the PostgreSQL layer. However, since the Next.js server connects via direct connection string, tenant isolation is explicitly enforced across all SQL queries (`WHERE user_id = $userId`). |
+| **Analytics & Charts** | Built with **Recharts**. Includes **Monthly Trends (Income vs Expense vs Investments)**, **Parent Category breakdowns**, **Location expense pie charts**, **Salary vs Employer trends**, **Investment asset allocation & contribution history**, and **Lending/Borrowing delta analysis**. |
+| **CSV Import & Export** | **Import:** Robust CLI engine (`bun run db:data`) supporting v1–v5 CSV schemas with investment funding validations and automatic category mapping.<br>**Export:** Both dynamic in-app CSV filter export (`TransactionsView`) and full data export API route (`/api/export/transactions`). |
+| **Deployment Target** | Optimized for **Vercel** serverless functions with connection pool tuning (`DATABASE_DISABLE_PREPARE`, pool size limits, edge middleware) or Docker/Node.js environments. |
 
-### Application Architecture
-The application leverages Next.js App Router for full-stack capabilities, utilizing React Server Components and Server Actions to interact securely with the PostgreSQL database.
+---
+
+## 🏗 System Architecture & Data Flow
+
+The application is architected around **React Server Components (RSC)**, **Next.js Server Actions**, and **Raw SQL queries** with strict multi-tenant scoping.
 
 ```mermaid
-graph TD
-    Client[Client Browser]
-    
-    subgraph "Next.js App Router (Server)"
-        UI[React Server Components]
-        SA[Server Actions / API]
-        Services[Business Logic & Services]
-        DBClient[Database Driver / postgres]
+flowchart TD
+    subgraph Browser ["Client Browser (Next.js 16 Client)"]
+        UI[UI Components / Forms / Charts]
+        State[Zustand Stores / URL SearchParams]
     end
-    
-    Database[(PostgreSQL DB)]
-    
-    Client -- "User Interaction" --> UI
-    UI -- "Form Submit / Mutation" --> SA
-    SA -- "Process Data" --> Services
-    Services -- "SQL Query" --> DBClient
-    DBClient -- "Execute & Fetch" --> Database
-    Database -- "Result" --> DBClient
-    DBClient -- "Data" --> Services
-    Services -- "Response" --> SA
-    SA -- "Revalidate & Update" --> UI
-    UI -- "Rendered HTML / RSC Payload" --> Client
+
+    subgraph Edge ["Edge / Routing Layer"]
+        MW[Next.js Middleware: Session & Route Guard]
+    end
+
+    subgraph Server ["Server Environment (Node / Serverless)"]
+        RSC[React Server Components]
+        SA[Server Actions]
+        API[Route Handlers /api/export]
+        AuthService[Auth Service: Argon2 + Jose JWT]
+        TxService[Ledger & Analytics SQL Services]
+        DBClient[postgres.js Connection Pool]
+    end
+
+    subgraph Database ["PostgreSQL (Neon / Supabase / Self-Hosted)"]
+        PG[(Postgres Database: users, transactions, categories, accounts, rules...)]
+    end
+
+    UI -->|Request / Navigation| MW
+    MW -->|Authorized| RSC
+    MW -->|Unauthorized| UI
+    UI -->|Mutations / Actions| SA
+    UI -->|CSV Download| API
+    RSC --> TxService
+    SA --> AuthService
+    SA --> TxService
+    API --> DBClient
+    AuthService --> DBClient
+    TxService --> DBClient
+    DBClient -->|Parameterized SQL Queries| PG
+    PG -->|Result Sets| DBClient
+    DBClient --> RSC
+    RSC -->|RSC Payload / Streamed HTML| UI
 ```
 
-### Database Schema (ER Diagram)
-The database is designed with strong referential integrity, supporting multi-dimensional transaction tagging and row-level security.
+---
+
+## 🔐 Authentication & Session Lifecycle
+
+Authentication is built with high-security zero-trust primitives without external third-party authentication services:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client Browser
+    participant MW as Middleware (Edge)
+    participant SA as Server Actions (loginAction / signupAction)
+    participant DB as PostgreSQL
+    participant Cookie as HTTP-Only Cookie (pf_session)
+
+    Note over User,SA: Signup & Login Flow
+    User->>SA: Submit email + password
+    SA->>SA: Validate schema via Zod
+    SA->>DB: Query user by email
+    SA->>SA: Verify Argon2 hash (@node-rs/argon2)
+    SA->>SA: Sign JWT (jose: HS256, 7-day TTL, claims: sub, email)
+    SA->>Cookie: Set HTTP-only, Secure, SameSite=Lax cookie
+    SA-->>User: Redirect to /dashboard
+
+    Note over User,MW: Authenticated Request Flow
+    User->>MW: Request protected route (/dashboard, /transactions, /analytics, /settings)
+    MW->>Cookie: Extract pf_session token
+    MW->>MW: Verify JWT signature & expiration via jose
+    alt Invalid / Expired Token
+        MW-->>User: Redirect to /login?next=...
+    else Valid Token
+        MW-->>User: Forward request to React Server Component
+    end
+```
+
+### Key Security Specifications:
+- **Password Hashing**: `@node-rs/argon2` with memory cost `19456`, time cost `2`, parallelism `1`.
+- **JWT Signing**: `jose` library using `HS256` signed with `JWT_SECRET`.
+- **Session Delivery**: Secure, `httpOnly`, `SameSite: Lax` cookie named `pf_session`.
+- **Edge Middleware**: Verifies token validity before hitting any private page route.
+
+---
+
+## 📊 Core Features & Modules
+
+### 1. 🎛 Dashboard & Financial Summary
+- **Live Cash Balance**: Real-time computed net liquidity across accounts.
+- **Monthly Summary Cards**: Income, expenses, net savings, and savings rate percentage.
+- **Recent Transactions Ledger**: Quick view of latest activity with drill-down capabilities.
+- **Unsettled Balances Indicator**: Visual alerts for active loans and borrowings.
+
+### 2. 💸 Transaction Engine & Double-Entry Ledger
+Supports 8 first-class financial transaction types:
+- `EXPENSE`: Daily spending tagged to parent/child categories.
+- `INCOME`: Salary, wages, bonuses, freelance earnings.
+- `BORROW`: Borrowing from contacts/entities with repayment tracking.
+- `REPAYMENT`: Debt settlement reducing borrow balance.
+- `LEND`: Lending money to friends or contacts.
+- `RECEIVE`: Loan recovery reducing loan balance.
+- `INVESTMENT`: Capital allocation into Chit Funds, Mutual Funds, PF, RD, Stocks, etc.
+- `ADJUSTMENT`: Reconciliation entries for balance adjustments.
+- **Investment-Funded Expense Tracking**: Record expenses funded directly from liquidated investment assets.
+
+### 3. 📈 In-Depth Analytics & Interactive Charts
+Powered by `recharts` and optimized SQL aggregation pipelines:
+- **Monthly Trends Chart**: Multi-line visualization tracking Income, Expenses, and Investments over time.
+- **Category-Wise Expense Breakdown**: Horizontal bar chart sorting spending across parent categories.
+- **Location Spending**: Pie chart analyzing geographical expense distribution.
+- **Salary & Employer Insights (`/analytics/income/salary`)**: Historical salary progression grouped by employer.
+- **Investments Tracker (`/analytics/investments`)**: Asset distribution and monthly contribution trends.
+- **Lending & Debt Analytics (`/analytics/lending`)**: Net loan positions per person and repayment timelines.
+
+### 4. ⚡ Automation Rules Engine
+- Define custom keyword-based rules (e.g. `rapido` $\rightarrow$ Transport / Local Travel, `salary` $\rightarrow$ Income / Salary).
+- Form inputs automatically suggest and autofill categories, locations, and contacts based on keywords matching descriptions/notes.
+
+### 5. 📂 Bulk CSV Import & Data Export
+- **CSV Import Script (`bun run db:data`)**:
+  - Handles legacy (`v1`–`v3`), standard (`v4`), and investment-funded (`v5`) CSV formats.
+  - Validates date formats (`DD-MM-YYYY` or `YYYY-MM-DD`).
+  - Resolves hierarchical categories, locations, companies, and contacts automatically.
+  - Verifies available investment balance before allowing investment-funded expense imports.
+  - Supports dry-run validation (`DATA_IMPORT_DRY_RUN=1`).
+- **CSV Data Export**:
+  - **In-App Filter Export**: Filter transactions by date range, category, and location, then export matching records as CSV.
+  - **Dedicated API Endpoint**: `/api/export/transactions` generates a UTF-8 BOM CSV stream of all transaction logs.
+
+---
+
+## 🗄 Database Schema (ER Diagram)
+
+The application communicates directly with PostgreSQL using clean relational schemas:
 
 ```mermaid
 erDiagram
     USERS ||--o{ ACCOUNTS : owns
     USERS ||--o{ CATEGORIES : owns
-    USERS ||--o{ TRANSACTIONS : owns
+    USERS ||--o{ CONTACTS : owns
+    USERS ||--o{ COMPANIES : owns
+    USERS ||--o{ LOCATIONS : owns
     USERS ||--o{ RULES : owns
-    
-    TRANSACTIONS }|--|| ACCOUNTS : "belongs to"
-    TRANSACTIONS }|--o| CATEGORIES : "categorized by"
-    TRANSACTIONS }|--o| LOCATIONS : "occurred at"
-    TRANSACTIONS }|--o| CONTACTS : "involved"
-    TRANSACTIONS }|--o| COMPANIES : "transacted with"
-    
-    RULES }|--o| CATEGORIES : "assigns"
-    RULES }|--o| LOCATIONS : "assigns"
-    
+    USERS ||--o{ TRANSACTIONS : owns
+
+    CATEGORIES ||--o{ CATEGORIES : "parent of"
+    CATEGORIES ||--o{ TRANSACTIONS : categorizes
+    CATEGORIES ||--o{ RULES : targets
+
+    ACCOUNTS ||--o{ TRANSACTIONS : holds
+    LOCATIONS ||--o{ TRANSACTIONS : occurs_at
+    CONTACTS ||--o{ TRANSACTIONS : involves
+    COMPANIES ||--o{ TRANSACTIONS : employer_of
+
     USERS {
         uuid id PK
-        string email
-        string password_hash
+        text email UK
+        text password_hash
+        timestamp created_at
     }
-    TRANSACTIONS {
-        uuid id PK
-        enum type
-        numeric amount
-        date transaction_date
-    }
-    CATEGORIES {
-        uuid id PK
-        string name
-        enum type
-        uuid parent_id FK
-    }
+
     ACCOUNTS {
         uuid id PK
-        string name
+        uuid user_id FK
+        text name
     }
+
+    CATEGORIES {
+        uuid id PK
+        uuid user_id FK
+        text name
+        uuid parent_id FK
+        transaction_type type
+        boolean is_selectable
+        integer sort_order
+    }
+
+    TRANSACTIONS {
+        uuid id PK
+        uuid user_id FK
+        transaction_type type
+        numeric amount
+        uuid category_id FK
+        uuid parent_category_id FK
+        numeric investment_used_amount
+        uuid investment_used_category_id FK
+        uuid location_id FK
+        uuid contact_id FK
+        uuid company_id FK
+        uuid account_id FK
+        text note
+        date transaction_date
+        time transaction_time
+        timestamp created_at
+    }
+
     RULES {
         uuid id PK
-        string keyword
+        uuid user_id FK
+        text keyword
+        text note
+        uuid category_id FK
+        uuid location_id FK
+        uuid contact_id FK
+    }
+
+    CONTACTS {
+        uuid id PK
+        uuid user_id FK
+        text name
+    }
+
+    COMPANIES {
+        uuid id PK
+        uuid user_id FK
+        text name
+    }
+
+    LOCATIONS {
+        uuid id PK
+        uuid user_id FK
+        text name
     }
 ```
-
-### User Navigation Flow
-```mermaid
-flowchart LR
-    A[Login / Register] --> B{Authenticated?}
-    B -- No --> A
-    B -- Yes --> C[Dashboard]
-    
-    C --> D[Transactions List]
-    C --> E[Analytics & Charts]
-    C --> F[Settings]
-    
-    D --> D1[Add/Edit Transaction]
-    D --> D2[Bulk Import CSV]
-    
-    E --> E1[Income/Expense Trends]
-    
-    F --> F1[Manage Categories]
-    F --> F2[Manage Accounts]
-    F --> F3[Automation Rules]
-```
-
-## 🗂 Project Structure
-
-The project is structured under the `src` directory, following modular and feature-driven patterns:
-
-### `src/app`
-Contains the Next.js App Router pages, layouts, and API routes.
-- **`(auth)`**: Routes related to user authentication (login, register).
-- **`(main)`**: Main application routes (dashboard, transactions, etc.) for authenticated users.
-- **`(setup)`**: Setup routes (e.g., initial onboarding).
-- **`actions`**: Server actions for handling form submissions and data mutations.
-- **`api`**: Next.js API route handlers.
-
-### `src/components`
-Contains reusable React components, organized by scope:
-- **`common`**: Shared components used across multiple features (e.g., layouts, navigation).
-- **`feature-specific`**: Components tightly coupled to specific features (e.g., transaction forms, charts).
-- **`ui`**: Base UI elements (buttons, inputs, dialogs) typically built with Tailwind/Radix UI.
-
-### `src/lib`
-Contains core logic, services, and utilities:
-- **`auth`**: Authentication logic, session management, and JWT handling.
-- **`constants`**: Application-wide constants and configuration.
-- **`db`**: Database connection setup, queries, and migrations.
-- **`env`**: Environment variable validation (e.g., using Zod).
-- **`hooks`**: Custom React hooks.
-- **`services`**: Business logic and data fetching services.
-- **`store`**: Global state management (Zustand).
-- **`types`**: TypeScript type definitions.
-- **`utilities`**: Helper functions (date formatting, currency formatting).
 
 ---
 
-## 🚀 How to Run Locally
+## 📂 Project Directory Structure
 
-### 1. Prerequisites
-- **Node.js** (>= 20)
-- **Bun** (recommended for running db scripts)
-- **PostgreSQL** (local or hosted database)
-
-### 2. Environment Variables
-Create a `.env.local` (or `.env`) file in the root directory and set the following:
-```env
-# Postgres connection string
-DATABASE_URL="postgres://user:password@localhost:5432/finance_tracker"
-
-# Long random secret for signing JWT sessions
-JWT_SECRET="your-super-secret-jwt-key"
+```plaintext
+finance-tracker/
+├── data/                                # Sample & historical CSV data files
+│   └── historical-transactions.csv
+├── src/
+│   ├── app/                             # Next.js 16 App Router
+│   │   ├── (auth)/                      # Authentication route group
+│   │   │   ├── login/                   # User sign-in page
+│   │   │   └── signup/                  # User registration page
+│   │   ├── (main)/                      # Protected application routes
+│   │   │   ├── analytics/               # Analytics & reporting views
+│   │   │   │   ├── income/salary/       # Salary & employer analytics
+│   │   │   │   ├── investments/         # Portfolio & contribution analytics
+│   │   │   │   └── lending/             # Loan & borrow tracking
+│   │   │   ├── dashboard/               # Main dashboard overview
+│   │   │   ├── settings/                # Categories, rules, entities settings
+│   │   │   └── transactions/            # Transaction ledger & new entry form
+│   │   │       └── new/                 # Quick entry transaction form
+│   │   ├── actions/                     # Server Actions (auth, ledger, settings)
+│   │   ├── api/                         # API routes (e.g. /api/export/transactions)
+│   │   ├── globals.css                  # Tailwind CSS v4 & theme variables
+│   │   └── layout.tsx                   # Root HTML & body shell
+│   ├── components/                      # Reusable UI component library
+│   │   ├── common/                      # Shared layouts, headers, skeletons
+│   │   ├── feature-specific/            # Domain components (analytics, auth, transactions)
+│   │   └── ui/                          # Design system atoms (buttons, cards, dialogs)
+│   ├── lib/                             # Core library & server services
+│   │   ├── auth/                        # JWT verification, Argon2, session cookies
+│   │   ├── constants/                   # Default categories, entities, rules
+│   │   ├── db/                          # Database infrastructure (raw postgres.js)
+│   │   │   ├── core/                    # Pool client, connection management
+│   │   │   ├── migrations/              # Raw SQL migration scripts (*.sql)
+│   │   │   ├── ops/                     # Migration runner, seeder, CSV importer
+│   │   │   └── schema/                  # TypeScript interface definitions
+│   │   ├── services/                    # Business logic & SQL query aggregates
+│   │   ├── store/                       # Zustand client state stores
+│   │   └── utilities/                   # Formatters, currency, date helpers
+│   └── middleware.ts                    # Edge session guard middleware
+├── package.json
+└── tsconfig.json
 ```
 
-### 3. Installation
-Install project dependencies:
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+- **Node.js**: `v20.0.0` or later (or Bun)
+- **PostgreSQL**: PostgreSQL 14+ instance (Neon, Supabase, AWS RDS, or local Postgres)
+- **Bun** (recommended for running database migration/seed scripts)
+
+### 2. Environment Configuration
+Create a `.env.local` file in the root directory:
+
+```env
+# PostgreSQL connection string (supports Neon, Supabase poolers, AWS RDS)
+DATABASE_URL="postgres://username:password@ep-sample-pooler.region.neon.tech/neondb?sslmode=require"
+
+# Random secret key for signing JWT sessions (at least 32 characters)
+JWT_SECRET="generate-a-secure-random-jwt-secret-key"
+
+# Optional: Seed configuration for initial admin user
+SEED_ADMIN_USER_ID="00000000-0000-0000-0000-000000000001"
+SEED_ADMIN_EMAIL="admin@example.com"
+SEED_ADMIN_PASSWORD="SecureAdminPassword123"
+
+# Optional: Serverless connection pool tuning
+DATABASE_POOL_MAX=5
+DATABASE_DISABLE_PREPARE=1
+```
+
+### 3. Install Dependencies
 ```bash
 npm install
 ```
 
-### 4. Database Setup
-Run the following Bun scripts to prepare the database:
-
+### 4. Run Migrations & Seed Data
 ```bash
-# 1. Apply SQL migrations (creates tables, idempotent)
+# 1. Apply database migrations (executes src/lib/db/migrations/*.sql)
 bun run db:migrate
 
-# 2. Seed default reference data (categories) + optional admin user
+# 2. Seed default categories, rules, locations, and optional admin user
 bun run db:seed
 ```
 
-*(Optional)* **Seed an Admin User**:
-If you want a ready-to-login admin user seeded automatically, add these variables to your `.env.local` *before* running `db:seed`:
-```env
-SEED_ADMIN_USER_ID="<uuid>"
-SEED_ADMIN_EMAIL="<email>"
-SEED_ADMIN_PASSWORD="<password>"
+### 5. (Optional) Import Historical CSV Data
+```bash
+# Imports data from data/historical-transactions.csv
+bun run db:data
 ```
 
-### 5. Start Development Server
-Start the Next.js development server:
+### 6. Run the Application
 ```bash
 npm run dev
 ```
@@ -198,35 +348,26 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📊 Optional: Import Historical Data
+## 🛠 Database & CLI Command Reference
 
-After seeding the database, you can optionally import historical transactions from a CSV file into the seeded admin user's account.
-
-1. Ensure the CSV is placed at `data/historical-transactions.csv`.
-2. Run the import script:
-```bash
-bun run db:data
-```
-
-**Optional Environment Variables for Import:**
-- `DATA_IMPORT_CSV`: Path to CSV (default: `data/historical-transactions.csv`)
-- `DATA_IMPORT_ACCOUNT_NAME`: Target account name (default: `Cash`)
-- `DATA_IMPORT_DEFAULT_LOCATION`: Default location (default: `Hyderabad`)
-- `DATA_IMPORT_EMAIL`: Safety check; must match the seeded admin user’s email.
-- `DATA_IMPORT_DRY_RUN=1`: Run in dry-run mode (validate only, no database inserts).
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Start Next.js development server with hot-reload |
+| `npm run build` | Compile Next.js production build |
+| `npm run start` | Run Next.js production server |
+| `npm run lint` | Run ESLint across `src/` |
+| `npm run typecheck` | Run TypeScript type checking without emitting files |
+| `bun run db:migrate` | Apply raw SQL migrations idempotently |
+| `bun run db:seed` | Seed standard category hierarchy, tags, and admin user |
+| `bun run db:data` | Parse and import historical CSV transactions |
+| `bun run db:reset` | **(Caution)** Drop all tables/enums and re-run migrations |
+| `bun run db:reset:data` | Clear all user transactions and re-import from CSV |
+| `bun run db:reset:all` | Drop database, re-migrate, re-seed, and re-import CSV |
 
 ---
 
-## 🛠 Available Commands
+## 🚢 Deployment Notes (Vercel & Cloud Postgres)
 
-- `npm run dev`: Start Next.js development server
-- `npm run build`: Create a production build
-- `npm run start`: Start the production server
-- `npm run lint`: Run ESLint
-- `npm run typecheck`: Run TypeScript type checking
-- `bun run db:migrate`: Apply SQL migrations (`src/lib/db/migrations/*.sql`)
-- `bun run db:seed`: Seed default categories + admin user
-- `bun run db:data`: Import transactions from CSV
-- `bun run db:reset`: Drop all tables/enums then re-apply migrations (⚠️ Dangerous)
-- `bun run db:reset:data`: Reset transactions and re-import from CSV
-- `bun run db:reset:all`: Reset database entirely, re-seed, and re-import CSV
+1. **Environment Variables**: Set `DATABASE_URL` and `JWT_SECRET` in your Vercel Project Settings under **Environment Variables**.
+2. **Connection Pooling**: When connecting to Neon or Supabase transaction poolers (port `6543`), the database client automatically configures TLS and disables prepared statements (`DATABASE_DISABLE_PREPARE=1`) to prevent connection pool exhaustion.
+3. **Password Module Config**: `next.config.ts` includes `serverExternalPackages: ["@node-rs/argon2"]` to bundle the native Argon2 binary for Vercel Serverless Functions.
