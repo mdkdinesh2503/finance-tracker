@@ -5,7 +5,10 @@ export const DEFAULT_LOCATIONS = [
   "Chennai",
   "General",
   "Pondicherry",
-  "Erode"
+  "Erode",
+  "Coimbatore",
+  "Edappadi",
+  "Salem"
 ] as const;
 
 export const DEFAULT_CONTACTS = [
@@ -20,8 +23,8 @@ export const DEFAULT_CONTACTS = [
   "Naren Mamz",
   "Mayur",
   "Issai Kutty",
-  "Harini Kutty"
+  "Harini Kutty",
+  "Kanishkar"
 ] as const;
 
-export const DEFAULT_COMPANIES = ["Aretedge", "Family"] as const;
-
+export const DEFAULT_COMPANIES = ["Aretedge", "Trustrace", "Family"] as const;

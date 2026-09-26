@@ -303,3 +303,11 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 10-07-2026,21:00:00,EXPENSE,1200,Transport,Travel Outstation,General,,,Nkl - Chennai (Buss),,,
 10-07-2026,12:00:00,EXPENSE,660,Food & Dining,Eating Out,Chennai,,,Food (Briyani),,,
 11-07-2026,21:00:00,EXPENSE,885,Transport,Travel Outstation,General,,,Chennai - Nkl (Buss),,,
+01-08-2026,12:00:00,INCOME,3200,Other Income,Family Support,Home,,Family,Money (Insufficient),,,
+13-08-2026,21:00:00,EXPENSE,200,Subscriptions & Entertainment,Movies & Outings,Home,,,DC Movie,,,
+13-08-2026,21:00:00,EXPENSE,130,Shopping & Lifestyle,Personal Purchases,Home,,,UNO Cards,,,
+01-09-2026,12:00:00,EXPENSE,980,Essential Housing & Utilities,Mobile Recharge,Home,Myself,,Samsung S24 (Airtel),,,
+13-09-2026,21:00:00,EXPENSE,1600,Gifts & Occasions,Personal Gifts,Edappadi,Kanishkar,,Kanishkar Marriage,,,
+14-09-2026,12:00:00,EXPENSE,200,Food & Dining,Snacks,Edappadi,,,Snacks,,,
+25-09-2026,12:00:00,EXPENSE,3000,Shopping & Lifestyle,Clothing,Home,,,Company dress,Savings & Contributions,Chit Fund,3000
+25-09-2026,12:00:00,EXPENSE,100,Health & Wellness,Personal Care,Home,,,Hair cut,,,
