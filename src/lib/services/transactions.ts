@@ -11,6 +11,7 @@ import {
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
   investmentFundingSkipsAvailableBalanceCheck,
+  isPfCategoryName,
 } from "@/lib/constants/category-rules";
 import {
   formatLocalYMD,
@@ -711,6 +712,8 @@ export async function createTransactionForUser(
 
   const needsSalaryCompany =
     parentCategoryName === SALARY_WAGES_PARENT_NAME && type === "INCOME";
+  const needsPfCompany =
+    type === "INVESTMENT" && isPfCategoryName(cat.name);
   const needsGiftRecipient =
     parentCategoryName === GIFTS_OCCASIONS_PARENT_NAME &&
     type === "EXPENSE" &&
@@ -719,12 +722,14 @@ export async function createTransactionForUser(
     type === "EXPENSE" && cat.name === "Mobile Recharge";
 
   let companyIdStored: string | null = null;
-  if (needsSalaryCompany) {
+  if (needsSalaryCompany || needsPfCompany) {
     const coId = input.companyId?.trim() || null;
     if (!coId) {
       return {
         ok: false,
-        error: "Employer (company) is required for Salary & Wages.",
+        error: needsPfCompany
+          ? "Company is required for PF."
+          : "Employer (company) is required for Salary & Wages.",
       };
     }
     const [co] = await db`

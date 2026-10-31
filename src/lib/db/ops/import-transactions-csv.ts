@@ -11,6 +11,7 @@ import {
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
   investmentFundingSkipsAvailableBalanceCheck,
+  isPfCategoryName,
 } from "@/lib/constants/category-rules";
 
 const TX_TYPES = new Set<string>(TRANSACTION_TYPES);
@@ -566,6 +567,10 @@ async function main() {
 
     const needsSalaryCompany =
       parentResolvedName === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
+    const needsPfCompany =
+      txType === "INVESTMENT" &&
+      leafResolvedName != null &&
+      isPfCategoryName(leafResolvedName);
     const optionalIncomeCompany =
       parentResolvedName === OTHER_INCOME_PARENT_NAME && txType === "INCOME";
     const needsGiftRecipient =
@@ -598,6 +603,21 @@ async function main() {
         process.exit(1);
       }
       companyId = coid;
+    } else if (needsPfCompany) {
+      if (!companyTrim) {
+        console.error(
+          `Row ${i + 1}: company is required for PF investment. Add it under Settings → Employers.`,
+        );
+        process.exit(1);
+      }
+      const coid = companyByName.get(companyTrim.toLowerCase());
+      if (!coid) {
+        console.error(
+          `Row ${i + 1}: company "${companyTrim}" not found. Add it under Settings → Employers.`,
+        );
+        process.exit(1);
+      }
+      companyId = coid;
     } else if (optionalIncomeCompany && companyTrim) {
       const coid = companyByName.get(companyTrim.toLowerCase());
       if (!coid) {
@@ -609,7 +629,7 @@ async function main() {
       companyId = coid;
     } else if (companyTrim) {
       console.error(
-        `Row ${i + 1}: Company is only used for Salary & Wages and Other Income rows; clear the column or fix the category.`,
+        `Row ${i + 1}: Company is only used for Salary & Wages, PF investment, and Other Income rows; clear the column or fix the category.`,
       );
       process.exit(1);
     }

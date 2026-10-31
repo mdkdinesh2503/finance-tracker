@@ -7,6 +7,7 @@ export type InvestmentParentBreakdownRow = {
 export type InvestmentLeafBreakdownRow = {
   parentName: string;
   leafName: string;
+  companyName?: string | null;
   total: number;
   shareOfPeriod: number;
 };
@@ -14,6 +15,7 @@ export type InvestmentLeafBreakdownRow = {
 export type InvestmentLeafAllTimeRow = {
   parentName: string;
   leafName: string;
+  companyName?: string | null;
   /** Sum of INVESTMENT rows into this subcategory. */
   grossInvested: number;
   /** Sum of `investment_used_amount` drawn from this subcategory (expenses + cross-investment funding). */
@@ -21,6 +23,20 @@ export type InvestmentLeafAllTimeRow = {
   /** `grossInvested - drawn` (same as previous single “amount”). */
   total: number;
   shareOfAllTime: number;
+};
+
+export type PfByCompanyRow = {
+  companyName: string;
+  total: number;
+  grossInvested: number;
+  drawn: number;
+  share: number;
+};
+
+export type PfCompanyMonthlyCell = {
+  ym: string;
+  companyName: string;
+  total: number;
 };
 
 export type InvestmentMonthlyRow = {
@@ -58,6 +74,10 @@ export type InvestmentAnalyticsSnapshot = {
   byParentThisMonth: InvestmentParentBreakdownRow[];
   byLeafThisMonth: InvestmentLeafBreakdownRow[];
   byLeafAllTime: InvestmentLeafAllTimeRow[];
+  /** Breakdown of PF by employer / company */
+  pfByCompany: PfByCompanyRow[];
+  /** Monthly PF contributions by company for trending/comparison */
+  pfCompanyMonthlyCells: PfCompanyMonthlyCell[];
   /** Last 12 rolling months of NET investment totals (`invested - used`). */
   monthlyTotals: InvestmentMonthlyRow[];
   runRate: InvestmentRunRate;

@@ -22,6 +22,7 @@ import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
+  isPfCategoryName,
 } from "@/lib/constants/category-rules";
 
 type BorrowRow = { id: string; name: string };
@@ -147,6 +148,13 @@ export function NewTransactionForm({
   const showSalaryCompany =
     parentOfSelected?.name === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
 
+  const showPfCompany =
+    txType === "INVESTMENT" &&
+    selectedLeafCat != null &&
+    isPfCategoryName(selectedLeafCat.name);
+
+  const showCompanyBlock = showSalaryCompany || showPfCompany;
+
   const showGiftRecipient =
     parentOfSelected?.name === GIFTS_OCCASIONS_PARENT_NAME &&
     txType === "EXPENSE" &&
@@ -158,7 +166,7 @@ export function NewTransactionForm({
 
   const showContactBlock = showLoanPerson || showGiftRecipient || showRechargeContact;
 
-  const notesStepLabel = `${4 + (showSalaryCompany ? 1 : 0) + (showContactBlock ? 1 : 0)} · Extra`;
+  const notesStepLabel = `${4 + (showCompanyBlock ? 1 : 0) + (showContactBlock ? 1 : 0)} · Extra`;
 
   const allowInvestmentFunding = txType === "EXPENSE" || txType === "INVESTMENT";
 
@@ -255,7 +263,11 @@ export function NewTransactionForm({
           ? "Pick who this recharge is for"
           : "Pick a contact";
     }
-    if (showSalaryCompany && !companyId) next.company = "Pick an employer (company)";
+    if (showCompanyBlock && !companyId) {
+      next.company = showPfCompany
+        ? "Pick a company for PF"
+        : "Pick an employer (company)";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -269,7 +281,7 @@ export function NewTransactionForm({
         locationId: locationId ?? "",
         note: note ?? "",
         contactId: showContactBlock ? contactId ?? "" : "",
-        companyId: showSalaryCompany ? companyId ?? "" : "",
+        companyId: showCompanyBlock ? companyId ?? "" : "",
         transactionDate: date,
         transactionTime: time,
         investmentUsedCategoryId:
@@ -579,12 +591,16 @@ export function NewTransactionForm({
               </StepCard>
             ) : null}
 
-            {showSalaryCompany ? (
+            {showCompanyBlock ? (
               <StepCard>
                 <SectionLabel
-                  step="04 · Employer"
-                  title="Company"
-                  hint="Required for Salary & Wages. Add names under Settings → Employers."
+                  step="04 · Company"
+                  title={showPfCompany ? "PF Company" : "Company"}
+                  hint={
+                    showPfCompany
+                      ? "Required for PF. Specify the company this PF is held with. Add names under Settings → Employers."
+                      : "Required for Salary & Wages. Add names under Settings → Employers."
+                  }
                 />
                 <div className="mt-4 space-y-2">
                   <DropdownSelect
@@ -604,7 +620,7 @@ export function NewTransactionForm({
             {showContactBlock ? (
               <StepCard>
                 <SectionLabel
-                  step={`${4 + (showSalaryCompany ? 1 : 0)} · Person`}
+                  step={`${4 + (showCompanyBlock ? 1 : 0)} · Person`}
                   title={showGiftRecipient ? "Gift for" : "Contact"}
                   hint={
                     showGiftRecipient

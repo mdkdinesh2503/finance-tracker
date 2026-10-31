@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { InvestMonthlyContributionChart } from "@/components/feature-specific/analytics/charts/invest-monthly-contribution-chart";
+import { PfByEmployerChart } from "@/components/feature-specific/analytics/charts/pf-by-employer-chart";
 import { GlassCard } from "@/components/ui/glass-card";
 import type {
   InvestmentAnalyticsSnapshot,
@@ -123,7 +124,7 @@ function MonthComposition({
                                 {i + 1}
                               </span>
                               <p className="truncate text-sm font-semibold text-ink">
-                                {r.leafName}
+                                {r.companyName ? `${r.leafName} (${r.companyName})` : r.leafName}
                               </p>
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -174,6 +175,8 @@ export function InvestmentAnalyticsView({ data }: Props) {
     lastMonth,
     byLeafThisMonth,
     byLeafAllTime,
+    pfByCompany,
+    pfCompanyMonthlyCells,
     monthlyTotals,
   } = data;
 
@@ -452,6 +455,50 @@ export function InvestmentAnalyticsView({ data }: Props) {
         </GlassCard>
       </section>
 
+      {/* Provident Fund (PF) by Company Section */}
+      <section className="relative z-1 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Provident Fund (PF) by company
+          </h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Track your Provident Fund accumulation across employers over time.
+          </p>
+        </div>
+
+        {pfByCompany.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {pfByCompany.map((c) => (
+              <GlassCard
+                key={c.companyName}
+                variant="signature"
+                hideAccent
+                noLift
+                panelClassName="!p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-semibold text-ink">{c.companyName}</p>
+                  <span className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200">
+                    {c.share.toFixed(1)}% of PF
+                  </span>
+                </div>
+                <p className="mt-2 text-xl font-bold tracking-tight text-sky-100 tabular-nums">
+                  {formatInr(c.total)}
+                </p>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-500">
+                  <span>Invested: {formatInr(c.grossInvested)}</span>
+                  {c.drawn > 0 ? <span>Drawn: {formatInr(c.drawn)}</span> : null}
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        ) : null}
+
+        <GlassCard variant="signature" hideAccent noLift panelClassName="!p-3">
+          <PfByEmployerChart cells={pfCompanyMonthlyCells} />
+        </GlassCard>
+      </section>
+
       <section className="relative z-1 space-y-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -490,9 +537,11 @@ export function InvestmentAnalyticsView({ data }: Props) {
                   </tr>
                 ) : (
                   allTimeLeafRows.map((r, i) => (
-                    <tr key={`${r.parentName}-${r.leafName}-${i}`}>
+                    <tr key={`${r.parentName}-${r.leafName}-${r.companyName ?? ""}-${i}`}>
                       <Td className="text-zinc-400">{r.parentName}</Td>
-                      <Td className="font-medium">{r.leafName}</Td>
+                      <Td className="font-medium">
+                        {r.companyName ? `${r.leafName} (${r.companyName})` : r.leafName}
+                      </Td>
                       <Td className="tabular-nums">{formatInr(r.grossInvested)}</Td>
                       <Td className="tabular-nums">{formatInr(r.drawn)}</Td>
                       <Td className="tabular-nums font-medium">{formatInr(r.total)}</Td>

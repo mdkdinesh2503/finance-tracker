@@ -23,6 +23,7 @@ import {
   GIFTS_OCCASIONS_PARENT_NAME,
   SALARY_WAGES_PARENT_NAME,
   giftRecipientRequiredForSubcategory,
+  isPfCategoryName,
 } from "@/lib/constants/category-rules";
 import { parseAmountString } from "@/lib/services/ledger";
 import { err, ok, type Result } from "@/lib/types/result";
@@ -339,10 +340,16 @@ async function resolveTransactionTagFields(opts: {
 
   const needsSalaryCompany =
     parentName === SALARY_WAGES_PARENT_NAME && txType === "INCOME";
-  if (needsSalaryCompany) {
+  const needsPfCompany =
+    txType === "INVESTMENT" && isPfCategoryName(catRow.name);
+  if (needsSalaryCompany || needsPfCompany) {
     const cid = companyId?.trim() || null;
     if (!cid) {
-      return { error: "Employer (company) is required for Salary & Wages." };
+      return {
+        error: needsPfCompany
+          ? "Company is required for PF."
+          : "Employer (company) is required for Salary & Wages.",
+      };
     }
     const [co] = await db`
       select id from companies
