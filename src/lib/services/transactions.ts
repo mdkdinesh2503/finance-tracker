@@ -423,9 +423,11 @@ export async function listTransactionsFiltered(
     toDate: string | null;
     categoryContains: string;
     locationId: string | null;
+    sortOrder?: "asc" | "desc";
   },
   now = new Date(),
 ): Promise<TransactionRowDTO[]> {
+  const sort = filters.sortOrder === "asc" ? db`asc` : db`desc`;
   const whereClause = scopedTransactionsWhere(
     db,
     userId,
@@ -478,7 +480,7 @@ export async function listTransactionsFiltered(
     left join companies co
       on co.id = t.company_id and co.user_id = ${userId}
     where ${whereClause}
-    order by t.transaction_date desc, t.transaction_time desc
+    order by t.transaction_date ${sort}, t.transaction_time ${sort}
   `;
 
   return rows.map((r) => ({

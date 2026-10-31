@@ -34,7 +34,7 @@ function parseYMD(dateStr: string): { y: number; m: number } | null {
   return { y, m: mo };
 }
 
-function buildGroups(rows: TransactionRowDTO[]): YearGroup[] {
+function buildGroups(rows: TransactionRowDTO[], sortOrder: "asc" | "desc" = "desc"): YearGroup[] {
   const byYearMonth = new Map<string, TransactionRowDTO[]>();
   for (const r of rows) {
     const p = parseYMD(r.transactionDate);
@@ -45,7 +45,7 @@ function buildGroups(rows: TransactionRowDTO[]): YearGroup[] {
     byYearMonth.set(key, list);
   }
 
-  const monthKeys = [...byYearMonth.keys()].sort((a, b) => b.localeCompare(a));
+  const monthKeys = [...byYearMonth.keys()].sort((a, b) => sortOrder === "asc" ? a.localeCompare(b) : b.localeCompare(a));
 
   const yearMap = new Map<number, MonthGroup[]>();
   for (const key of monthKeys) {
@@ -65,9 +65,13 @@ function buildGroups(rows: TransactionRowDTO[]): YearGroup[] {
       month: monthNum,
       monthLabel,
       rows: [...list].sort((a, b) => {
-        const dc = b.transactionDate.localeCompare(a.transactionDate);
+        const dc = sortOrder === "asc"
+          ? a.transactionDate.localeCompare(b.transactionDate)
+          : b.transactionDate.localeCompare(a.transactionDate);
         if (dc !== 0) return dc;
-        return b.transactionTime.localeCompare(a.transactionTime);
+        return sortOrder === "asc"
+          ? a.transactionTime.localeCompare(b.transactionTime)
+          : b.transactionTime.localeCompare(a.transactionTime);
       }),
       expenseOut,
     };
@@ -76,7 +80,7 @@ function buildGroups(rows: TransactionRowDTO[]): YearGroup[] {
     yearMap.set(y, arr);
   }
 
-  const years = [...yearMap.keys()].sort((a, b) => b - a);
+  const years = [...yearMap.keys()].sort((a, b) => sortOrder === "asc" ? a - b : b - a);
   return years.map((year) => ({
     year,
     months: yearMap.get(year)!,
@@ -144,11 +148,13 @@ function placeContactLine(r: TransactionRowDTO): string {
 export function TransactionsAccordion({
   rows,
   unsettledLoanContacts,
+  sortOrder = "desc",
 }: {
   rows: TransactionRowDTO[];
   unsettledLoanContacts: Set<string>;
+  sortOrder?: "asc" | "desc";
 }) {
-  const groups = useMemo(() => buildGroups(rows), [rows]);
+  const groups = useMemo(() => buildGroups(rows, sortOrder), [rows, sortOrder]);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(() => new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set());
 

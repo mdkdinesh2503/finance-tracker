@@ -33,9 +33,11 @@ type Props = {
   locations: Opt[];
   onExport?: () => void;
   exportPending?: boolean;
+  sortOrder?: "asc" | "desc";
+  onToggleSort?: () => void;
 };
 
-export function FilterBar({ locations, onExport, exportPending }: Props) {
+export function FilterBar({ locations, onExport, exportPending, sortOrder = "desc", onToggleSort }: Props) {
   const {
     datePreset,
     fromDate,
@@ -112,6 +114,30 @@ export function FilterBar({ locations, onExport, exportPending }: Props) {
               </svg>
               Reset
             </Button>
+            {onToggleSort ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onToggleSort}
+                title={sortOrder === "desc" ? "Newest first — click for oldest first" : "Oldest first — click for newest first"}
+                className="gap-1.5 rounded-full px-3 py-2 text-xs border border-(--border)! bg-(--glass-simple-bg)! text-ink! hover:border-primary/40! hover:bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]!"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  {sortOrder === "desc" ? (
+                    <>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 9h9M3 14h5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4-4 4" />
+                    </>
+                  ) : (
+                    <>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 9h9M3 14h5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8l-4 4 4 4" />
+                    </>
+                  )}
+                </svg>
+                {sortOrder === "desc" ? "Newest first" : "Oldest first"}
+              </Button>
+            ) : null}
             {onExport ? (
               <Button
                 type="button"

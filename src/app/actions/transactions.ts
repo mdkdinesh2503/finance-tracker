@@ -79,6 +79,7 @@ export async function fetchTransactionsListAction(filters: {
   toDate: string | null;
   categoryContains: string;
   locationId: string | null;
+  sortOrder?: "asc" | "desc";
 }) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };
@@ -99,6 +100,7 @@ export async function exportTransactionsCsvAction(filters: {
   toDate: string | null;
   categoryContains: string;
   locationId: string | null;
+  sortOrder?: "asc" | "desc";
 }) {
   const user = await requireUser().catch(() => null);
   if (!user) return { ok: false as const, error: "Unauthorized" };

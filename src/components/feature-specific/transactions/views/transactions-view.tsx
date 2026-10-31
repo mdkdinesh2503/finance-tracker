@@ -23,6 +23,7 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [exporting, setExporting] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(() => {
     startTransition(async () => {
@@ -34,6 +35,7 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
           toDate,
           categoryContains,
           locationId,
+          sortOrder,
         }),
         fetchUnsettledLoanContactsAction(),
       ]);
@@ -46,11 +48,22 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
         setUnsettled(new Set(loans.unsettledContactIds));
       }
     });
-  }, [datePreset, fromDate, toDate, categoryContains, locationId]);
+  }, [datePreset, fromDate, toDate, categoryContains, locationId, sortOrder]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  function toggleSort() {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+  }
+
+  // Client-side sort guarantees instant visual order response
+  const sortedRows = rows
+    ? sortOrder === "desc"
+      ? rows
+      : [...rows].reverse()
+    : null;
 
   async function onExport() {
     setExporting(true);
@@ -61,6 +74,7 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
         toDate,
         categoryContains,
         locationId,
+        sortOrder,
       });
       if (!res.ok) {
         setError(res.error);
@@ -95,7 +109,13 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
         subtitle="Filter and export; CSV matches the filters below."
       />
 
-      <FilterBar locations={locationOptions} onExport={onExport} exportPending={exporting} />
+      <FilterBar
+        locations={locationOptions}
+        onExport={onExport}
+        exportPending={exporting}
+        sortOrder={sortOrder}
+        onToggleSort={toggleSort}
+      />
 
       {error ? (
         <p className="text-sm text-rose-400" role="alert">
@@ -104,10 +124,10 @@ export function TransactionsView({ locationOptions }: { locationOptions: Opt[] }
       ) : null}
 
       <GlassCard variant="signature" noLift className="overflow-hidden" panelClassName="!p-0">
-        {rows === null || pending ? (
+        {sortedRows === null || pending ? (
           <TransactionsListSkeleton />
         ) : (
-          <TransactionsAccordion rows={rows} unsettledLoanContacts={unsettled} />
+          <TransactionsAccordion rows={sortedRows} unsettledLoanContacts={unsettled} sortOrder={sortOrder} />
         )}
       </GlassCard>
     </div>
