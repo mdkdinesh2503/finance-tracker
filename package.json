@@ -13,9 +13,6 @@
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "bun run src/lib/db/ops/migrate.ts",
-    "db:reset": "bun run src/lib/db/ops/reset.ts",
-    "db:seed": "bun run src/lib/db/ops/seed.ts",
-    "db:data": "bun run src/lib/db/ops/import-transactions-csv.ts",
     "db:reset:data": "bun run src/lib/db/ops/reset-transactions.ts && bun run src/lib/db/ops/import-transactions-csv.ts",
     "db:reset:all": "bun run src/lib/db/ops/reset.ts && bun run src/lib/db/ops/seed.ts && bun run src/lib/db/ops/import-transactions-csv.ts"
   },
