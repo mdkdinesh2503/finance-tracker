@@ -1,5 +1,5 @@
 Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,Notes,Investment Used Parent Category,Investment Used Child Category,Investment Used Amount
-18-08-2024,12:00:00,INCOME,76500,Other Income,Family Support,Home,,Family,Money (Insufficient),,,
+18-08-2024,12:00:00,INCOME,103000,Other Income,Family Support,Home,,Family,Money (Insufficient),,,
 23-08-2024,12:00:00,EXPENSE,7300,Transport,Travel Outstation,General,,,Nkl - Hyd (Buss),,,
 20-08-2024,12:00:00,EXPENSE,1360,Essential Housing & Utilities,Rent,Hyderabad,,,Hotel Stay,,,
 21-08-2024,12:00:00,EXPENSE,1300,Miscellaneous,Cash Amount,Hyderabad,,,Hand Amount Spend,,,
@@ -328,3 +328,4 @@ Date,Time,Type,Amount,Parent Category,Child Category,Location,Contact,Company,No
 29-10-2026,10:00:00,EXPENSE,100,Transport,Fuel,Coimbatore,,,Petrol,,,
 29-10-2026,12:00:00,EXPENSE,320,Food & Dining,Snacks,Coimbatore,,,KFC,,,
 29-10-2026,12:00:00,EXPENSE,80,Health & Wellness,Personal Care,Coimbatore,,,Hair cut,,,
+01-11-2026,10:00:00,INCOME,37067,Salary & Wages,Primary Salary,Coimbatore,,Trustrace,Starting Salary TT,,,
